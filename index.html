@@ -1,1 +1,32 @@
-test
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Enzine Schedule</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="login-container">
+    <h1>Enzine Schedule</h1>
+    <p>月間活動予定管理</p>
+
+    <div class="login-box">
+      <label>
+        メールアドレス
+        <input type="email" id="email" placeholder="example@example.com">
+      </label>
+
+      <label>
+        パスワード
+        <input type="password" id="password" placeholder="パスワード">
+      </label>
+
+      <button id="loginButton">ログイン</button>
+
+      <p id="message"></p>
+    </div>
+  </main>
+
+  <script type="module" src="auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <title>利用者ページ | Enzine Schedule</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main class="login-container">
+    <h1>利用者ページ</h1>
+    <p id="userInfo">ログイン確認中...</p>
+
+    <section class="login-box">
+      <h2>予定を入力</h2>
+
+      <label>
+        日付
+        <input type="date" id="scheduleDate">
+      </label>
+
+      <label>
+        予定
+        <select id="scheduleStatus">
+          <option value="">選択してください</option>
+          <option value="通所">通所</option>
+          <option value="在宅">在宅</option>
+          <option value="休み">休み</option>
+        </select>
+      </label>
+
+      <label>
+        メモ
+        <textarea id="scheduleMemo" placeholder="例：午前のみ、午後から、体調不良など"></textarea>
+      </label>
+
+      <button id="saveScheduleButton">保存</button>
+      <button id="logoutButton" class="sub-button">ログアウト</button>
+
+      <p id="message"></p>
+      <section class="schedule-list-box">
+        <h2>今後1週間の予定</h2>
+        <div id="weeklyScheduleList">
+          読み込み中...
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="schedule.js"></script>
+</body>
+
+</html>
