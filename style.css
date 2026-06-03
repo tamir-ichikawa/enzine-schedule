@@ -973,3 +973,35 @@ textarea {
   }
 }
 
+/* ==============================
+   カレンダー内アナウンスを全件表示
+   ============================== */
+
+.calendar-day {
+  min-height: 96px;
+  height: auto;
+}
+
+.calendar-announcement-area {
+  max-height: none;
+}
+
+.calendar-announcement-title {
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* スマホでも全件表示するが、少しコンパクトに */
+@media (max-width: 600px) {
+  .calendar-day {
+    min-height: 86px;
+  }
+
+  .calendar-announcement-title {
+    font-size: 9px;
+    line-height: 1.2;
+    padding: 2px 3px;
+  }
+}
+
+
