@@ -154,12 +154,30 @@ function applyTimeSlotButtonActive(timeSlot) {
   });
 }
 
+let pageScrollY = 0;
+
+function lockPageScroll() {
+  pageScrollY = window.scrollY;
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
+  document.body.style.top = `-${pageScrollY}px`;
+}
+
+function unlockPageScroll() {
+  document.documentElement.classList.remove("modal-open");
+  document.body.classList.remove("modal-open");
+  document.body.style.top = "";
+  window.scrollTo(0, pageScrollY);
+}
+
 function openModal() {
+  lockPageScroll();
   scheduleModal.classList.remove("hidden");
 }
 
 function closeModal() {
   scheduleModal.classList.add("hidden");
+  unlockPageScroll();
 }
 
 function clearSelectedDayStyle() {

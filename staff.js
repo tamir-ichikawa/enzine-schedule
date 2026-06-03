@@ -159,6 +159,22 @@ function showEmptyTextIfNeeded() {
   }
 }
 
+let pageScrollY = 0;
+
+function lockPageScroll() {
+  pageScrollY = window.scrollY;
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
+  document.body.style.top = `-${pageScrollY}px`;
+}
+
+function unlockPageScroll() {
+  document.documentElement.classList.remove("modal-open");
+  document.body.classList.remove("modal-open");
+  document.body.style.top = "";
+  window.scrollTo(0, pageScrollY);
+}
+
 function openAnnouncementModal(dateId) {
   selectedAnnouncementDate = dateId;
 
@@ -168,11 +184,13 @@ function openAnnouncementModal(dateId) {
 
   renderAnnouncementList(dateId);
 
+  lockPageScroll();
   announcementModal.classList.remove("hidden");
 }
 
 function closeAnnouncementModal() {
   announcementModal.classList.add("hidden");
+  unlockPageScroll();
 }
 
 function resetAnnouncementForm() {

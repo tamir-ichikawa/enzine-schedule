@@ -448,6 +448,33 @@ button:hover {
   font-size: 16px;
 }
 
+html.modal-open,
+body.modal-open {
+  overflow: hidden;
+  height: 100%;
+  position: fixed;
+  width: 100%;
+}
+
+.modal-overlay {
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+.modal-box {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.modal-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  padding-bottom: 12px;
+}
+
 /* =========================================================
    Choice buttons
    ========================================================= */
