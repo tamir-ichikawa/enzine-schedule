@@ -1,54 +1,100 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="UTF-8">
   <title>利用者ページ | Enzine Schedule</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <main class="login-container">
+  <main class="login-container user-page">
     <h1>利用者ページ</h1>
     <p id="userInfo">ログイン確認中...</p>
 
-    <section class="login-box">
-      <h2>予定を入力</h2>
-
-      <label>
-        日付
-        <input type="date" id="scheduleDate">
-      </label>
-
-      <label>
-        予定
-        <select id="scheduleStatus">
-          <option value="">選択してください</option>
-          <option value="通所">通所</option>
-          <option value="在宅">在宅</option>
-          <option value="休み">休み</option>
-        </select>
-      </label>
-
-      <label>
-        メモ
-        <textarea id="scheduleMemo" placeholder="例：午前のみ、午後から、体調不良など"></textarea>
-      </label>
-
-      <button id="saveScheduleButton">保存</button>
-      <button id="logoutButton" class="sub-button">ログアウト</button>
-
-      <p id="message"></p>
-      <section class="schedule-list-box">
-        <h2>今後1週間の予定</h2>
-        <div id="weeklyScheduleList">
-          読み込み中...
-        </div>
-      </section>
+    <section class="today-announcement-box">
+      <h2>本日のアナウンス</h2>
+      <div id="todayAnnouncements" class="today-announcements">
+        読み込み中...
+      </div>
     </section>
+
+    <p class="calendar-guide">
+      カレンダーの日付をタップして予定を入力してください。
+    </p>
+
+    <section class="monthly-calendar-box">
+      <h2 id="calendarTitle">今月の予定</h2>
+
+      <div class="calendar-week-header">
+        <div>日</div>
+        <div>月</div>
+        <div>火</div>
+        <div>水</div>
+        <div>木</div>
+        <div>金</div>
+        <div>土</div>
+      </div>
+
+      <div id="monthlyCalendar" class="monthly-calendar">
+        読み込み中...
+      </div>
+    </section>
+
+    <button id="logoutButton" class="sub-button logout-bottom">ログアウト</button>
+    <p id="message"></p>
   </main>
 
-  <script type="module" src="schedule.js"></script>
-</body>
+  <!-- 予定編集モーダル -->
+  <!-- 予定編集モーダル -->
+  <div id="scheduleModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modalTitle">予定を編集</h2>
+        <button id="closeModalButton" class="modal-close-button">×</button>
+      </div>
 
+      <div class="modal-form">
+
+        <section class="modal-announcement-box">
+          <h3>本日の連絡・予定</h3>
+          <div id="modalAnnouncements" class="modal-announcements">
+            読み込み中...
+          </div>
+        </section>
+
+        <div>
+          <h3>あなたの予定</h3>
+          <div class="choice-button-group" id="statusButtonGroup">
+            <button type="button" class="choice-button" data-status="通所">通所</button>
+            <button type="button" class="choice-button" data-status="在宅">在宅</button>
+            <button type="button" class="choice-button" data-status="休み">休み</button>
+          </div>
+        </div>
+
+        <div id="timeSlotChoiceBox">
+          <h3>時間帯</h3>
+          <div class="choice-button-group" id="timeSlotButtonGroup">
+            <button type="button" class="choice-button" data-timeslot="終日">終日</button>
+            <button type="button" class="choice-button" data-timeslot="午前">午前</button>
+            <button type="button" class="choice-button" data-timeslot="午後">午後</button>
+          </div>
+        </div>
+
+        <!-- JS内部で値を使うため、画面には出さない -->
+        <input type="hidden" id="scheduleDate">
+        <input type="hidden" id="scheduleStatus">
+        <input type="hidden" id="scheduleTimeSlot">
+
+        <label>
+          メモ
+          <textarea id="scheduleMemo" placeholder="例：午前のみ、午後から、体調不良など"></textarea>
+        </label>
+
+        <button id="saveScheduleButton">保存</button>
+        <button id="cancelModalButton" class="sub-button">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="schedule.js?v=5"></script>
+</body>
 </html>

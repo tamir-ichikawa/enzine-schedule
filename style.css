@@ -141,3 +141,807 @@ h2 {
   margin-bottom: 6px;
   line-height: 1.5;
 }
+
+.user-page {
+  max-width: 760px;
+}
+
+.monthly-calendar-box {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #ddd;
+}
+
+.calendar-week-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.calendar-week-header div {
+  padding: 8px 0;
+  background: #eef2f7;
+  border-radius: 6px;
+}
+
+.monthly-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  min-height: 88px;
+  padding: 6px;
+  background: #f7f9fb;
+  border-radius: 8px;
+  border: 1px solid #e1e5ea;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.calendar-day.empty {
+  background: transparent;
+  border: none;
+}
+
+.calendar-day.today {
+  border: 2px solid #2f80ed;
+}
+
+.calendar-date {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.calendar-status {
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.calendar-time-slot {
+  font-size: 12px;
+  color: #555;
+}
+
+.memo-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #f2994a;
+}
+
+.status-coming {
+  color: #1f7a3f;
+}
+
+.status-home {
+  color: #2f80ed;
+}
+
+.status-off {
+  color: #c0392b;
+}
+
+.calendar-guide {
+  margin: 12px 0 20px;
+  font-size: 14px;
+  color: #555;
+}
+
+.logout-bottom {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.calendar-day {
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.08s ease;
+}
+
+.calendar-day:not(.empty):active {
+  transform: scale(0.98);
+  background: #eef5ff;
+}
+
+.calendar-day.selected-day {
+  border: 2px solid #f2994a;
+}
+
+/* モーダル全体 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 420px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-close-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  background: #eee;
+  color: #333;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.modal-close-button:hover {
+  background: #ddd;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* スマホ向け */
+@media (max-width: 600px) {
+  .login-container {
+    margin: 16px auto;
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .user-page {
+    max-width: 100%;
+  }
+
+  .calendar-day {
+    min-height: 76px;
+    padding: 5px;
+    font-size: 12px;
+  }
+
+  .calendar-week-header div {
+    padding: 6px 0;
+    font-size: 13px;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-box {
+    max-width: 100%;
+    max-height: 88vh;
+    border-radius: 18px 18px 0 0;
+    padding: 18px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+}
+
+/* ==============================
+   モーダル編集・スマホ対応 追加CSS
+   ============================== */
+
+/* カレンダー操作案内 */
+.calendar-guide {
+  margin: 12px 0 20px;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.6;
+}
+
+/* ログアウトボタンを下部で見やすく */
+.logout-bottom {
+  width: 100%;
+  margin-top: 20px;
+}
+
+/* カレンダーの日付をタップ可能に見せる */
+.calendar-day {
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.08s ease;
+}
+
+/* 空白マスはクリック感を出さない */
+.calendar-day.empty {
+  cursor: default;
+}
+
+/* タップ・クリック時の軽い反応 */
+.calendar-day:not(.empty):active {
+  transform: scale(0.98);
+  background: #eef5ff;
+}
+
+/* 編集中の日付 */
+.calendar-day.selected-day {
+  border: 2px solid #f2994a;
+}
+
+/* 入力欄・ボタンをスマホでも押しやすく */
+button,
+input,
+select,
+textarea {
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+/* ==============================
+   モーダル本体
+   ============================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 420px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-close-button {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  background: #eee;
+  color: #333;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.modal-close-button:hover {
+  background: #ddd;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ==============================
+   スマホ対応
+   ============================== */
+
+@media (max-width: 600px) {
+  body {
+    background: #fff;
+  }
+
+  .login-container {
+    width: auto;
+    margin: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .user-page {
+    max-width: 100%;
+  }
+
+  .calendar-guide {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .calendar-week-header {
+    gap: 3px;
+  }
+
+  .calendar-week-header div {
+    padding: 6px 0;
+    font-size: 13px;
+  }
+
+  .monthly-calendar {
+    gap: 3px;
+  }
+
+  .calendar-day {
+    min-height: 70px;
+    padding: 4px;
+    font-size: 11px;
+  }
+
+  .calendar-date {
+    margin-bottom: 4px;
+  }
+
+  .calendar-status {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .calendar-time-slot {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .memo-dot {
+    width: 6px;
+    height: 6px;
+    margin-top: 4px;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-box {
+    max-width: 100%;
+    max-height: 88vh;
+    border-radius: 18px 18px 0 0;
+    padding: 18px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+}
+
+/* ==============================
+   かなり狭いスマホ向け
+   ============================== */
+
+@media (max-width: 380px) {
+  .calendar-day {
+    min-height: 64px;
+    padding: 3px;
+    font-size: 10px;
+  }
+
+  .calendar-status {
+    font-size: 10px;
+  }
+
+  .calendar-time-slot {
+    font-size: 9px;
+  }
+
+  .calendar-week-header div {
+    font-size: 12px;
+  }
+}
+
+/* ==============================
+   アナウンス表示
+   ============================== */
+
+.today-announcement-box {
+  margin-top: 18px;
+  margin-bottom: 20px;
+  padding: 14px;
+  background: #fff8e8;
+  border: 1px solid #f3d59a;
+  border-radius: 12px;
+}
+
+.today-announcement-box h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.today-announcements {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.announcement-card {
+  padding: 10px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #f0e1bd;
+}
+
+.announcement-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.announcement-time {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.announcement-body {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.announcement-empty {
+  color: #777;
+  font-size: 13px;
+}
+
+.calendar-announcement-count {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #9a6700;
+  font-weight: bold;
+}
+
+/* スマホ時のアナウンス */
+@media (max-width: 600px) {
+  .today-announcement-box {
+    margin-top: 14px;
+    padding: 12px;
+  }
+
+  .today-announcement-box h2 {
+    font-size: 16px;
+  }
+
+  .announcement-card {
+    padding: 9px;
+  }
+
+  .announcement-title {
+    font-size: 13px;
+  }
+
+  .announcement-body {
+    font-size: 12px;
+  }
+
+  .calendar-announcement-count {
+    font-size: 10px;
+  }
+}
+
+/* ==============================
+   カレンダー内アナウンスタイトル
+   ============================== */
+
+.calendar-announcement-area {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calendar-announcement-title {
+  padding: 2px 4px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: bold;
+  background: #fff3cf;
+  color: #7a5200;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-announcement-more {
+  font-size: 10px;
+  color: #777;
+  font-weight: bold;
+}
+
+.category-workshop {
+  background: #eef4ff;
+  color: #2356a6;
+}
+
+.category-deadline {
+  background: #fff0f0;
+  color: #b63232;
+}
+
+.category-important {
+  background: #fff3d6;
+  color: #9a5a00;
+}
+
+.category-notice {
+  background: #f2f2f2;
+  color: #444;
+}
+
+@media (max-width: 600px) {
+  .calendar-announcement-title {
+    font-size: 9px;
+    padding: 2px 3px;
+  }
+
+  .calendar-announcement-more {
+    font-size: 9px;
+  }
+}
+
+/* ==============================
+   支援員：アナウンス編集
+   ============================== */
+
+.announcement-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.announcement-edit-item {
+  padding: 10px;
+  background: #f7f9fb;
+  border-radius: 10px;
+  border: 1px solid #e1e5ea;
+}
+
+.announcement-edit-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.small-button {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 7px;
+}
+
+.danger-button {
+  background: #c0392b;
+}
+
+.danger-button:hover {
+  background: #9f2d22;
+}
+
+/* ==============================
+   カレンダー崩れ対策
+   ============================== */
+
+.monthly-calendar,
+.calendar-week-header {
+  width: 100%;
+  min-width: 0;
+}
+
+.calendar-day {
+  overflow: hidden;
+}
+
+.calendar-date {
+  white-space: nowrap;
+  word-break: keep-all;
+  line-height: 1.2;
+}
+
+.calendar-announcement-title {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* PCではカレンダーを見やすく広めに */
+.user-page {
+  max-width: 820px;
+}
+
+/* 支援員・利用者どちらもカレンダーを安定表示 */
+.monthly-calendar {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-week-header {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+@media (max-width: 600px) {
+  .monthly-calendar-box {
+    overflow-x: auto;
+  }
+
+  .calendar-week-header,
+  .monthly-calendar {
+    min-width: 640px;
+  }
+
+  .calendar-day {
+    min-height: 76px;
+  }
+}
+
+/* ==============================
+   モーダル内：予定選択ボタン
+   ============================== */
+
+.choice-button-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.choice-button {
+  min-height: 46px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #eef2f7;
+  color: #333;
+  font-weight: bold;
+  border: 2px solid transparent;
+}
+
+.choice-button:hover {
+  background: #e3ebf5;
+}
+
+.choice-button.active {
+  background: #2f80ed;
+  color: #fff;
+  border-color: #1f63bd;
+}
+
+.choice-button.status-off.active {
+  background: #c0392b;
+  border-color: #922b21;
+}
+
+.choice-button.status-home.active {
+  background: #2f80ed;
+  border-color: #1f63bd;
+}
+
+.choice-button.status-coming.active {
+  background: #1f7a3f;
+  border-color: #155f2f;
+}
+
+/* ==============================
+   モーダル内：アナウンス詳細
+   ============================== */
+
+.modal-announcement-box {
+  padding: 12px;
+  background: #fff8e8;
+  border: 1px solid #f3d59a;
+  border-radius: 12px;
+}
+
+.modal-announcement-box h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.modal-announcements {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-announcement-card {
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #f0e1bd;
+  border-radius: 10px;
+}
+
+.modal-announcement-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.modal-announcement-time {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.modal-announcement-body {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.modal-announcement-empty {
+  font-size: 13px;
+  color: #777;
+}
+
+@media (max-width: 600px) {
+  .choice-button-group {
+    gap: 7px;
+  }
+
+  .choice-button {
+    min-height: 44px;
+    padding: 8px 6px;
+    font-size: 14px;
+  }
+
+  .modal-announcement-box {
+    padding: 10px;
+  }
+
+  .modal-announcement-title {
+    font-size: 13px;
+  }
+
+  .modal-announcement-body {
+    font-size: 12px;
+  }
+}
+
