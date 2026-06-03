@@ -129,12 +129,24 @@ function addUserToList(listElement, data) {
   const li = document.createElement("li");
 
   const name = data.userName || data.userEmail || "名前不明";
+  const timeSlot = data.timeSlot || "";
   const memo = data.memo || "";
 
-  if (memo) {
-    li.textContent = `${name}（${memo}）`;
+  const mainText = document.createElement("div");
+
+  if (timeSlot) {
+    mainText.textContent = `${name}　${timeSlot}`;
   } else {
-    li.textContent = name;
+    mainText.textContent = name;
+  }
+
+  li.appendChild(mainText);
+
+  if (memo) {
+    const memoText = document.createElement("div");
+    memoText.textContent = `（${memo}）`;
+    memoText.className = "staff-user-memo";
+    li.appendChild(memoText);
   }
 
   listElement.appendChild(li);

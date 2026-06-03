@@ -1018,3 +1018,19 @@ body.modal-open {
   }
 }
 
+/* ==============================
+   支援員一覧のメモ表示
+   ============================== */
+
+.staff-user-memo {
+  margin-top: 2px;
+  color: #666;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .staff-user-memo {
+    font-size: 17px;
+  }
+}
+
