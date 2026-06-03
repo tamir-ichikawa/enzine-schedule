@@ -371,6 +371,11 @@ async function loadMonthlyAnnouncements(year, month) {
 
   snapshot.forEach((docSnap) => {
     const data = docSnap.data();
+
+    if (data.visibility === "staff") {
+      return;
+    }
+
     const date = data.date;
 
     if (!announcementsByDate[date]) {
@@ -476,23 +481,16 @@ async function loadMonthlyCalendar() {
         const announcementArea = document.createElement("div");
         announcementArea.className = "calendar-announcement-area";
 
-        const firstAnnouncement = dayAnnouncements[0];
+        dayAnnouncements.forEach((announcement) => {
+          const item = document.createElement("div");
+          item.className = `calendar-announcement-title category-${announcement.category || "notice"}`;
 
-        const firstItem = document.createElement("div");
-        firstItem.className = `calendar-announcement-title category-${firstAnnouncement.category || "notice"}`;
+          const icon = getAnnouncementIcon(announcement.category || "notice");
+          const shortTitle = shortenText(announcement.title || "お知らせ", 8);
 
-        const icon = getAnnouncementIcon(firstAnnouncement.category || "notice");
-        const shortTitle = shortenText(firstAnnouncement.title || "お知らせ", 8);
-
-        firstItem.textContent = `${icon} ${shortTitle}`;
-        announcementArea.appendChild(firstItem);
-
-        if (dayAnnouncements.length > 1) {
-          const moreItem = document.createElement("div");
-          moreItem.className = "calendar-announcement-more";
-          moreItem.textContent = `+${dayAnnouncements.length - 1}件`;
-          announcementArea.appendChild(moreItem);
-        }
+          item.textContent = `${icon} ${shortTitle}`;
+          announcementArea.appendChild(item);
+        });
 
         dayCell.appendChild(announcementArea);
       }

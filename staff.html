@@ -93,10 +93,14 @@
         <h3 id="announcementFormTitle">新規追加</h3>
 
         <input type="hidden" id="editingAnnouncementId">
+        <input type="hidden" id="announcementDate">
 
         <label>
-          日付
-          <input type="date" id="announcementDate" readonly>
+          表示範囲
+          <select id="announcementVisibility">
+            <option value="all">全員に表示</option>
+            <option value="staff">支援員のみ表示</option>
+          </select>
         </label>
 
         <label>
@@ -114,10 +118,55 @@
           <input type="text" id="announcementTitle" placeholder="例：Photoshopワークショップ">
         </label>
 
-        <label>
-          時間
-          <input type="text" id="announcementTimeText" placeholder="例：13:00〜14:30">
-        </label>
+        <div class="time-select-row">
+          <label>
+            開始時間
+            <select id="announcementStartTime">
+              <option value="">未設定</option>
+              <option value="09:00">09:00</option>
+              <option value="09:30">09:30</option>
+              <option value="10:00">10:00</option>
+              <option value="10:30">10:30</option>
+              <option value="11:00">11:00</option>
+              <option value="11:30">11:30</option>
+              <option value="12:00">12:00</option>
+              <option value="12:30">12:30</option>
+              <option value="13:00">13:00</option>
+              <option value="13:30">13:30</option>
+              <option value="14:00">14:00</option>
+              <option value="14:30">14:30</option>
+              <option value="15:00">15:00</option>
+              <option value="15:30">15:30</option>
+              <option value="16:00">16:00</option>
+              <option value="16:30">16:30</option>
+              <option value="17:00">17:00</option>
+            </select>
+          </label>
+
+          <label>
+            終了時間
+            <select id="announcementEndTime">
+              <option value="">未設定</option>
+              <option value="09:00">09:00</option>
+              <option value="09:30">09:30</option>
+              <option value="10:00">10:00</option>
+              <option value="10:30">10:30</option>
+              <option value="11:00">11:00</option>
+              <option value="11:30">11:30</option>
+              <option value="12:00">12:00</option>
+              <option value="12:30">12:30</option>
+              <option value="13:00">13:00</option>
+              <option value="13:30">13:30</option>
+              <option value="14:00">14:00</option>
+              <option value="14:30">14:30</option>
+              <option value="15:00">15:00</option>
+              <option value="15:30">15:30</option>
+              <option value="16:00">16:00</option>
+              <option value="16:30">16:30</option>
+              <option value="17:00">17:00</option>
+            </select>
+          </label>
+        </div>
 
         <label>
           本文
@@ -131,6 +180,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=2"></script>
+  <script type="module" src="staff.js?v=3"></script>
 </body>
 </html>

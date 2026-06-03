@@ -34,9 +34,11 @@ const announcementList = document.getElementById("announcementList");
 
 const editingAnnouncementId = document.getElementById("editingAnnouncementId");
 const announcementDate = document.getElementById("announcementDate");
+const announcementVisibility = document.getElementById("announcementVisibility");
 const announcementCategory = document.getElementById("announcementCategory");
 const announcementTitle = document.getElementById("announcementTitle");
-const announcementTimeText = document.getElementById("announcementTimeText");
+const announcementStartTime = document.getElementById("announcementStartTime");
+const announcementEndTime = document.getElementById("announcementEndTime");
 const announcementBody = document.getElementById("announcementBody");
 const saveAnnouncementButton = document.getElementById("saveAnnouncementButton");
 const resetAnnouncementFormButton = document.getElementById("resetAnnouncementFormButton");
@@ -95,6 +97,22 @@ function shortenText(text, maxLength) {
   }
 
   return text.slice(0, maxLength) + "…";
+}
+
+function buildTimeText(startTime, endTime) {
+  if (startTime && endTime) {
+    return `${startTime}〜${endTime}`;
+  }
+
+  if (startTime && !endTime) {
+    return `${startTime}〜`;
+  }
+
+  if (!startTime && endTime) {
+    return `〜${endTime}`;
+  }
+
+  return "";
 }
 
 // リストを空にする
@@ -159,9 +177,11 @@ function closeAnnouncementModal() {
 function resetAnnouncementForm() {
   editingAnnouncementId.value = "";
   announcementFormTitle.textContent = "新規追加";
+  announcementVisibility.value = "all";
   announcementCategory.value = "notice";
   announcementTitle.value = "";
-  announcementTimeText.value = "";
+  announcementStartTime.value = "";
+  announcementEndTime.value = "";
   announcementBody.value = "";
 }
 
@@ -183,6 +203,13 @@ function renderAnnouncementList(dateId) {
     title.className = "announcement-title";
     title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${announcement.title || "無題"}`;
 
+    if (announcement.visibility === "staff") {
+      const badge = document.createElement("span");
+      badge.className = "staff-only-badge";
+      badge.textContent = "支援員のみ";
+      title.appendChild(badge);
+    }
+
     const time = document.createElement("div");
     time.className = "announcement-time";
     time.textContent = announcement.timeText || "";
@@ -200,9 +227,11 @@ function renderAnnouncementList(dateId) {
     editButton.addEventListener("click", () => {
       editingAnnouncementId.value = announcement.id;
       announcementFormTitle.textContent = "編集中";
+      announcementVisibility.value = announcement.visibility || "all";
       announcementCategory.value = announcement.category || "notice";
       announcementTitle.value = announcement.title || "";
-      announcementTimeText.value = announcement.timeText || "";
+      announcementStartTime.value = announcement.startTime || "";
+      announcementEndTime.value = announcement.endTime || "";
       announcementBody.value = announcement.body || "";
     });
 
@@ -328,19 +357,16 @@ async function loadAnnouncementCalendar() {
         const announcementArea = document.createElement("div");
         announcementArea.className = "calendar-announcement-area";
 
-        const firstAnnouncement = dayAnnouncements[0];
+        dayAnnouncements.forEach((announcement) => {
+          const item = document.createElement("div");
+          item.className = `calendar-announcement-title category-${announcement.category || "notice"}`;
 
-        const firstItem = document.createElement("div");
-        firstItem.className = `calendar-announcement-title category-${firstAnnouncement.category || "notice"}`;
-        firstItem.textContent = `${getAnnouncementIcon(firstAnnouncement.category || "notice")} ${shortenText(firstAnnouncement.title || "お知らせ", 8)}`;
-        announcementArea.appendChild(firstItem);
+          const icon = getAnnouncementIcon(announcement.category || "notice");
+          const shortTitle = shortenText(announcement.title || "お知らせ", 8);
 
-        if (dayAnnouncements.length > 1) {
-          const moreItem = document.createElement("div");
-          moreItem.className = "calendar-announcement-more";
-          moreItem.textContent = `+${dayAnnouncements.length - 1}件`;
-          announcementArea.appendChild(moreItem);
-        }
+          item.textContent = `${icon} ${shortTitle}`;
+          announcementArea.appendChild(item);
+        });
 
         dayCell.appendChild(announcementArea);
       }
@@ -462,9 +488,12 @@ logoutButton.addEventListener("click", async () => {
 
 saveAnnouncementButton.addEventListener("click", async () => {
   const date = announcementDate.value;
+  const visibility = announcementVisibility.value;
   const category = announcementCategory.value;
   const title = announcementTitle.value.trim();
-  const timeText = announcementTimeText.value.trim();
+  const startTime = announcementStartTime.value;
+  const endTime = announcementEndTime.value;
+  const timeText = buildTimeText(startTime, endTime);
   const body = announcementBody.value.trim();
   const id = editingAnnouncementId.value;
 
@@ -481,8 +510,11 @@ saveAnnouncementButton.addEventListener("click", async () => {
   try {
     if (id) {
       await updateDoc(doc(db, "announcements", id), {
+        visibility: visibility,
         category: category,
         title: title,
+        startTime: startTime,
+        endTime: endTime,
         timeText: timeText,
         body: body,
         updatedAt: serverTimestamp()
@@ -490,8 +522,11 @@ saveAnnouncementButton.addEventListener("click", async () => {
     } else {
       await addDoc(collection(db, "announcements"), {
         date: date,
+        visibility: visibility,
         category: category,
         title: title,
+        startTime: startTime,
+        endTime: endTime,
         timeText: timeText,
         body: body,
         active: true,
