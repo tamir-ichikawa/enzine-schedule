@@ -30,6 +30,8 @@ const message = document.getElementById("message");
 const monthlyCalendar = document.getElementById("monthlyCalendar");
 const calendarTitle = document.getElementById("calendarTitle");
 const todayAnnouncements = document.getElementById("todayAnnouncements");
+const todayScheduleBox = document.getElementById("todayScheduleBox");
+const todayScheduleText = document.getElementById("todayScheduleText");
 
 const scheduleModal = document.getElementById("scheduleModal");
 const closeModalButton = document.getElementById("closeModalButton");
@@ -178,6 +180,8 @@ function applySelectedDayStyle(dateId) {
   }
 }
 
+
+
 function renderModalAnnouncements(dateId) {
   if (!modalAnnouncements) {
     return;
@@ -223,6 +227,72 @@ function renderModalAnnouncements(dateId) {
 
     modalAnnouncements.appendChild(card);
   });
+}
+
+function getTodayScheduleClass(status) {
+  if (status === "通所") {
+    return "today-schedule-coming";
+  }
+
+  if (status === "在宅") {
+    return "today-schedule-home";
+  }
+
+  if (status === "休み") {
+    return "today-schedule-off";
+  }
+
+  return "";
+}
+
+async function renderTodaySchedule() {
+  if (!currentUser || !todayScheduleBox || !todayScheduleText) {
+    return;
+  }
+
+  const todayId = formatDateId(new Date());
+  const scheduleId = `${currentUser.uid}_${todayId}`;
+
+  try {
+    const docRef = doc(db, "schedules", scheduleId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      todayScheduleBox.classList.add("hidden");
+      todayScheduleText.innerHTML = "";
+      return;
+    }
+
+    const data = docSnap.data();
+    const status = data.status || "";
+    const timeSlot = data.timeSlot || "";
+
+    if (!status) {
+      todayScheduleBox.classList.add("hidden");
+      todayScheduleText.innerHTML = "";
+      return;
+    }
+
+    const statusClass = getTodayScheduleClass(status);
+
+    if (timeSlot) {
+      todayScheduleText.innerHTML = `
+        <span class="today-schedule-main ${statusClass}">${status}</span>
+        <span class="today-schedule-sub">${timeSlot}</span>
+      `;
+    } else {
+      todayScheduleText.innerHTML = `
+        <span class="today-schedule-main ${statusClass}">${status}</span>
+      `;
+    }
+
+    todayScheduleBox.classList.remove("hidden");
+
+  } catch (error) {
+    console.error("本日の予定読み込みエラー:", error);
+    todayScheduleBox.classList.add("hidden");
+    todayScheduleText.innerHTML = "";
+  }
 }
 
 function renderTodayAnnouncements() {
@@ -403,16 +473,19 @@ async function loadMonthlyCalendar() {
     const year = today.getFullYear();
     const month = today.getMonth();
 
-    calendarTitle.textContent = `${year}年${month + 1}月の予定`;
+    calendarTitle.textContent = `${year}年${month + 1}月の予定　読み込み中...`;
 
     await loadMonthlyAnnouncements(year, month);
     renderTodayAnnouncements();
+    await renderTodaySchedule();
 
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
     const firstWeekDay = firstDay.getDay();
     const lastDate = lastDay.getDate();
+
+    let workDayCount = 0;
 
     for (let i = 0; i < firstWeekDay; i++) {
       const emptyCell = document.createElement("div");
@@ -437,6 +510,10 @@ async function loadMonthlyCalendar() {
         status = data.status || "";
         timeSlot = data.timeSlot || "";
         memo = data.memo || "";
+
+        if (status === "通所" || status === "在宅") {
+          workDayCount++;
+        }
       }
 
       const dayCell = document.createElement("div");
@@ -474,7 +551,6 @@ async function loadMonthlyCalendar() {
         dayCell.appendChild(memoDot);
       }
 
-
       const dayAnnouncements = announcementsByDate[dateId] || [];
 
       if (dayAnnouncements.length > 0) {
@@ -501,6 +577,8 @@ async function loadMonthlyCalendar() {
 
       monthlyCalendar.appendChild(dayCell);
     }
+
+    calendarTitle.textContent = `${year}年${month + 1}月の予定　勤務日数＝${workDayCount}日`;
 
   } catch (error) {
     console.error("月間カレンダー読み込みエラー:", error);

@@ -856,3 +856,138 @@ button:hover {
     margin-top: 4px;
   }
 }
+
+/* ==============================
+   スマホ：ログイン画面を大きくする
+   ============================== */
+
+@media (max-width: 600px) {
+  body {
+    font-size: 20px;
+  }
+
+  .login-container {
+    margin: 24px 14px;
+    padding: 24px 18px;
+    border-radius: 18px;
+  }
+
+  .login-container h1 {
+    font-size: 34px;
+    margin-bottom: 12px;
+  }
+
+  .login-container p {
+    font-size: 20px;
+    line-height: 1.6;
+  }
+
+  .login-box {
+    gap: 22px;
+  }
+
+  label {
+    font-size: 21px;
+    gap: 10px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 22px;
+    min-height: 60px;
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  button {
+    font-size: 23px;
+    min-height: 64px;
+    border-radius: 14px;
+  }
+
+  #message {
+    font-size: 18px;
+    line-height: 1.5;
+  }
+}
+
+/* ==============================
+   本日の予定表示
+   ============================== */
+
+.hidden {
+  display: none;
+}
+
+.today-schedule-box {
+  margin-top: 18px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #eef7ff;
+  border: 1px solid #b8d9f5;
+  border-radius: 14px;
+}
+
+.today-schedule-box h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.today-schedule-text {
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.today-schedule-main {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #2f80ed;
+  color: #fff;
+}
+
+.today-schedule-sub {
+  margin-left: 8px;
+  color: #333;
+}
+
+/* 状態ごとの色 */
+.today-schedule-coming {
+  background: #1f7a3f;
+}
+
+.today-schedule-home {
+  background: #2f80ed;
+}
+
+.today-schedule-off {
+  background: #c0392b;
+}
+
+@media (max-width: 600px) {
+  .today-schedule-box {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .today-schedule-box h2 {
+    font-size: 24px;
+  }
+
+  .today-schedule-text {
+    font-size: 24px;
+  }
+
+  .today-schedule-main {
+    padding: 8px 16px;
+  }
+
+  .today-schedule-sub {
+    display: inline-block;
+    margin-left: 10px;
+    font-size: 22px;
+  }
+}
+
