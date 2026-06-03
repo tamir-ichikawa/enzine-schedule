@@ -1004,4 +1004,244 @@ textarea {
   }
 }
 
+/* ==============================
+   支援員：編集中表示
+   ============================== */
 
+.editing-button {
+  background: #f2994a;
+  color: #fff;
+  cursor: default;
+}
+
+.editing-button:hover {
+  background: #f2994a;
+}
+
+.editing-item {
+  border: 2px solid #f2994a;
+  background: #fff8e8;
+}
+
+/* ==============================
+   スマホ表示：文字を大きくする
+   ============================== */
+
+@media (max-width: 600px) {
+  body {
+    font-size: 20px;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+
+  h2 {
+    font-size: 24px;
+  }
+
+  h3 {
+    font-size: 21px;
+  }
+
+  p,
+  label,
+  .calendar-guide,
+  .announcement-body,
+  .modal-announcement-body,
+  .announcement-empty,
+  .modal-announcement-empty {
+    font-size: 18px;
+    line-height: 1.6;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 20px;
+    min-height: 54px;
+  }
+
+  .choice-button {
+    font-size: 20px;
+    min-height: 56px;
+  }
+
+  .modal-box {
+    font-size: 20px;
+  }
+
+  .modal-header h2 {
+    font-size: 26px;
+  }
+
+  .modal-close-button {
+    width: 48px;
+    height: 48px;
+    min-height: 48px;
+    font-size: 28px;
+  }
+
+  .announcement-title,
+  .modal-announcement-title {
+    font-size: 19px;
+  }
+
+  .announcement-time,
+  .modal-announcement-time {
+    font-size: 16px;
+  }
+}
+
+/* ==============================
+   スマホ表示：カレンダー内文字を大きくする
+   ============================== */
+
+@media (max-width: 600px) {
+  .calendar-week-header div {
+    font-size: 18px;
+    padding: 10px 0;
+  }
+
+  .calendar-day {
+    min-height: 120px;
+    padding: 8px;
+    font-size: 16px;
+  }
+
+  .calendar-date {
+    font-size: 17px;
+    margin-bottom: 6px;
+  }
+
+  .calendar-status {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  .calendar-time-slot {
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  .calendar-announcement-title {
+    font-size: 14px;
+    line-height: 1.35;
+    padding: 4px 5px;
+  }
+
+  .calendar-announcement-more {
+    font-size: 14px;
+  }
+
+  .memo-dot {
+    width: 9px;
+    height: 9px;
+    margin-top: 6px;
+  }
+}
+
+/* ==============================
+   スマホ表示：大きい文字用にカレンダー幅を広げる
+   ============================== */
+
+@media (max-width: 600px) {
+  .calendar-week-header,
+  .monthly-calendar {
+    min-width: 820px;
+  }
+}
+
+/* ==============================
+   スマホ：日付クリック時モーダルを大きく表示
+   ============================== */
+
+@media (max-width: 600px) {
+  .modal-overlay {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .modal-box {
+    width: 100%;
+    max-width: 100%;
+    height: 94vh;
+    max-height: 94vh;
+    border-radius: 22px 22px 0 0;
+    padding: 24px;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .modal-header {
+    margin-bottom: 20px;
+  }
+
+  .modal-header h2 {
+    font-size: 30px;
+    line-height: 1.3;
+  }
+
+  .modal-close-button {
+    width: 56px;
+    height: 56px;
+    min-height: 56px;
+    font-size: 32px;
+  }
+
+  .modal-form {
+    gap: 22px;
+  }
+
+  .modal-form h3 {
+    font-size: 24px;
+    margin: 0 0 12px;
+  }
+
+  .modal-announcement-box {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .modal-announcement-title {
+    font-size: 21px;
+  }
+
+  .modal-announcement-time {
+    font-size: 17px;
+  }
+
+  .modal-announcement-body {
+    font-size: 18px;
+    line-height: 1.7;
+  }
+
+  .choice-button-group {
+    gap: 12px;
+  }
+
+  .choice-button {
+    min-height: 64px;
+    font-size: 22px;
+    border-radius: 14px;
+  }
+
+  .modal-form label {
+    font-size: 21px;
+  }
+
+  .modal-form textarea {
+    min-height: 130px;
+    font-size: 20px;
+    line-height: 1.6;
+    border-radius: 14px;
+  }
+
+  .modal-form button {
+    min-height: 64px;
+    font-size: 22px;
+    border-radius: 14px;
+  }
+}

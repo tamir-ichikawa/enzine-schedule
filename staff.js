@@ -47,6 +47,7 @@ const announcementFormTitle = document.getElementById("announcementFormTitle");
 let currentStaffData = null;
 let selectedAnnouncementDate = null;
 let announcementsByDate = {};
+let currentEditingAnnouncementId = "";
 
 let currentUser = null;
 
@@ -175,6 +176,8 @@ function closeAnnouncementModal() {
 }
 
 function resetAnnouncementForm() {
+  currentEditingAnnouncementId = "";
+  
   editingAnnouncementId.value = "";
   announcementFormTitle.textContent = "新規追加";
   announcementVisibility.value = "all";
@@ -183,6 +186,10 @@ function resetAnnouncementForm() {
   announcementStartTime.value = "";
   announcementEndTime.value = "";
   announcementBody.value = "";
+
+  if (selectedAnnouncementDate) {
+    renderAnnouncementList(selectedAnnouncementDate);
+  }
 }
 
 function renderAnnouncementList(dateId) {
@@ -198,6 +205,10 @@ function renderAnnouncementList(dateId) {
   list.forEach((announcement) => {
     const item = document.createElement("div");
     item.className = "announcement-edit-item";
+
+    if (announcement.id === currentEditingAnnouncementId) {
+      item.classList.add("editing-item");
+    }
 
     const title = document.createElement("div");
     title.className = "announcement-title";
@@ -222,8 +233,16 @@ function renderAnnouncementList(dateId) {
     buttons.className = "announcement-edit-buttons";
 
     const editButton = document.createElement("button");
-    editButton.textContent = "編集";
-    editButton.className = "small-button";
+
+    if (announcement.id === currentEditingAnnouncementId) {
+      editButton.textContent = "編集中";
+      editButton.className = "small-button editing-button";
+      editButton.disabled = true;
+    } else {
+      editButton.textContent = "編集";
+      editButton.className = "small-button";
+    }
+
     editButton.addEventListener("click", () => {
       editingAnnouncementId.value = announcement.id;
       announcementFormTitle.textContent = "編集中";
@@ -233,6 +252,8 @@ function renderAnnouncementList(dateId) {
       announcementStartTime.value = announcement.startTime || "";
       announcementEndTime.value = announcement.endTime || "";
       announcementBody.value = announcement.body || "";
+
+       renderAnnouncementList(selectedAnnouncementDate);
     });
 
     const hideButton = document.createElement("button");
