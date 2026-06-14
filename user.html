@@ -30,17 +30,42 @@
     <section class="monthly-calendar-box">
       <h2 id="calendarTitle">今月の予定</h2>
 
-      <div class="calendar-week-header">
-        <div>日</div>
+      <div class="calendar-month-nav">
+        <button id="prevMonthButton" type="button" class="sub-button">＜ 前月</button>
+        <div id="currentMonthLabel" class="calendar-month-label">読み込み中...</div>
+        <button id="nextMonthButton" type="button" class="sub-button">次月 ＞</button>
+      </div>
+
+      <div class="calendar-view-toggle">
+        <button id="calendarViewButton" type="button" class="view-toggle-button active">カレンダー表示</button>
+        <button id="listViewButton" type="button" class="view-toggle-button">リスト表示</button>
+      </div>
+
+      <div class="calendar-filter-box">
+        <div class="calendar-filter-title">表示する日</div>
+        <label class="calendar-filter-label">
+          <input type="checkbox" id="showAllDaysCheckbox" checked>
+          全体
+        </label>
+        <label class="calendar-filter-label">
+          <input type="checkbox" id="showUseDaysCheckbox">
+          利用日
+        </label>
+        <label class="calendar-filter-label">
+          <input type="checkbox" id="showAnnouncementDaysCheckbox">
+          アナウンス
+        </label>
+      </div>
+
+      <div id="calendarWeekHeader" class="calendar-week-header weekday-calendar-header">
         <div>月</div>
         <div>火</div>
         <div>水</div>
         <div>木</div>
         <div>金</div>
-        <div>土</div>
       </div>
 
-      <div id="monthlyCalendar" class="monthly-calendar">
+      <div id="monthlyCalendar" class="monthly-calendar weekday-calendar">
         読み込み中...
       </div>
     </section>
@@ -49,7 +74,6 @@
     <p id="message"></p>
   </main>
 
-  <!-- 予定編集モーダル -->
   <!-- 予定編集モーダル -->
   <div id="scheduleModal" class="modal-overlay hidden">
     <div class="modal-box">
@@ -101,6 +125,6 @@
     </div>
   </div>
 
-  <script type="module" src="schedule.js?v=10"></script>
+  <script type="module" src="schedule.js?v=17"></script>
 </body>
 </html>

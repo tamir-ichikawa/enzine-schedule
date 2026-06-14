@@ -1034,3 +1034,1027 @@ body.modal-open {
   }
 }
 
+/* ==============================
+   Step 2：月移動ナビゲーション
+   ============================== */
+
+.calendar-month-nav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 14px;
+}
+
+.calendar-month-nav button {
+  min-height: 42px;
+  padding: 8px 10px;
+  font-size: 15px;
+}
+
+.calendar-month-label {
+  min-width: 130px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .calendar-month-nav {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .calendar-month-nav button {
+    min-height: 54px;
+    font-size: 20px;
+  }
+
+  .calendar-month-label {
+    order: -1;
+    font-size: 24px;
+    min-width: 0;
+  }
+}
+
+/* ==============================
+   Step 3：カレンダー表示 / リスト表示 切り替え
+   ============================== */
+
+.calendar-view-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.view-toggle-button {
+  min-height: 42px;
+  padding: 8px 10px;
+  background: #eef2f7;
+  color: #333;
+  border: 2px solid transparent;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.view-toggle-button:hover {
+  background: #e3ebf5;
+}
+
+.view-toggle-button.active {
+  background: #2f80ed;
+  color: #fff;
+  border-color: #1f63bd;
+}
+
+.monthly-calendar.monthly-calendar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.calendar-list-day {
+  padding: 12px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.calendar-list-day.today {
+  border: 2px solid #2f80ed;
+  background: #eef7ff;
+}
+
+.calendar-list-day.selected-day {
+  border: 2px solid #f2994a;
+}
+
+.calendar-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.calendar-list-date {
+  font-size: 17px;
+  font-weight: bold;
+}
+
+.calendar-list-status {
+  min-width: 64px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8edf3;
+  color: #555;
+  text-align: center;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.calendar-list-status.status-coming {
+  background: #e6f4ec;
+  color: #1f7a3f;
+}
+
+.calendar-list-status.status-home {
+  background: #e9f2ff;
+  color: #2f80ed;
+}
+
+.calendar-list-status.status-off {
+  background: #ffecec;
+  color: #c0392b;
+}
+
+.calendar-list-schedule,
+.calendar-list-announcements {
+  margin-top: 8px;
+  line-height: 1.6;
+}
+
+.calendar-list-schedule-main {
+  font-weight: bold;
+}
+
+.calendar-list-memo {
+  margin-top: 4px;
+  color: #555;
+  white-space: pre-wrap;
+}
+
+.calendar-list-section-title {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #555;
+}
+
+.calendar-list-muted {
+  color: #888;
+  font-size: 14px;
+}
+
+.calendar-list-announcement {
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e1e5ea;
+}
+
+.calendar-list-announcement-title {
+  font-weight: bold;
+}
+
+.calendar-list-announcement-time {
+  margin-top: 2px;
+  color: #666;
+  font-size: 13px;
+}
+
+.calendar-list-announcement-body {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 600px) {
+  .calendar-view-toggle {
+    gap: 10px;
+  }
+
+  .view-toggle-button {
+    min-height: 56px;
+    font-size: 20px;
+    border-radius: 14px;
+  }
+
+  .calendar-list-day {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .calendar-list-date {
+    font-size: 21px;
+  }
+
+  .calendar-list-status {
+    min-width: 76px;
+    font-size: 16px;
+    padding: 6px 10px;
+  }
+
+  .calendar-list-schedule,
+  .calendar-list-announcements {
+    font-size: 18px;
+  }
+
+  .calendar-list-section-title,
+  .calendar-list-muted,
+  .calendar-list-announcement-time,
+  .calendar-list-announcement-body {
+    font-size: 17px;
+  }
+}
+
+
+
+/* ==============================
+   Step 4：平日のみ表示・表示条件チェック
+   ============================== */
+
+.weekday-calendar-header,
+.weekday-calendar {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.calendar-filter-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 14px;
+  padding: 10px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+}
+
+.calendar-filter-title {
+  width: 100%;
+  font-size: 13px;
+  font-weight: bold;
+  color: #555;
+}
+
+.calendar-filter-label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid #d9e0e8;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.calendar-filter-label input {
+  min-height: auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.calendar-filter-empty {
+  grid-column: 1 / -1;
+  padding: 18px;
+  text-align: center;
+  background: #f7f9fb;
+  border: 1px dashed #ccd4dd;
+  border-radius: 10px;
+  color: #777;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .weekday-calendar-header,
+  .weekday-calendar {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .calendar-filter-box {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .calendar-filter-title {
+    font-size: 16px;
+  }
+
+  .calendar-filter-label {
+    font-size: 17px;
+    padding: 8px 10px;
+  }
+
+  .calendar-filter-label input {
+    width: 22px;
+    height: 22px;
+  }
+
+  .calendar-filter-empty {
+    font-size: 16px;
+    padding: 20px;
+  }
+}
+
+/* ==============================
+   Step 6: 利用日・アナウンス種別による日付ボックス色分け
+   ============================== */
+
+/* 利用者ページ：利用日 */
+.calendar-day.day-use,
+.calendar-list-day.day-use {
+  background: #eef8f0;
+  border-color: #9ed3ad;
+}
+
+/* 利用者ページ：利用日 + アナウンス */
+.calendar-day.day-use-with-announcement,
+.calendar-list-day.day-use-with-announcement {
+  background: #eef6ff;
+  border-color: #8fc2f2;
+}
+
+/* 利用者ページ：利用日はないが、アナウンスあり */
+.calendar-day.day-announcement-only,
+.calendar-list-day.day-announcement-only {
+  background: #fff8e8;
+  border-color: #f1cf88;
+}
+
+/* 支援員ページ：全体向けアナウンスあり */
+.calendar-day.day-public-announcement,
+.staff-announcement-list-day.day-public-announcement {
+  background: #fff8e8;
+  border-color: #f1cf88;
+}
+
+/* 支援員ページ：支援員のみアナウンスあり */
+.calendar-day.day-staff-announcement,
+.staff-announcement-list-day.day-staff-announcement {
+  background: #f0eefc;
+  border-color: #b7a9ef;
+}
+
+/* 支援員ページ：全体向け + 支援員のみ、両方あり */
+.calendar-day.day-mixed-announcement,
+.staff-announcement-list-day.day-mixed-announcement {
+  background: #eef6ff;
+  border-color: #8fc2f2;
+}
+
+/* 今日・選択中は色分けより分かりやすく枠を優先 */
+.calendar-day.today,
+.calendar-list-day.today,
+.staff-announcement-list-day.today {
+  box-shadow: inset 0 0 0 2px #2f80ed;
+}
+
+/* 支援員：アナウンス管理リスト表示 */
+.staff-announcement-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.staff-announcement-list-day {
+  padding: 12px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.staff-announcement-list-day:active {
+  transform: scale(0.99);
+}
+
+.staff-announcement-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.staff-announcement-list-date {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.staff-announcement-list-summary {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: bold;
+  color: #444;
+}
+
+.staff-announcement-list-summary.muted {
+  color: #777;
+  font-weight: normal;
+}
+
+.staff-announcement-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.staff-announcement-list-card {
+  padding: 9px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.staff-announcement-list-card-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.staff-announcement-list-card-time {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.staff-announcement-list-card-body {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 600px) {
+  .staff-announcement-list-day {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .staff-announcement-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .staff-announcement-list-date {
+    font-size: 20px;
+  }
+
+  .staff-announcement-list-summary {
+    font-size: 15px;
+  }
+
+  .staff-announcement-list-card-title {
+    font-size: 18px;
+  }
+
+  .staff-announcement-list-card-time,
+  .staff-announcement-list-card-body {
+    font-size: 16px;
+  }
+}
+
+/* ==============================
+   Step 7：支援員アナウンス管理の月移動
+   既にStep 2の .calendar-month-nav が入っている場合は追加不要ですが、
+   未反映環境でも崩れないように同じ系統の指定を入れています。
+   ============================== */
+
+.calendar-month-nav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 14px;
+}
+
+.calendar-month-nav button {
+  min-height: 42px;
+  padding: 8px 10px;
+  font-size: 15px;
+}
+
+.calendar-month-label {
+  min-width: 130px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .calendar-month-nav {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .calendar-month-nav button {
+    min-height: 54px;
+    font-size: 20px;
+  }
+
+  .calendar-month-label {
+    order: -1;
+    font-size: 24px;
+    min-width: 0;
+  }
+}
+
+/* ==============================
+   Step 8: 支援員アナウンス管理の表示フィルター
+   ============================== */
+
+.staff-announcement-filter-box {
+  margin-top: 12px;
+  margin-bottom: 14px;
+}
+
+.calendar-day.filtered-empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .staff-announcement-filter-box {
+    margin-top: 14px;
+    margin-bottom: 16px;
+  }
+}
+
+/* ==============================
+   Step 9：支援員ページ 利用者別 月間予定表示
+   ============================== */
+
+.staff-user-schedule-box {
+  margin-top: 24px;
+}
+
+.staff-user-schedule-select-label {
+  margin: 8px 0 14px;
+}
+
+.user-schedule-message {
+  margin: 8px 0 12px;
+  color: #333;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.staff-user-schedule-day.schedule-coming,
+.staff-user-schedule-list-day.schedule-coming {
+  background: #eef8f0;
+  border-color: #9ed3ad;
+}
+
+.staff-user-schedule-day.schedule-home,
+.staff-user-schedule-list-day.schedule-home {
+  background: #eef6ff;
+  border-color: #8fc2f2;
+}
+
+.staff-user-schedule-day.schedule-off,
+.staff-user-schedule-list-day.schedule-off {
+  background: #fff0f0;
+  border-color: #e4a2a2;
+}
+
+.staff-user-schedule-day.schedule-empty,
+.staff-user-schedule-list-day.schedule-empty {
+  background: #f7f9fb;
+  border-color: #e1e5ea;
+  color: #777;
+}
+
+.staff-user-schedule-day.schedule-other,
+.staff-user-schedule-list-day.schedule-other {
+  background: #f4f1ff;
+  border-color: #c8bdf5;
+}
+
+.staff-user-schedule-empty-text {
+  margin-top: 8px;
+  color: #999;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.staff-user-schedule-memo-short {
+  margin-top: 5px;
+  color: #555;
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.staff-user-schedule-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.staff-user-schedule-list-day {
+  padding: 12px;
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+}
+
+.staff-user-schedule-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.staff-user-schedule-list-date {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.staff-user-schedule-list-status {
+  flex-shrink: 0;
+  min-width: 72px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.staff-user-schedule-list-status.schedule-coming {
+  color: #1f7a3f;
+}
+
+.staff-user-schedule-list-status.schedule-home {
+  color: #2f80ed;
+}
+
+.staff-user-schedule-list-status.schedule-off {
+  color: #c0392b;
+}
+
+.staff-user-schedule-list-status.schedule-empty {
+  color: #777;
+}
+
+.staff-user-schedule-list-detail {
+  margin-top: 8px;
+  line-height: 1.6;
+  color: #444;
+}
+
+.staff-user-schedule-list-memo {
+  white-space: pre-wrap;
+}
+
+@media (max-width: 600px) {
+  .user-schedule-message {
+    font-size: 17px;
+  }
+
+  .staff-user-schedule-empty-text {
+    font-size: 13px;
+  }
+
+  .staff-user-schedule-memo-short {
+    font-size: 12px;
+  }
+
+  .staff-user-schedule-list-day {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .staff-user-schedule-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .staff-user-schedule-list-date {
+    font-size: 20px;
+  }
+
+  .staff-user-schedule-list-status {
+    min-width: 86px;
+    font-size: 15px;
+  }
+
+  .staff-user-schedule-list-detail {
+    font-size: 17px;
+  }
+}
+
+/* ==============================
+   Step 10：支援員 利用者別予定を名前クリックで個別読み込み
+   ============================== */
+
+.staff-user-schedule-select-label {
+  display: block;
+  margin: 10px 0 14px;
+}
+
+.staff-user-list-label {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #555;
+}
+
+.staff-user-button-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+}
+
+.staff-user-name-button {
+  width: auto;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #fff;
+  color: #333;
+  border: 1px solid #d9e0e8;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.staff-user-name-button:hover {
+  background: #eef5ff;
+}
+
+.staff-user-name-button.active {
+  background: #2f80ed;
+  color: #fff;
+  border-color: #1f63bd;
+}
+
+.staff-user-button-empty {
+  color: #777;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .staff-user-list-label {
+    font-size: 17px;
+  }
+
+  .staff-user-button-list {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .staff-user-name-button {
+    min-height: 48px;
+    padding: 10px 14px;
+    font-size: 17px;
+  }
+
+  .staff-user-button-empty {
+    font-size: 17px;
+  }
+}
+
+/* ==============================
+   Step 11：利用者別予定フィルター + activeUsers更新ボタン
+   ============================== */
+
+.staff-user-list-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.refresh-active-users-button {
+  width: auto;
+  min-height: 34px;
+  padding: 6px 10px;
+  background: #5f6f89;
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.refresh-active-users-button:hover {
+  background: #4d5d73;
+}
+
+.refresh-active-users-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.staff-user-schedule-filter-box {
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+.staff-user-schedule-calendar .filtered-empty,
+.staff-user-schedule-list-view .filtered-empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .staff-user-list-control-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .refresh-active-users-button {
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  .staff-user-schedule-filter-box {
+    margin-top: 12px;
+    margin-bottom: 14px;
+  }
+}
+
+/* ==============================
+   Step 12：支援員による利用者予定編集
+   ============================== */
+
+.staff-user-schedule-day,
+.staff-user-schedule-list-day {
+  cursor: pointer;
+}
+
+.staff-user-schedule-day:hover,
+.staff-user-schedule-list-day:hover {
+  filter: brightness(0.98);
+}
+
+.staff-user-schedule-empty-text {
+  margin-top: 6px;
+  color: #777;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.user-schedule-edit-message {
+  margin: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: #fff8e8;
+  border: 1px solid #f1cf88;
+  color: #7a5200;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.user-schedule-edit-message:empty {
+  display: none;
+}
+
+.staff-user-schedule-edit-form h3 {
+  margin: 0 0 10px;
+}
+
+.staff-edit-choice-group {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.choice-button.clear-schedule-button.active {
+  background: #777;
+  border-color: #555;
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .staff-user-schedule-empty-text {
+    font-size: 15px;
+  }
+
+  .user-schedule-edit-message {
+    font-size: 17px;
+    padding: 12px;
+  }
+
+  .staff-edit-choice-group {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+
+
+/* ==============================
+   Step 13：運用チェック
+   ============================== */
+
+.operation-check-box {
+  background: #ffffff;
+}
+
+.operation-check-month-label {
+  margin: 10px 0 12px;
+}
+
+.operation-check-result {
+  margin-top: 14px;
+  padding: 12px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  line-height: 1.6;
+}
+
+.operation-check-loading,
+.operation-check-muted,
+.operation-check-note {
+  color: #666;
+  font-size: 14px;
+}
+
+.operation-check-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.operation-check-card {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+}
+
+.operation-check-card-label {
+  color: #666;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.operation-check-card-value {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.operation-check-card-sub {
+  margin-top: 4px;
+  color: #666;
+  font-size: 12px;
+}
+
+.operation-check-detail {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+}
+
+.operation-check-detail h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.operation-check-name-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.operation-check-name-list li {
+  margin-bottom: 4px;
+}
+
+.operation-check-note {
+  margin-top: 12px;
+}
+
+@media (max-width: 600px) {
+  .operation-check-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operation-check-card-label,
+  .operation-check-card-sub,
+  .operation-check-loading,
+  .operation-check-muted,
+  .operation-check-note {
+    font-size: 16px;
+  }
+
+  .operation-check-card-value {
+    font-size: 24px;
+  }
+
+  .operation-check-detail h3 {
+    font-size: 20px;
+  }
+}
