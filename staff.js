@@ -53,6 +53,11 @@ const userScheduleSelect = document.getElementById("userScheduleSelect");
 const userScheduleUserList = document.getElementById("userScheduleUserList");
 const userScheduleCalendarViewButton = document.getElementById("userScheduleCalendarViewButton");
 const userScheduleListViewButton = document.getElementById("userScheduleListViewButton");
+const userScheduleWeekViewButton = document.getElementById("userScheduleWeekViewButton");
+const userScheduleWeekNavigation = document.getElementById("userScheduleWeekNavigation");
+const prevUserScheduleWeekButton = document.getElementById("prevUserScheduleWeekButton");
+const nextUserScheduleWeekButton = document.getElementById("nextUserScheduleWeekButton");
+const userScheduleWeekLabel = document.getElementById("userScheduleWeekLabel");
 const userScheduleCalendarWeekHeader = document.getElementById("userScheduleCalendarWeekHeader");
 const userScheduleCalendar = document.getElementById("userScheduleCalendar");
 const userScheduleMessage = document.getElementById("userScheduleMessage");
@@ -122,6 +127,7 @@ let individualUserMonthlyScheduleCache = {};
 let currentUserScheduleViewMode = "calendar";
 let displayedUserScheduleYear = new Date().getFullYear();
 let displayedUserScheduleMonth = new Date().getMonth();
+let displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
 let currentEditingUserMonthlySchedule = null;
 let selectedUserScheduleEditDate = "";
 
@@ -180,13 +186,58 @@ function isWeekday(date) {
   return day >= 1 && day <= 5;
 }
 
+
+function getWeekStartDate(date) {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = weekStart.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + diff);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function weekIntersectsMonth(weekStartDate, year, month) {
+  for (let i = 0; i < 5; i++) {
+    const date = new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + i);
+    if (date.getFullYear() === year && date.getMonth() === month) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getDefaultWeekStartForMonth(year, month) {
+  const today = new Date();
+
+  if (today.getFullYear() === year && today.getMonth() === month) {
+    return getWeekStartDate(today);
+  }
+
+  return getWeekStartDate(new Date(year, month, 1));
+}
+
+function getWeekRangeLabel(weekStartDate) {
+  const weekEndDate = new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + 4);
+  return `${weekStartDate.getMonth() + 1}/${weekStartDate.getDate()}〜${weekEndDate.getMonth() + 1}/${weekEndDate.getDate()}`;
+}
+
+function updateUserScheduleWeekNavigationVisibility() {
+  if (userScheduleWeekNavigation) {
+    userScheduleWeekNavigation.classList.toggle("hidden", currentUserScheduleViewMode !== "week");
+  }
+
+  if (userScheduleWeekLabel) {
+    userScheduleWeekLabel.textContent = getWeekRangeLabel(displayedUserScheduleWeekStartDate);
+  }
+}
+
 function getJapaneseWeekday(date) {
   return ["日", "月", "火", "水", "木", "金", "土"][date.getDay()];
 }
 
 function getScheduleToneClass(dayData) {
   if (!dayData || !dayData.status) {
-    return "schedule-empty";
+    return "schedule-off";
   }
 
   if (dayData.status === "通所") {
@@ -217,9 +268,15 @@ function updateUserScheduleViewButtons() {
     userScheduleCalendarViewButton.classList.toggle("active", currentUserScheduleViewMode === "calendar");
   }
 
+  if (userScheduleWeekViewButton) {
+    userScheduleWeekViewButton.classList.toggle("active", currentUserScheduleViewMode === "week");
+  }
+
   if (userScheduleListViewButton) {
     userScheduleListViewButton.classList.toggle("active", currentUserScheduleViewMode === "list");
   }
+
+  updateUserScheduleWeekNavigationVisibility();
 }
 
 function isUserScheduleUseOnlyMode() {
@@ -728,27 +785,36 @@ async function loadDailySchedules() {
 
   try {
     const { year, month } = getYearAndMonthFromDateId(date);
+    const users = await loadActiveUsersForStaff();
     const monthlySchedules = await loadMonthlySchedulesForStaff(year, month);
+    const scheduleMap = {};
 
     monthlySchedules.forEach((monthlySchedule) => {
-      const dayData = monthlySchedule.days?.[date];
-
-      if (!dayData || !dayData.status) {
-        return;
+      if (monthlySchedule.userId) {
+        scheduleMap[monthlySchedule.userId] = monthlySchedule;
       }
+    });
+
+    users.forEach((user) => {
+      const monthlySchedule = scheduleMap[user.id] || null;
+      const dayData = monthlySchedule?.days?.[date] || null;
+      const status = dayData?.status || "休み";
 
       const listData = {
-        ...dayData,
-        userId: monthlySchedule.userId,
-        userName: monthlySchedule.userName,
-        userEmail: monthlySchedule.userEmail
+        ...(dayData || {}),
+        status: status,
+        timeSlot: dayData?.timeSlot || "",
+        memo: dayData?.memo || "",
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email
       };
 
-      if (dayData.status === "通所") {
+      if (status === "通所") {
         addUserToList(comingList, listData);
-      } else if (dayData.status === "在宅") {
+      } else if (status === "在宅") {
         addUserToList(homeList, listData);
-      } else if (dayData.status === "休み") {
+      } else if (status === "休み") {
         addUserToList(offList, listData);
       } else {
         addUserToList(otherList, listData);
@@ -762,8 +828,8 @@ async function loadDailySchedules() {
     const cacheKey = `${officeId}_${monthId}`;
 
     message.style.color = "green";
-    message.textContent = `${date} の予定を表示しました。`;
-    console.log(`[Read節約] 支援員日別一覧：${cacheKey} は初回のみ月間予定を取得。同じ月の日付変更は追加Readなし。`);
+    message.textContent = `${date} の予定を表示しました。未入力の利用者は休みとして表示しています。`;
+    console.log(`[Read節約] 支援員日別一覧：${cacheKey} は初回のみ月間予定を取得。利用者一覧はsystem/activeUsersキャッシュを使用。`);
 
   } catch (error) {
     console.error("支援員一覧の読み込みエラー:", error);
@@ -964,6 +1030,7 @@ async function initializeUserMonthlyScheduleSection() {
 
   const today = new Date();
   setDisplayedUserScheduleMonth(today.getFullYear(), today.getMonth());
+  displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
   updateUserScheduleMonthHeader(displayedUserScheduleYear, displayedUserScheduleMonth);
 
   try {
@@ -1063,6 +1130,8 @@ async function loadUserMonthlyScheduleView() {
 
     if (currentUserScheduleViewMode === "list") {
       renderUserMonthlyScheduleList(monthlySchedule, displayedUserScheduleYear, displayedUserScheduleMonth);
+    } else if (currentUserScheduleViewMode === "week") {
+      renderUserMonthlyScheduleWeek(monthlySchedule, displayedUserScheduleYear, displayedUserScheduleMonth);
     } else {
       renderUserMonthlyScheduleCalendar(monthlySchedule, displayedUserScheduleYear, displayedUserScheduleMonth);
     }
@@ -1079,14 +1148,8 @@ function renderUserScheduleSummary(monthlySchedule, year, month) {
     ? monthlySchedule.workDayCount
     : calculateWorkDayCountFromDays(days);
   const name = monthlySchedule?.userName || monthlySchedule?.userEmail || "利用者";
-  const hasAnySchedule = Object.keys(days).length > 0;
-
   if (userScheduleMessage) {
-    if (monthlySchedule?._missingDoc || !hasAnySchedule) {
-      userScheduleMessage.textContent = `${name}さんの${year}年${month + 1}月は予定未入力です。勤務日数：${workDayCount}日`;
-    } else {
-      userScheduleMessage.textContent = `${name}さんの${year}年${month + 1}月の勤務日数：${workDayCount}日`;
-    }
+    userScheduleMessage.textContent = `${name}さんの${year}年${month + 1}月の勤務日数：${workDayCount}日`;
   }
 }
 
@@ -1150,30 +1213,24 @@ function renderUserMonthlyScheduleCalendar(monthlySchedule, year, month) {
     dateEl.textContent = `${day}日`;
     dayCell.appendChild(dateEl);
 
-    if (dayData?.status) {
-      const statusEl = document.createElement("div");
-      statusEl.className = `calendar-status ${dayData.status === "通所" ? "status-coming" : dayData.status === "在宅" ? "status-home" : dayData.status === "休み" ? "status-off" : ""}`.trim();
-      statusEl.textContent = dayData.status;
-      dayCell.appendChild(statusEl);
+    const displayStatus = dayData?.status || "休み";
+    const statusEl = document.createElement("div");
+    statusEl.className = `calendar-status ${displayStatus === "通所" ? "status-coming" : displayStatus === "在宅" ? "status-home" : displayStatus === "休み" ? "status-off" : ""}`.trim();
+    statusEl.textContent = displayStatus;
+    dayCell.appendChild(statusEl);
 
-      if (dayData.timeSlot) {
-        const timeSlotEl = document.createElement("div");
-        timeSlotEl.className = "calendar-time-slot";
-        timeSlotEl.textContent = dayData.timeSlot;
-        dayCell.appendChild(timeSlotEl);
-      }
+    if (dayData?.timeSlot) {
+      const timeSlotEl = document.createElement("div");
+      timeSlotEl.className = "calendar-time-slot";
+      timeSlotEl.textContent = dayData.timeSlot;
+      dayCell.appendChild(timeSlotEl);
+    }
 
-      if (dayData.memo) {
-        const memoEl = document.createElement("div");
-        memoEl.className = "staff-user-schedule-memo-short";
-        memoEl.textContent = shortenText(dayData.memo, 12);
-        dayCell.appendChild(memoEl);
-      }
-    } else {
-      const emptyText = document.createElement("div");
-      emptyText.className = "staff-user-schedule-empty-text";
-      emptyText.textContent = "予定未入力";
-      dayCell.appendChild(emptyText);
+    if (dayData?.memo) {
+      const memoEl = document.createElement("div");
+      memoEl.className = "staff-user-schedule-memo-short";
+      memoEl.textContent = shortenText(dayData.memo, 12);
+      dayCell.appendChild(memoEl);
     }
 
     dayCell.addEventListener("click", () => {
@@ -1181,6 +1238,97 @@ function renderUserMonthlyScheduleCalendar(monthlySchedule, year, month) {
     });
 
     userScheduleCalendar.appendChild(dayCell);
+  }
+}
+
+function renderUserMonthlyScheduleWeek(monthlySchedule, year, month) {
+  userScheduleCalendar.innerHTML = "";
+  userScheduleCalendar.classList.remove("staff-user-schedule-list-view");
+  userScheduleCalendar.classList.add("weekday-calendar");
+
+  if (userScheduleCalendarWeekHeader) {
+    userScheduleCalendarWeekHeader.classList.remove("hidden");
+  }
+
+  if (!weekIntersectsMonth(displayedUserScheduleWeekStartDate, year, month)) {
+    displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(year, month);
+  }
+
+  renderUserScheduleSummary(monthlySchedule, year, month);
+  updateUserScheduleWeekNavigationVisibility();
+
+  const today = new Date();
+  let visibleDayCount = 0;
+
+  for (let i = 0; i < 5; i++) {
+    const targetDateObj = new Date(displayedUserScheduleWeekStartDate.getFullYear(), displayedUserScheduleWeekStartDate.getMonth(), displayedUserScheduleWeekStartDate.getDate() + i);
+
+    if (targetDateObj.getFullYear() !== year || targetDateObj.getMonth() !== month) {
+      const emptyCell = document.createElement("div");
+      emptyCell.className = "calendar-day empty outside-month";
+      userScheduleCalendar.appendChild(emptyCell);
+      continue;
+    }
+
+    const dateId = formatDateId(targetDateObj);
+    const dayData = monthlySchedule?.days?.[dateId] || null;
+
+    if (isUserScheduleUseOnlyMode() && !isUseDay(dayData)) {
+      const emptyCell = document.createElement("div");
+      emptyCell.className = "calendar-day empty filtered-empty";
+      userScheduleCalendar.appendChild(emptyCell);
+      continue;
+    }
+
+    const toneClass = getScheduleToneClass(dayData);
+    const displayStatus = dayData?.status || "休み";
+    const dayCell = document.createElement("div");
+    dayCell.className = `calendar-day staff-user-schedule-day ${toneClass}`.trim();
+    dayCell.dataset.dateId = dateId;
+
+    if (dateId === formatDateId(today)) {
+      dayCell.classList.add("today");
+    }
+
+    const dateEl = document.createElement("div");
+    dateEl.className = "calendar-date";
+    dateEl.textContent = `${targetDateObj.getMonth() + 1}/${targetDateObj.getDate()}（${getJapaneseWeekday(targetDateObj)}）`;
+    dayCell.appendChild(dateEl);
+
+    const statusEl = document.createElement("div");
+    statusEl.className = `calendar-status ${displayStatus === "通所" ? "status-coming" : displayStatus === "在宅" ? "status-home" : displayStatus === "休み" ? "status-off" : ""}`.trim();
+    statusEl.textContent = displayStatus;
+    dayCell.appendChild(statusEl);
+
+    if (dayData?.timeSlot) {
+      const timeSlotEl = document.createElement("div");
+      timeSlotEl.className = "calendar-time-slot";
+      timeSlotEl.textContent = dayData.timeSlot;
+      dayCell.appendChild(timeSlotEl);
+    }
+
+    if (dayData?.memo) {
+      const memoEl = document.createElement("div");
+      memoEl.className = "staff-user-schedule-memo-short";
+      memoEl.textContent = shortenText(dayData.memo, 12);
+      dayCell.appendChild(memoEl);
+    }
+
+    dayCell.addEventListener("click", () => {
+      openUserScheduleEditModal(dateId);
+    });
+
+    userScheduleCalendar.appendChild(dayCell);
+    visibleDayCount++;
+  }
+
+  if (visibleDayCount === 0) {
+    const emptyMessage = document.createElement("div");
+    emptyMessage.className = "calendar-filter-empty";
+    emptyMessage.textContent = isUserScheduleUseOnlyMode()
+      ? "この週の利用日はありません。"
+      : "表示できる予定はありません。";
+    userScheduleCalendar.appendChild(emptyMessage);
   }
 }
 
@@ -1233,7 +1381,7 @@ function renderUserMonthlyScheduleList(monthlySchedule, year, month) {
 
     const statusText = document.createElement("div");
     statusText.className = `staff-user-schedule-list-status ${toneClass}`.trim();
-    statusText.textContent = dayData?.status || "未入力";
+    statusText.textContent = dayData?.status || "休み";
     header.appendChild(statusText);
 
     dayItem.appendChild(header);
@@ -1418,7 +1566,7 @@ async function runOperationCheck() {
       }
 
       if (unfilledCount > 0) {
-        unfilledUsers.push(`${userLabel}（未入力 ${unfilledCount}/${weekdayCount}日）`);
+        unfilledUsers.push(`${userLabel}（休み扱い ${unfilledCount}/${weekdayCount}日）`);
       }
     }
 
@@ -1463,8 +1611,8 @@ async function runOperationCheck() {
       </div>
 
       <div class="operation-check-detail">
-        <h3>平日に未入力がある利用者</h3>
-        ${renderNameList(unfilledUsers, "平日の未入力はありません。")}
+        <h3>平日に休み扱いの日がある利用者</h3>
+        ${renderNameList(unfilledUsers, "休み扱いの日はありません。")}
       </div>
 
       <div class="operation-check-note">
@@ -2036,7 +2184,7 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    staffInfo.textContent = `ログイン中：${userData.name}`;
+    staffInfo.textContent = `支援員｜${userData.name}`;
 
     targetDate.value = getTodayDateId();
 
@@ -2070,10 +2218,49 @@ if (userScheduleListViewButton) {
     await loadUserMonthlyScheduleView();
   });
 }
+if (userScheduleWeekViewButton) {
+  userScheduleWeekViewButton.addEventListener("click", async () => {
+    currentUserScheduleViewMode = "week";
+    if (!weekIntersectsMonth(displayedUserScheduleWeekStartDate, displayedUserScheduleYear, displayedUserScheduleMonth)) {
+      displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
+    }
+    await loadUserMonthlyScheduleView();
+  });
+}
+
+async function changeDisplayedUserScheduleWeek(weekOffset) {
+  const nextWeekStart = new Date(
+    displayedUserScheduleWeekStartDate.getFullYear(),
+    displayedUserScheduleWeekStartDate.getMonth(),
+    displayedUserScheduleWeekStartDate.getDate() + weekOffset * 7
+  );
+
+  // Read節約のため、週移動は現在読み込んでいる月の範囲内だけで行う。
+  if (!weekIntersectsMonth(nextWeekStart, displayedUserScheduleYear, displayedUserScheduleMonth)) {
+    return;
+  }
+
+  displayedUserScheduleWeekStartDate = nextWeekStart;
+  await loadUserMonthlyScheduleView();
+}
+
+if (prevUserScheduleWeekButton) {
+  prevUserScheduleWeekButton.addEventListener("click", async () => {
+    await changeDisplayedUserScheduleWeek(-1);
+  });
+}
+
+if (nextUserScheduleWeekButton) {
+  nextUserScheduleWeekButton.addEventListener("click", async () => {
+    await changeDisplayedUserScheduleWeek(1);
+  });
+}
+
 
 if (prevUserScheduleMonthButton) {
   prevUserScheduleMonthButton.addEventListener("click", async () => {
     setDisplayedUserScheduleMonth(displayedUserScheduleYear, displayedUserScheduleMonth - 1);
+    displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
     await loadUserMonthlyScheduleView();
   });
 }
@@ -2081,6 +2268,7 @@ if (prevUserScheduleMonthButton) {
 if (nextUserScheduleMonthButton) {
   nextUserScheduleMonthButton.addEventListener("click", async () => {
     setDisplayedUserScheduleMonth(displayedUserScheduleYear, displayedUserScheduleMonth + 1);
+    displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
     await loadUserMonthlyScheduleView();
   });
 }

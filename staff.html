@@ -4,12 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <main class="login-container user-page">
-    <h1>支援員ページ</h1>
-    <p id="staffInfo">ログイン確認中...</p>
+    <header class="app-page-header compact-page-header">
+      <h1>支援員ページ</h1>
+      <p id="staffInfo">ログイン確認中...</p>
+    </header>
 
     <section class="login-box">
       <h2>日別予定一覧</h2>
@@ -142,9 +144,16 @@
         </div>
       </div>
 
-      <div class="calendar-view-toggle">
-        <button id="userScheduleCalendarViewButton" type="button" class="view-toggle-button active">カレンダー表示</button>
+      <div class="calendar-view-toggle calendar-view-toggle-three">
+        <button id="userScheduleCalendarViewButton" type="button" class="view-toggle-button active">月間表示</button>
+        <button id="userScheduleWeekViewButton" type="button" class="view-toggle-button">週間表示</button>
         <button id="userScheduleListViewButton" type="button" class="view-toggle-button">リスト表示</button>
+      </div>
+
+      <div id="userScheduleWeekNavigation" class="calendar-week-nav hidden">
+        <button id="prevUserScheduleWeekButton" type="button" class="sub-button">＜ 前週</button>
+        <div id="userScheduleWeekLabel" class="calendar-week-label">今週</div>
+        <button id="nextUserScheduleWeekButton" type="button" class="sub-button">次週 ＞</button>
       </div>
 
       <div class="calendar-filter-box staff-user-schedule-filter-box">
@@ -351,6 +360,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=14"></script>
+  <script type="module" src="staff.js?v=15"></script>
 </body>
 </html>

@@ -44,6 +44,11 @@ const nextMonthButton = document.getElementById("nextMonthButton");
 const calendarWeekHeader = document.getElementById("calendarWeekHeader");
 const calendarViewButton = document.getElementById("calendarViewButton");
 const listViewButton = document.getElementById("listViewButton");
+const weekViewButton = document.getElementById("weekViewButton");
+const weekNavigation = document.getElementById("weekNavigation");
+const prevWeekButton = document.getElementById("prevWeekButton");
+const nextWeekButton = document.getElementById("nextWeekButton");
+const currentWeekLabel = document.getElementById("currentWeekLabel");
 const showAllDaysCheckbox = document.getElementById("showAllDaysCheckbox");
 const showUseDaysCheckbox = document.getElementById("showUseDaysCheckbox");
 const showAnnouncementDaysCheckbox = document.getElementById("showAnnouncementDaysCheckbox");
@@ -71,6 +76,7 @@ let currentMonth = initialDate.getMonth();
 // Step 3：表示モード。
 // calendar = 7列カレンダー / list = 1日ごとの縦リスト
 let currentViewMode = "calendar";
+let currentWeekStartDate = getDefaultWeekStartForMonth(currentYear, currentMonth);
 
 // Step 2：一度読んだ月はここに保存する。
 // 同じ月に戻ったときは Firestore を再読み込みしない。
@@ -86,6 +92,51 @@ function formatDateId(date) {
 
 function formatMonthId(year, month) {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
+}
+
+
+function getWeekStartDate(date) {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = weekStart.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + diff);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function weekIntersectsMonth(weekStartDate, year, month) {
+  for (let i = 0; i < 5; i++) {
+    const date = new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + i);
+    if (date.getFullYear() === year && date.getMonth() === month) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getDefaultWeekStartForMonth(year, month) {
+  const today = new Date();
+
+  if (today.getFullYear() === year && today.getMonth() === month) {
+    return getWeekStartDate(today);
+  }
+
+  return getWeekStartDate(new Date(year, month, 1));
+}
+
+function getWeekRangeLabel(weekStartDate) {
+  const weekEndDate = new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + 4);
+  return `${weekStartDate.getMonth() + 1}/${weekStartDate.getDate()}〜${weekEndDate.getMonth() + 1}/${weekEndDate.getDate()}`;
+}
+
+function updateWeekNavigationVisibility() {
+  if (weekNavigation) {
+    weekNavigation.classList.toggle("hidden", currentViewMode !== "week");
+  }
+
+  if (currentWeekLabel) {
+    currentWeekLabel.textContent = getWeekRangeLabel(currentWeekStartDate);
+  }
 }
 
 function getMonthIdFromDateId(dateId) {
@@ -204,9 +255,15 @@ function updateViewModeButtons() {
     calendarViewButton.classList.toggle("active", currentViewMode === "calendar");
   }
 
+  if (weekViewButton) {
+    weekViewButton.classList.toggle("active", currentViewMode === "week");
+  }
+
   if (listViewButton) {
     listViewButton.classList.toggle("active", currentViewMode === "list");
   }
+
+  updateWeekNavigationVisibility();
 }
 
 function renderCurrentCalendarView(year, month) {
@@ -214,6 +271,8 @@ function renderCurrentCalendarView(year, month) {
 
   if (currentViewMode === "list") {
     renderMonthlyCalendarList(year, month);
+  } else if (currentViewMode === "week") {
+    renderWeeklyCalendarGrid(year, month);
   } else {
     renderMonthlyCalendarGrid(year, month);
   }
@@ -387,23 +446,9 @@ function renderTodaySchedule() {
   }
 
   const todayId = formatDateId(new Date());
-  const data = getCachedScheduleForDate(todayId);
-
-  if (!data) {
-    todayScheduleBox.classList.add("hidden");
-    todayScheduleText.innerHTML = "";
-    return;
-  }
-
-  const status = data.status || "";
+  const data = getDisplayScheduleData(todayId);
+  const status = data.status || "休み";
   const timeSlot = data.timeSlot || "";
-
-  if (!status) {
-    todayScheduleBox.classList.add("hidden");
-    todayScheduleText.innerHTML = "";
-    return;
-  }
-
   const statusClass = getTodayScheduleClass(status);
 
   if (timeSlot) {
@@ -619,6 +664,21 @@ function getWeekdayColumnIndex(date) {
   return date.getDay() - 1;
 }
 
+function getDisplayScheduleData(dateId) {
+  const scheduleData = schedulesByDate[dateId] || null;
+
+  if (scheduleData && scheduleData.status) {
+    return scheduleData;
+  }
+
+  return {
+    status: "休み",
+    timeSlot: "",
+    memo: "",
+    _implicitOff: true
+  };
+}
+
 function isUseDaySchedule(scheduleData) {
   const status = scheduleData?.status || "";
   return status === "通所" || status === "在宅";
@@ -650,9 +710,10 @@ function shouldShowDate(dateId, date) {
 }
 
 function getUserDayToneClass(dateId) {
-  const scheduleData = schedulesByDate[dateId] || null;
+  const actualScheduleData = schedulesByDate[dateId] || null;
+  const displayScheduleData = getDisplayScheduleData(dateId);
   const announcements = announcementsByDate[dateId] || [];
-  const isUseDay = isUseDaySchedule(scheduleData);
+  const isUseDay = isUseDaySchedule(actualScheduleData);
   const hasAnnouncement = announcements.length > 0;
 
   if (isUseDay && hasAnnouncement) {
@@ -665,6 +726,10 @@ function getUserDayToneClass(dateId) {
 
   if (hasAnnouncement) {
     return "day-announcement-only";
+  }
+
+  if (displayScheduleData.status === "休み") {
+    return "day-off";
   }
 
   return "";
@@ -701,6 +766,7 @@ function refreshCalendarByFilter(changedCheckbox) {
 function renderMonthlyCalendarGrid(year, month) {
   monthlyCalendar.innerHTML = "";
   monthlyCalendar.classList.remove("monthly-calendar-list");
+  monthlyCalendar.classList.remove("weekly-calendar");
 
   if (calendarWeekHeader) {
     calendarWeekHeader.classList.remove("hidden");
@@ -752,17 +818,10 @@ function renderMonthlyCalendarGrid(year, month) {
 
     hasRenderedDay = true;
 
-    const scheduleData = schedulesByDate[dateId] || null;
-
-    let status = "";
-    let timeSlot = "";
-    let memo = "";
-
-    if (scheduleData) {
-      status = scheduleData.status || "";
-      timeSlot = scheduleData.timeSlot || "";
-      memo = scheduleData.memo || "";
-    }
+    const scheduleData = getDisplayScheduleData(dateId);
+    const status = scheduleData.status || "休み";
+    const timeSlot = scheduleData.timeSlot || "";
+    const memo = scheduleData.memo || "";
 
     const dayCell = document.createElement("div");
     dayCell.className = `calendar-day ${getUserDayToneClass(dateId)}`.trim();
@@ -839,8 +898,125 @@ function renderMonthlyCalendarGrid(year, month) {
   console.log(`[Read節約] ${monthId} をカレンダー表示しました。キャッシュ済み月:`, Object.keys(monthlyScheduleCache));
 }
 
+function renderWeeklyCalendarGrid(year, month) {
+  monthlyCalendar.innerHTML = "";
+  monthlyCalendar.classList.remove("monthly-calendar-list");
+  monthlyCalendar.classList.add("weekly-calendar");
+
+  if (calendarWeekHeader) {
+    calendarWeekHeader.classList.remove("hidden");
+  }
+
+  if (!weekIntersectsMonth(currentWeekStartDate, year, month)) {
+    currentWeekStartDate = getDefaultWeekStartForMonth(year, month);
+  }
+
+  const today = new Date();
+  const monthId = formatMonthId(year, month);
+  const workDayCount = calculateWorkDayCount(year, month);
+  let hasRenderedDay = false;
+
+  for (let i = 0; i < 5; i++) {
+    const targetDate = new Date(currentWeekStartDate.getFullYear(), currentWeekStartDate.getMonth(), currentWeekStartDate.getDate() + i);
+    const dateId = formatDateId(targetDate);
+
+    if (targetDate.getFullYear() !== year || targetDate.getMonth() !== month) {
+      const emptyCell = document.createElement("div");
+      emptyCell.className = "calendar-day empty outside-month";
+      monthlyCalendar.appendChild(emptyCell);
+      continue;
+    }
+
+    if (!shouldShowDate(dateId, targetDate)) {
+      const emptyCell = document.createElement("div");
+      emptyCell.className = "calendar-day empty filtered-empty";
+      monthlyCalendar.appendChild(emptyCell);
+      continue;
+    }
+
+    hasRenderedDay = true;
+
+    const scheduleData = getDisplayScheduleData(dateId);
+    const status = scheduleData.status || "休み";
+    const timeSlot = scheduleData.timeSlot || "";
+    const memo = scheduleData.memo || "";
+    const dayCell = document.createElement("div");
+    dayCell.className = `calendar-day ${getUserDayToneClass(dateId)}`.trim();
+    dayCell.dataset.dateId = dateId;
+
+    if (dateId === formatDateId(today)) {
+      dayCell.classList.add("today");
+    }
+
+    if (dateId === selectedDateId) {
+      dayCell.classList.add("selected-day");
+    }
+
+    const dateEl = document.createElement("div");
+    dateEl.className = "calendar-date";
+    dateEl.textContent = `${targetDate.getMonth() + 1}/${targetDate.getDate()}（${getJapaneseWeekday(targetDate)}）`;
+
+    const statusEl = document.createElement("div");
+    statusEl.className = `calendar-status ${getStatusClass(status)}`;
+    statusEl.textContent = status;
+
+    dayCell.appendChild(dateEl);
+    dayCell.appendChild(statusEl);
+
+    if (timeSlot) {
+      const timeSlotEl = document.createElement("div");
+      timeSlotEl.className = "calendar-time-slot";
+      timeSlotEl.textContent = timeSlot;
+      dayCell.appendChild(timeSlotEl);
+    }
+
+    if (memo) {
+      const memoDot = document.createElement("span");
+      memoDot.className = "memo-dot";
+      memoDot.title = memo;
+      dayCell.appendChild(memoDot);
+    }
+
+    const dayAnnouncements = announcementsByDate[dateId] || [];
+
+    if (dayAnnouncements.length > 0) {
+      const announcementArea = document.createElement("div");
+      announcementArea.className = "calendar-announcement-area";
+
+      dayAnnouncements.forEach((announcement) => {
+        const item = document.createElement("div");
+        item.className = `calendar-announcement-title category-${announcement.category || "notice"}`;
+        const icon = getAnnouncementIcon(announcement.category || "notice");
+        const shortTitle = shortenText(announcement.title || "お知らせ", 8);
+        item.textContent = `${icon} ${shortTitle}`;
+        announcementArea.appendChild(item);
+      });
+
+      dayCell.appendChild(announcementArea);
+    }
+
+    dayCell.addEventListener("click", () => {
+      openScheduleModal(dateId);
+    });
+
+    monthlyCalendar.appendChild(dayCell);
+  }
+
+  if (!hasRenderedDay) {
+    const emptyMessage = document.createElement("div");
+    emptyMessage.className = "calendar-filter-empty";
+    emptyMessage.textContent = "表示条件に合う日がありません。";
+    monthlyCalendar.appendChild(emptyMessage);
+  }
+
+  updateCalendarTitleAndMonthLabel(year, month, workDayCount);
+  updateWeekNavigationVisibility();
+  console.log(`[Read節約] ${monthId} を週間表示しました。月間データのキャッシュを使うため追加Readはありません。`);
+}
+
 function renderMonthlyCalendarList(year, month) {
   monthlyCalendar.innerHTML = "";
+  monthlyCalendar.classList.remove("weekly-calendar");
   monthlyCalendar.classList.add("monthly-calendar-list");
 
   if (calendarWeekHeader) {
@@ -863,12 +1039,12 @@ function renderMonthlyCalendarList(year, month) {
 
     hasRenderedDay = true;
 
-    const scheduleData = schedulesByDate[dateId] || null;
+    const scheduleData = getDisplayScheduleData(dateId);
     const announcements = announcementsByDate[dateId] || [];
 
-    const status = scheduleData?.status || "";
-    const timeSlot = scheduleData?.timeSlot || "";
-    const memo = scheduleData?.memo || "";
+    const status = scheduleData.status || "休み";
+    const timeSlot = scheduleData.timeSlot || "";
+    const memo = scheduleData.memo || "";
 
     const dayItem = document.createElement("div");
     dayItem.className = `calendar-list-day ${getUserDayToneClass(dateId)}`.trim();
@@ -891,35 +1067,32 @@ function renderMonthlyCalendarList(year, month) {
 
     const statusBadge = document.createElement("div");
     statusBadge.className = `calendar-list-status ${getStatusClass(status)}`;
-    statusBadge.textContent = status || "未入力";
+    statusBadge.textContent = status;
 
     header.appendChild(dateText);
     header.appendChild(statusBadge);
     dayItem.appendChild(header);
 
-    const scheduleArea = document.createElement("div");
-    scheduleArea.className = "calendar-list-schedule";
+    if (status !== "休み" || timeSlot || memo) {
+      const scheduleArea = document.createElement("div");
+      scheduleArea.className = "calendar-list-schedule";
 
-    if (status) {
-      const scheduleMain = document.createElement("div");
-      scheduleMain.className = "calendar-list-schedule-main";
-      scheduleMain.textContent = timeSlot ? `予定：${status}　${timeSlot}` : `予定：${status}`;
-      scheduleArea.appendChild(scheduleMain);
-    } else {
-      const emptySchedule = document.createElement("div");
-      emptySchedule.className = "calendar-list-muted";
-      emptySchedule.textContent = "予定：未入力";
-      scheduleArea.appendChild(emptySchedule);
+      if (status !== "休み") {
+        const scheduleMain = document.createElement("div");
+        scheduleMain.className = "calendar-list-schedule-main";
+        scheduleMain.textContent = timeSlot ? `予定：${status}　${timeSlot}` : `予定：${status}`;
+        scheduleArea.appendChild(scheduleMain);
+      }
+
+      if (memo) {
+        const memoText = document.createElement("div");
+        memoText.className = "calendar-list-memo";
+        memoText.textContent = `メモ：${memo}`;
+        scheduleArea.appendChild(memoText);
+      }
+
+      dayItem.appendChild(scheduleArea);
     }
-
-    if (memo) {
-      const memoText = document.createElement("div");
-      memoText.className = "calendar-list-memo";
-      memoText.textContent = `メモ：${memo}`;
-      scheduleArea.appendChild(memoText);
-    }
-
-    dayItem.appendChild(scheduleArea);
 
     // アナウンスがある日だけ、アナウンス欄を表示する。
     // 何もない日は「アナウンス」「なし」を出さず、その分コンパクトにする。
@@ -1019,6 +1192,7 @@ async function changeDisplayedMonth(monthOffset) {
   const nextDate = new Date(currentYear, currentMonth + monthOffset, 1);
   currentYear = nextDate.getFullYear();
   currentMonth = nextDate.getMonth();
+  currentWeekStartDate = getDefaultWeekStartForMonth(currentYear, currentMonth);
   selectedDateId = null;
 
   if (prevMonthButton) {
@@ -1071,6 +1245,44 @@ if (listViewButton) {
     renderCurrentCalendarView(currentYear, currentMonth);
   });
 }
+if (weekViewButton) {
+  weekViewButton.addEventListener("click", () => {
+    currentViewMode = "week";
+    selectedDateId = null;
+    message.textContent = "";
+    if (!weekIntersectsMonth(currentWeekStartDate, currentYear, currentMonth)) {
+      currentWeekStartDate = getDefaultWeekStartForMonth(currentYear, currentMonth);
+    }
+    renderCurrentCalendarView(currentYear, currentMonth);
+  });
+}
+
+async function changeDisplayedWeek(weekOffset) {
+  const nextWeekStart = new Date(currentWeekStartDate.getFullYear(), currentWeekStartDate.getMonth(), currentWeekStartDate.getDate() + weekOffset * 7);
+
+  // Read節約のため、週移動は現在読み込んでいる月の範囲内だけで行う。
+  if (!weekIntersectsMonth(nextWeekStart, currentYear, currentMonth)) {
+    return;
+  }
+
+  currentWeekStartDate = nextWeekStart;
+  selectedDateId = null;
+  message.textContent = "";
+  renderCurrentCalendarView(currentYear, currentMonth);
+}
+
+if (prevWeekButton) {
+  prevWeekButton.addEventListener("click", () => {
+    changeDisplayedWeek(-1);
+  });
+}
+
+if (nextWeekButton) {
+  nextWeekButton.addEventListener("click", () => {
+    changeDisplayedWeek(1);
+  });
+}
+
 
 if (showAllDaysCheckbox) {
   showAllDaysCheckbox.addEventListener("change", () => {
@@ -1118,7 +1330,7 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    userInfo.textContent = `ログイン中：${userData.name}`;
+    userInfo.textContent = `${userData.name}さん`;
 
     await loadMonthlyCalendar();
 
