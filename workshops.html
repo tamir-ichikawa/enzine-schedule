@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教材・リンク集 | Enzine Schedule</title>
+  <link rel="stylesheet" href="style.css?v=9">
+</head>
+<body>
+  <main class="login-container user-page workshop-page">
+    <header class="app-page-header compact-page-header">
+      <h1>教材・リンク集</h1>
+      <p id="workshopUserInfo">ログイン確認中...</p>
+    </header>
+
+    <section class="monthly-calendar-box workshop-resource-box">
+      <h2>ワークショップ別リンク</h2>
+      <p class="calendar-guide">
+        ワークショップごとの教材・提出先・開催予定・提出期限メモを確認できます。
+      </p>
+
+      <div id="workshopResourceList" class="workshop-resource-list">
+        読み込み中...
+      </div>
+    </section>
+
+    <button id="backToScheduleButton" type="button" class="sub-button logout-bottom">予定ページへ戻る</button>
+    <p id="workshopResourceMessage"></p>
+  </main>
+
+  <script type="module" src="workshops.js?v=1"></script>
+</body>
+</html>

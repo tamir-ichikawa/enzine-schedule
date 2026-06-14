@@ -1250,9 +1250,12 @@ if (weekViewButton) {
     currentViewMode = "week";
     selectedDateId = null;
     message.textContent = "";
-    if (!weekIntersectsMonth(currentWeekStartDate, currentYear, currentMonth)) {
-      currentWeekStartDate = getDefaultWeekStartForMonth(currentYear, currentMonth);
-    }
+
+    // 週間表示へ切り替えた最初の表示は、必ずその月の基準週に戻す。
+    // 今月なら「今週」、別の月なら「その月の最初の平日を含む週」。
+    // Firestoreは読み直さず、すでに読み込んだ月間データを表示だけ切り替える。
+    currentWeekStartDate = getDefaultWeekStartForMonth(currentYear, currentMonth);
+
     renderCurrentCalendarView(currentYear, currentMonth);
   });
 }

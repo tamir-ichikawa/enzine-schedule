@@ -2198,3 +2198,217 @@ body.modal-open {
     min-height: 104px;
   }
 }
+
+
+/* ==============================
+   Step 15：教材・リンク集 / ワークショップページ
+   ============================== */
+
+.quick-link-box {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #dfe7f0;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.resource-link-guide {
+  margin: 8px 0 12px;
+}
+
+.resource-page-button {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #2f80ed;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.resource-page-button:active {
+  transform: scale(0.99);
+}
+
+.workshop-resource-admin-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.workshop-resource-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workshop-admin-card,
+.workshop-resource-form-box,
+.workshop-resource-card {
+  padding: 14px;
+  border: 1px solid #dfe7f0;
+  border-radius: 14px;
+  background: #f7f9fb;
+}
+
+.workshop-admin-card.inactive-workshop {
+  opacity: 0.62;
+  background: #f2f2f2;
+}
+
+.workshop-admin-card-title,
+.workshop-resource-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.workshop-admin-card-meta {
+  margin-bottom: 6px;
+  color: #666;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.workshop-admin-card-body,
+.workshop-resource-description,
+.workshop-resource-schedule {
+  color: #444;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.workshop-resource-form-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+}
+
+.workshop-active-inline-label {
+  width: fit-content;
+}
+
+.workshop-page .workshop-resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.workshop-resource-card {
+  background: #fff;
+}
+
+.workshop-resource-schedule {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #eef7ff;
+  font-weight: bold;
+}
+
+.workshop-resource-section {
+  margin-top: 12px;
+}
+
+.workshop-resource-section h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.workshop-resource-link-item,
+.workshop-deadline-item {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #e3e8ef;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.workshop-resource-link-item a {
+  color: #1c6dd0;
+  font-weight: bold;
+  word-break: break-all;
+}
+
+.workshop-resource-note {
+  margin-top: 4px;
+  color: #555;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.workshop-deadline-section {
+  padding-top: 10px;
+  border-top: 1px dashed #d8dee6;
+}
+
+.workshop-deadline-title {
+  font-weight: bold;
+}
+
+.workshop-deadline-date {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff0f0;
+  color: #b63232;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .quick-link-box,
+  .workshop-admin-card,
+  .workshop-resource-form-box,
+  .workshop-resource-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .resource-page-button {
+    min-height: 56px;
+    font-size: 20px;
+    border-radius: 14px;
+  }
+
+  .workshop-admin-card-title,
+  .workshop-resource-title {
+    font-size: 22px;
+  }
+
+  .workshop-admin-card-meta,
+  .workshop-admin-card-body,
+  .workshop-resource-description,
+  .workshop-resource-schedule,
+  .workshop-resource-note,
+  .workshop-deadline-date {
+    font-size: 17px;
+  }
+
+  .workshop-resource-section h4 {
+    font-size: 19px;
+  }
+}
+
+/* ==============================
+   Step 15 修正：教材・リンク管理エリアの hidden が効かない問題
+   ============================== */
+
+.workshop-resource-admin-area.hidden {
+  display: none !important;
+}
+
+.workshop-resource-admin-area:not(.hidden) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 12px;
+}

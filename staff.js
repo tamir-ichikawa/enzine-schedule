@@ -64,6 +64,24 @@ const userScheduleMessage = document.getElementById("userScheduleMessage");
 const showOnlyUseDaysUserScheduleCheckbox = document.getElementById("showOnlyUseDaysUserScheduleCheckbox");
 const refreshActiveUsersButton = document.getElementById("refreshActiveUsersButton");
 
+
+// 教材・リンク集管理
+const WORKSHOP_RESOURCES_DOC_PREFIX = "workshopResources_";
+const loadWorkshopResourcesButton = document.getElementById("loadWorkshopResourcesButton");
+const workshopResourceAdminArea = document.getElementById("workshopResourceAdminArea");
+const workshopResourceList = document.getElementById("workshopResourceList");
+const workshopResourceMessage = document.getElementById("workshopResourceMessage");
+const workshopResourceFormTitle = document.getElementById("workshopResourceFormTitle");
+const editingWorkshopResourceId = document.getElementById("editingWorkshopResourceId");
+const workshopResourceActive = document.getElementById("workshopResourceActive");
+const workshopResourceTitle = document.getElementById("workshopResourceTitle");
+const workshopResourceScheduleText = document.getElementById("workshopResourceScheduleText");
+const workshopResourceDescription = document.getElementById("workshopResourceDescription");
+const workshopResourceLinksText = document.getElementById("workshopResourceLinksText");
+const workshopResourceDeadlinesText = document.getElementById("workshopResourceDeadlinesText");
+const saveWorkshopResourceButton = document.getElementById("saveWorkshopResourceButton");
+const resetWorkshopResourceFormButton = document.getElementById("resetWorkshopResourceFormButton");
+
 // 運用チェック
 const operationCheckMonth = document.getElementById("operationCheckMonth");
 const runOperationCheckButton = document.getElementById("runOperationCheckButton");
@@ -108,6 +126,8 @@ let selectedAnnouncementDate = null;
 let announcementsByDate = {};
 let currentEditingAnnouncementId = "";
 let currentUser = null;
+let workshopResourcesLoaded = false;
+let workshopResourcesCache = { workshops: [] };
 
 // 支援員ページ用キャッシュ
 // 日別一覧：月ごとの全利用者 monthlySchedules を1回だけ取得し、同じ月の日付選択では再利用する。
@@ -995,6 +1015,12 @@ function renderUserScheduleUserList(users) {
     button.addEventListener("click", async () => {
       selectedUserScheduleId = user.id;
       selectedUserScheduleData = user;
+
+      // 週間表示中に別の利用者を選んだ場合も、最初は今週から表示する。
+      if (currentUserScheduleViewMode === "week") {
+        displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
+      }
+
       renderUserScheduleUserList(users);
       await loadUserMonthlyScheduleView();
     });
@@ -2156,6 +2182,284 @@ async function loadAnnouncementCalendar() {
   }
 }
 
+// ==============================
+// 支援員：教材・リンク集管理
+// system/workshopResources_{officeId} を、開いた時だけ1 readする。
+// ==============================
+function getWorkshopResourcesDocId() {
+  return `${WORKSHOP_RESOURCES_DOC_PREFIX}${getCurrentOfficeId()}`;
+}
+
+function normalizeWorkshopId(text) {
+  const base = (text || "workshop")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s　]+/g, "_")
+    .replace(/[^a-z0-9_\-]/g, "");
+
+  return `${base || "workshop"}_${Date.now().toString(36)}`;
+}
+
+function generateSmallId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function parseWorkshopLinks(text) {
+  return (text || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|").map((part) => part.trim());
+      return {
+        id: generateSmallId("link"),
+        title: parts[0] || "リンク",
+        url: parts[1] || "",
+        note: parts[2] || "",
+        active: true
+      };
+    })
+    .filter((item) => item.title || item.url);
+}
+
+function parseWorkshopDeadlines(text) {
+  return (text || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|").map((part) => part.trim());
+      return {
+        id: generateSmallId("deadline"),
+        title: parts[0] || "提出物",
+        dueDate: parts[1] || "",
+        dueTime: parts[2] || "",
+        note: parts[3] || "",
+        active: true
+      };
+    })
+    .filter((item) => item.title || item.dueDate || item.note);
+}
+
+function formatWorkshopLinksForTextarea(links) {
+  return (links || [])
+    .filter((item) => item.active !== false)
+    .map((item) => `${item.title || ""} | ${item.url || ""} | ${item.note || ""}`.trim())
+    .join("\n");
+}
+
+function formatWorkshopDeadlinesForTextarea(deadlines) {
+  return (deadlines || [])
+    .filter((item) => item.active !== false)
+    .map((item) => `${item.title || ""} | ${item.dueDate || ""} | ${item.dueTime || ""} | ${item.note || ""}`.trim())
+    .join("\n");
+}
+
+function resetWorkshopResourceForm() {
+  if (!workshopResourceFormTitle) {
+    return;
+  }
+
+  workshopResourceFormTitle.textContent = "ワークショップを追加";
+  editingWorkshopResourceId.value = "";
+  workshopResourceActive.checked = true;
+  workshopResourceTitle.value = "";
+  workshopResourceScheduleText.value = "";
+  workshopResourceDescription.value = "";
+  workshopResourceLinksText.value = "";
+  workshopResourceDeadlinesText.value = "";
+}
+
+function renderWorkshopResourceAdminList() {
+  if (!workshopResourceList) {
+    return;
+  }
+
+  const workshops = [...(workshopResourcesCache.workshops || [])];
+  workshopResourceList.innerHTML = "";
+
+  if (workshops.length === 0) {
+    workshopResourceList.innerHTML = `<div class="calendar-filter-empty">まだワークショップが登録されていません。</div>`;
+    return;
+  }
+
+  workshops.forEach((workshop) => {
+    const card = document.createElement("div");
+    card.className = "workshop-admin-card";
+    if (workshop.active === false) {
+      card.classList.add("inactive-workshop");
+    }
+
+    const title = document.createElement("div");
+    title.className = "workshop-admin-card-title";
+    title.textContent = workshop.title || "無題のワークショップ";
+
+    const meta = document.createElement("div");
+    meta.className = "workshop-admin-card-meta";
+    const linkCount = (workshop.links || []).filter((item) => item.active !== false).length;
+    const deadlineCount = (workshop.deadlines || []).filter((item) => item.active !== false).length;
+    meta.textContent = `${workshop.active === false ? "非表示" : "表示中"} ／ リンク${linkCount}件 ／ 提出期限${deadlineCount}件`;
+
+    const body = document.createElement("div");
+    body.className = "workshop-admin-card-body";
+    body.textContent = workshop.scheduleText || workshop.description || "説明なし";
+
+    const buttons = document.createElement("div");
+    buttons.className = "announcement-edit-buttons";
+
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "small-button";
+    editButton.textContent = "編集";
+    editButton.addEventListener("click", () => {
+      workshopResourceFormTitle.textContent = "編集中";
+      editingWorkshopResourceId.value = workshop.id;
+      workshopResourceActive.checked = workshop.active !== false;
+      workshopResourceTitle.value = workshop.title || "";
+      workshopResourceScheduleText.value = workshop.scheduleText || "";
+      workshopResourceDescription.value = workshop.description || "";
+      workshopResourceLinksText.value = formatWorkshopLinksForTextarea(workshop.links || []);
+      workshopResourceDeadlinesText.value = formatWorkshopDeadlinesForTextarea(workshop.deadlines || []);
+      workshopResourceTitle.focus();
+    });
+
+    const hideButton = document.createElement("button");
+    hideButton.type = "button";
+    hideButton.className = "small-button danger-button";
+    hideButton.textContent = workshop.active === false ? "再表示" : "非表示";
+    hideButton.addEventListener("click", async () => {
+      const nextActive = workshop.active === false;
+      const ok = confirm(nextActive ? "このワークショップを再表示しますか？" : "このワークショップを利用者ページで非表示にしますか？");
+      if (!ok) {
+        return;
+      }
+
+      workshopResourcesCache.workshops = (workshopResourcesCache.workshops || []).map((item) => {
+        if (item.id !== workshop.id) {
+          return item;
+        }
+        return { ...item, active: nextActive, updatedAt: new Date().toISOString() };
+      });
+
+      await persistWorkshopResources();
+      renderWorkshopResourceAdminList();
+    });
+
+    buttons.appendChild(editButton);
+    buttons.appendChild(hideButton);
+
+    card.appendChild(title);
+    card.appendChild(meta);
+    card.appendChild(body);
+    card.appendChild(buttons);
+    workshopResourceList.appendChild(card);
+  });
+}
+
+async function loadWorkshopResourcesForStaff() {
+  if (workshopResourcesLoaded) {
+    renderWorkshopResourceAdminList();
+    return;
+  }
+
+  const docRef = doc(db, "system", getWorkshopResourcesDocId());
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    workshopResourcesCache = {
+      officeId: data.officeId || getCurrentOfficeId(),
+      groupId: data.groupId || getCurrentGroupId(),
+      workshops: Array.isArray(data.workshops) ? data.workshops : []
+    };
+  } else {
+    workshopResourcesCache = {
+      officeId: getCurrentOfficeId(),
+      groupId: getCurrentGroupId(),
+      workshops: []
+    };
+  }
+
+  workshopResourcesLoaded = true;
+  renderWorkshopResourceAdminList();
+  console.log(`[Read節約] 教材・リンク集管理：${getWorkshopResourcesDocId()} を開いた時だけ1 readしました。`);
+}
+
+async function persistWorkshopResources() {
+  const docRef = doc(db, "system", getWorkshopResourcesDocId());
+  const cleanedWorkshops = (workshopResourcesCache.workshops || []).map((workshop) => ({
+    id: workshop.id,
+    title: workshop.title || "",
+    active: workshop.active !== false,
+    description: workshop.description || "",
+    scheduleText: workshop.scheduleText || "",
+    links: Array.isArray(workshop.links) ? workshop.links : [],
+    deadlines: Array.isArray(workshop.deadlines) ? workshop.deadlines : [],
+    createdAt: workshop.createdAt || new Date().toISOString(),
+    updatedAt: workshop.updatedAt || new Date().toISOString()
+  }));
+
+  await setDoc(docRef, {
+    officeId: getCurrentOfficeId(),
+    groupId: getCurrentGroupId(),
+    workshops: cleanedWorkshops,
+    updatedAt: serverTimestamp()
+  });
+
+  workshopResourcesCache.workshops = cleanedWorkshops;
+}
+
+async function saveWorkshopResourceFromForm() {
+  const title = (workshopResourceTitle?.value || "").trim();
+
+  if (!title) {
+    alert("ワークショップ名を入力してください。");
+    return;
+  }
+
+  if (!workshopResourcesLoaded) {
+    await loadWorkshopResourcesForStaff();
+  }
+
+  const now = new Date().toISOString();
+  const editingId = editingWorkshopResourceId.value;
+  const nextWorkshop = {
+    id: editingId || normalizeWorkshopId(title),
+    title: title,
+    active: workshopResourceActive.checked,
+    description: (workshopResourceDescription.value || "").trim(),
+    scheduleText: (workshopResourceScheduleText.value || "").trim(),
+    links: parseWorkshopLinks(workshopResourceLinksText.value),
+    deadlines: parseWorkshopDeadlines(workshopResourceDeadlinesText.value),
+    createdAt: now,
+    updatedAt: now
+  };
+
+  if (editingId) {
+    workshopResourcesCache.workshops = (workshopResourcesCache.workshops || []).map((workshop) => {
+      if (workshop.id !== editingId) {
+        return workshop;
+      }
+      return {
+        ...nextWorkshop,
+        createdAt: workshop.createdAt || now
+      };
+    });
+  } else {
+    workshopResourcesCache.workshops = [...(workshopResourcesCache.workshops || []), nextWorkshop];
+  }
+
+  await persistWorkshopResources();
+  resetWorkshopResourceForm();
+  renderWorkshopResourceAdminList();
+
+  if (workshopResourceMessage) {
+    workshopResourceMessage.style.color = "green";
+    workshopResourceMessage.textContent = "教材・リンク集を保存しました。";
+  }
+}
+
+
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
@@ -2205,6 +2509,59 @@ loadButton.addEventListener("click", () => {
   loadDailySchedules();
 });
 
+
+if (loadWorkshopResourcesButton) {
+  loadWorkshopResourcesButton.addEventListener("click", async () => {
+    try {
+      loadWorkshopResourcesButton.disabled = true;
+      loadWorkshopResourcesButton.textContent = "読み込み中...";
+
+      if (workshopResourceAdminArea) {
+        workshopResourceAdminArea.classList.remove("hidden");
+      }
+
+      await loadWorkshopResourcesForStaff();
+
+      if (workshopResourceMessage) {
+        workshopResourceMessage.style.color = "green";
+        workshopResourceMessage.textContent = "教材・リンク集を読み込みました。";
+      }
+    } catch (error) {
+      console.error("教材・リンク集読み込みエラー:", error);
+      if (workshopResourceMessage) {
+        workshopResourceMessage.style.color = "red";
+        workshopResourceMessage.textContent = `読み込みに失敗しました：${error.code || error.message}`;
+      }
+    } finally {
+      loadWorkshopResourcesButton.disabled = false;
+      loadWorkshopResourcesButton.textContent = "教材・リンク管理を開く";
+    }
+  });
+}
+
+if (saveWorkshopResourceButton) {
+  saveWorkshopResourceButton.addEventListener("click", async () => {
+    try {
+      saveWorkshopResourceButton.disabled = true;
+      saveWorkshopResourceButton.textContent = "保存中...";
+      await saveWorkshopResourceFromForm();
+    } catch (error) {
+      console.error("教材・リンク集保存エラー:", error);
+      alert(`保存に失敗しました：${error.code || error.message}`);
+    } finally {
+      saveWorkshopResourceButton.disabled = false;
+      saveWorkshopResourceButton.textContent = "保存";
+    }
+  });
+}
+
+if (resetWorkshopResourceFormButton) {
+  resetWorkshopResourceFormButton.addEventListener("click", () => {
+    resetWorkshopResourceForm();
+  });
+}
+
+
 if (userScheduleCalendarViewButton) {
   userScheduleCalendarViewButton.addEventListener("click", async () => {
     currentUserScheduleViewMode = "calendar";
@@ -2221,9 +2578,12 @@ if (userScheduleListViewButton) {
 if (userScheduleWeekViewButton) {
   userScheduleWeekViewButton.addEventListener("click", async () => {
     currentUserScheduleViewMode = "week";
-    if (!weekIntersectsMonth(displayedUserScheduleWeekStartDate, displayedUserScheduleYear, displayedUserScheduleMonth)) {
-      displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
-    }
+
+    // 週間表示へ切り替えた最初の表示は、必ずその月の基準週に戻す。
+    // 今月なら「今週」、別の月なら「その月の最初の平日を含む週」。
+    // Firestoreは読み直さず、すでに読み込んだ月間データを表示だけ切り替える。
+    displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
+
     await loadUserMonthlyScheduleView();
   });
 }
