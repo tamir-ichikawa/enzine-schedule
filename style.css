@@ -2412,3 +2412,1521 @@ body.modal-open {
   gap: 14px;
   margin-top: 12px;
 }
+
+/* ==============================
+   Step 16：週一報告
+   ============================== */
+
+.weekly-report-entry-box {
+  background: #fbf8ff;
+  border-color: #ded3ff;
+}
+
+.weekly-report-page-button {
+  background: #7c3aed;
+}
+
+.weekly-report-page-button:hover {
+  background: #6726d9;
+}
+
+.weekly-report-status-box,
+.weekly-report-form-box,
+.weekly-report-copy-box {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #dfe7f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.weekly-report-status-box {
+  background: #fbf8ff;
+  border-color: #ded3ff;
+}
+
+.weekly-report-week-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.weekly-report-week-nav button {
+  min-height: 42px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.weekly-report-status-text {
+  padding: 10px;
+  border-radius: 10px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-submitted {
+  background: #eef8f0;
+  border-color: #9ed3ad;
+  color: #1f7a3f;
+}
+
+.weekly-report-unsubmitted {
+  background: #fff8e8;
+  border-color: #f1cf88;
+  color: #7a5200;
+}
+
+.weekly-report-error {
+  background: #fff0f0;
+  border-color: #e4a2a2;
+  color: #c0392b;
+}
+
+.weekly-report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.weekly-report-form h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.weekly-report-help-text {
+  margin: 0 0 10px;
+  color: #666;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.weekly-score-buttons {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.weekly-report-copy-box textarea {
+  width: 100%;
+  min-height: 260px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+#weeklyReportMessage {
+  color: red;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-status-box,
+  .weekly-report-form-box,
+  .weekly-report-copy-box {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .weekly-report-week-nav {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .weekly-report-week-nav button {
+    min-height: 54px;
+    font-size: 18px;
+  }
+
+  .weekly-report-status-text {
+    font-size: 18px;
+    padding: 12px;
+  }
+
+  .weekly-report-form {
+    gap: 20px;
+  }
+
+  .weekly-report-form h3 {
+    font-size: 21px;
+  }
+
+  .weekly-report-help-text {
+    font-size: 17px;
+  }
+
+  .weekly-score-buttons {
+    gap: 8px;
+  }
+
+  .weekly-score-buttons .choice-button {
+    min-height: 58px;
+    font-size: 20px;
+  }
+
+  .weekly-report-copy-box textarea {
+    min-height: 320px;
+  }
+
+  #weeklyReportMessage {
+    font-size: 18px;
+  }
+}
+
+
+/* ==============================
+   週一報告：利用者ページ上部アラート
+   ============================== */
+
+.weekly-report-reminder-box {
+  margin-top: 18px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+}
+
+.weekly-report-reminder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.weekly-report-reminder-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.weekly-report-reminder-count {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.weekly-report-reminder-text {
+  margin: 8px 0 12px;
+  color: #7c2d12;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.weekly-report-reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.weekly-report-reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  color: #333;
+  text-decoration: none;
+}
+
+.weekly-report-reminder-item:hover {
+  background: #fffaf5;
+}
+
+.weekly-report-reminder-item-title {
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-reminder-item-action {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #2f80ed;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-reminder-box {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .weekly-report-reminder-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .weekly-report-reminder-header h2 {
+    font-size: 24px;
+  }
+
+  .weekly-report-reminder-count,
+  .weekly-report-reminder-item-action {
+    font-size: 16px;
+  }
+
+  .weekly-report-reminder-text,
+  .weekly-report-reminder-item-title {
+    font-size: 18px;
+  }
+
+  .weekly-report-reminder-item {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px;
+  }
+}
+
+
+/* ==============================
+   Step 2 fixed v30：週一報告 未記入アラート
+   ============================== */
+.weekly-report-reminder-box {
+  margin-top: 18px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 14px;
+}
+
+.weekly-report-reminder-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.weekly-report-reminder-header h2 {
+  margin: 0 0 6px;
+  color: #9a3412;
+}
+
+.weekly-report-reminder-header p {
+  margin: 0;
+  color: #7c2d12;
+  text-align: left;
+  line-height: 1.6;
+}
+
+.weekly-report-reminder-count {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.weekly-report-reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.weekly-report-reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #fed7aa;
+  color: #333;
+  text-decoration: none;
+}
+
+.weekly-report-reminder-item-title {
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-reminder-item-action {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #2f80ed;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.weekly-report-home-status {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  color: #555;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-home-status-ok {
+  background: #eef8f0;
+  border-color: #9ed3ad;
+  color: #1f7a3f;
+}
+
+.weekly-report-home-status-alert {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.weekly-report-home-status-error {
+  background: #fff0f0;
+  border-color: #e4a2a2;
+  color: #c0392b;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-reminder-box {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .weekly-report-reminder-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .weekly-report-reminder-header h2 {
+    font-size: 24px;
+  }
+
+  .weekly-report-reminder-header p,
+  .weekly-report-home-status {
+    font-size: 17px;
+  }
+
+  .weekly-report-reminder-item {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px;
+  }
+
+  .weekly-report-reminder-item-action {
+    font-size: 16px;
+  }
+}
+
+
+/* ==============================
+   STEP3_FIXED_20260620_V31：支援員 週一報告管理
+   ============================== */
+.weekly-report-admin-box {
+  background: #ffffff;
+}
+
+.weekly-report-admin-summary-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 10px;
+}
+
+.weekly-report-summary-week {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.weekly-report-admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.weekly-report-admin-list-box {
+  padding: 14px;
+  border: 1px solid #e1e5ea;
+  border-radius: 14px;
+  background: #f7f9fb;
+}
+
+.weekly-report-admin-list-box h3 {
+  margin: 0 0 10px;
+}
+
+.weekly-report-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.weekly-report-admin-card,
+.weekly-report-missing-user-item,
+.weekly-report-admin-empty {
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e1e5ea;
+}
+
+.weekly-report-admin-card h4 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.weekly-report-admin-meta {
+  color: #555;
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-admin-preview {
+  margin-top: 6px;
+  color: #444;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.submitted-weekly-report-card {
+  border-left: 5px solid #1f7a3f;
+}
+
+.weekly-report-missing-user-item {
+  border-left: 5px solid #c0392b;
+  font-weight: bold;
+}
+
+.weekly-report-admin-ok {
+  border-color: #9ed3ad;
+  color: #1f7a3f;
+  font-weight: bold;
+}
+
+.staff-weekly-report-copy-box {
+  margin-top: 18px;
+}
+
+.weekly-report-copy-button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+#weeklyReportsTextOutput {
+  width: 100%;
+  min-height: 280px;
+  line-height: 1.6;
+  font-family: sans-serif;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-admin-summary-grid,
+  .weekly-report-admin-grid,
+  .weekly-report-copy-button-row {
+    grid-template-columns: 1fr;
+  }
+
+  .weekly-report-admin-list-box {
+    padding: 12px;
+  }
+
+  .weekly-report-admin-card h4 {
+    font-size: 19px;
+  }
+
+  .weekly-report-admin-meta,
+  .weekly-report-admin-preview,
+  .weekly-report-missing-user-item,
+  .weekly-report-admin-empty {
+    font-size: 17px;
+  }
+
+  #weeklyReportsTextOutput {
+    min-height: 360px;
+    font-size: 17px;
+  }
+}
+
+
+/* ==============================
+   STEP4_FIXED_20260620_V32：ページタブUI
+   ============================== */
+
+.page-tab-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px;
+  padding: 10px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  border-radius: 14px;
+}
+
+.page-tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid #d9e0e8;
+  border-radius: 999px;
+  background: #fff;
+  color: #333;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.page-tab-button:hover {
+  background: #eef5ff;
+}
+
+.page-tab-button.active {
+  background: #2f80ed;
+  border-color: #1f63bd;
+  color: #fff;
+}
+
+.staff-page-tab-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(247, 249, 251, 0.96);
+  backdrop-filter: blur(8px);
+}
+
+.staff-tab-panel:not(.active) {
+  display: none !important;
+}
+
+.staff-tab-panel.active {
+  animation: staff-tab-panel-fade 0.12s ease-out;
+}
+
+@keyframes staff-tab-panel-fade {
+  from {
+    opacity: 0.65;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .page-tab-nav {
+    gap: 8px;
+    margin: 14px 0 18px;
+    padding: 10px;
+  }
+
+  .page-tab-button {
+    flex: 1 1 calc(50% - 8px);
+    min-height: 50px;
+    padding: 10px 8px;
+    font-size: 17px;
+    border-radius: 14px;
+  }
+
+  .user-page-tab-nav .page-tab-button {
+    flex-basis: calc(33.333% - 8px);
+  }
+}
+
+
+/* ==============================
+   STEP5_WEBUI_20260620_V33：Webアプリ風ヘッダー・固定タブ
+   参考：Material DesignのTop app bar / Tabsの考え方に合わせた常時見えるナビゲーション。
+   ============================== */
+
+:root {
+  --enzine-blue: #2f80ed;
+  --enzine-blue-dark: #1f63bd;
+  --enzine-ink: #172033;
+  --enzine-muted: #667085;
+  --enzine-border: #e4eaf2;
+  --enzine-card: #ffffff;
+  --enzine-bg: #f5f7fb;
+  --app-topbar-height: 74px;
+}
+
+body.app-shell-body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(47, 128, 237, 0.10), transparent 30%),
+    linear-gradient(180deg, #f8fbff 0%, var(--enzine-bg) 42%, #eef3f9 100%);
+  color: var(--enzine-ink);
+}
+
+.login-container.user-page.app-main-shell {
+  width: min(1120px, 100%);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 18px 56px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: var(--app-topbar-height);
+  margin: 0 -18px;
+  padding: 12px 18px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid var(--enzine-border);
+  box-shadow: 0 8px 26px rgba(23, 32, 51, 0.07);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.app-brand-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #172033 0%, #2f80ed 100%);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  box-shadow: 0 8px 18px rgba(47, 128, 237, 0.25);
+}
+
+.app-brand-text {
+  min-width: 0;
+}
+
+.app-brand-title {
+  color: var(--enzine-ink);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.app-user-meta {
+  margin: 3px 0 0;
+  max-width: 420px;
+  color: var(--enzine-muted);
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-current-section {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #eef5ff;
+  border: 1px solid #cfe2ff;
+  color: var(--enzine-blue-dark);
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.app-main-shell .page-tab-nav {
+  position: sticky;
+  top: var(--app-topbar-height);
+  z-index: 110;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin: 0 -18px 22px;
+  padding: 10px 18px;
+  overflow-x: auto;
+  background: rgba(248, 250, 252, 0.96);
+  border: 0;
+  border-bottom: 1px solid var(--enzine-border);
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 8px 20px rgba(23, 32, 51, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  scrollbar-width: thin;
+}
+
+.app-main-shell .page-tab-button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 15px;
+  border-color: #d7e0ec;
+  background: rgba(255, 255, 255, 0.96);
+  color: #344054;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.app-main-shell .page-tab-button:hover {
+  transform: translateY(-1px);
+  background: #f2f7ff;
+}
+
+.app-main-shell .page-tab-button.active {
+  background: var(--enzine-blue);
+  border-color: var(--enzine-blue-dark);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(47, 128, 237, 0.22);
+}
+
+.app-main-shell .monthly-calendar-box,
+.app-main-shell .quick-link-box,
+.app-main-shell .weekly-report-status-box,
+.app-main-shell .weekly-report-form-box,
+.app-main-shell .staff-list-box,
+.app-main-shell .login-box,
+.app-main-shell .operation-check-box,
+.app-main-shell .workshop-resource-box,
+.app-main-shell .workshop-resource-admin-box,
+.app-main-shell .weekly-report-admin-box {
+  margin-top: 18px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--enzine-border);
+  border-radius: 20px;
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+}
+
+.app-main-shell .today-schedule-box,
+.app-main-shell .today-announcement-box,
+.app-main-shell .weekly-report-reminder-box {
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+}
+
+.app-main-shell h2 {
+  color: var(--enzine-ink);
+  letter-spacing: 0.01em;
+}
+
+.app-main-shell .calendar-guide {
+  text-align: left;
+}
+
+.app-main-shell .logout-bottom {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.staff-main-shell .staff-tab-panel:not(.active) {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --app-topbar-height: 78px;
+  }
+
+  .login-container.user-page.app-main-shell {
+    width: 100%;
+    margin: 0;
+    padding: 0 12px 40px;
+  }
+
+  .app-topbar {
+    margin: 0 -12px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .app-brand-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    font-size: 24px;
+  }
+
+  .app-brand-title {
+    font-size: 18px;
+  }
+
+  .app-user-meta {
+    max-width: 48vw;
+    font-size: 12px;
+  }
+
+  .app-current-section {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .app-main-shell .page-tab-nav {
+    top: var(--app-topbar-height);
+    margin: 0 -12px 18px;
+    padding: 9px 12px 11px;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .app-main-shell .page-tab-button,
+  .app-main-shell .user-page-tab-nav .page-tab-button {
+    flex: 0 0 auto;
+    min-width: max-content;
+    min-height: 48px;
+    padding: 10px 14px;
+    font-size: 16px;
+    border-radius: 999px;
+  }
+
+  .app-main-shell .monthly-calendar-box,
+  .app-main-shell .quick-link-box,
+  .app-main-shell .weekly-report-status-box,
+  .app-main-shell .weekly-report-form-box,
+  .app-main-shell .staff-list-box,
+  .app-main-shell .login-box,
+  .app-main-shell .operation-check-box,
+  .app-main-shell .workshop-resource-box,
+  .app-main-shell .workshop-resource-admin-box,
+  .app-main-shell .weekly-report-admin-box {
+    padding: 15px;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-brand-title {
+    font-size: 16px;
+  }
+
+  .app-user-meta {
+    max-width: 42vw;
+  }
+
+  .app-current-section {
+    padding-inline: 8px;
+  }
+}
+
+
+/* ==============================
+   STEP6_READABILITY_FIX_20260620_V35：返信通知・コンパクトWebUI
+   ============================== */
+:root {
+  --app-content-width: 1040px;
+  --app-inner-width: 980px;
+  --enzine-soft-button: #f1f5fb;
+  --enzine-soft-button-hover: #e7eef8;
+}
+
+.login-container.user-page.app-main-shell {
+  width: min(100%, calc(var(--app-content-width) + 36px));
+  max-width: calc(var(--app-content-width) + 36px);
+}
+
+.app-main-shell > section,
+.app-main-shell > .daily-overview-grid {
+  width: 100%;
+  max-width: var(--app-content-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-topbar {
+  min-height: 66px;
+}
+
+.app-brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-size: 23px;
+}
+
+/* 画像ロゴを使う場合は、imgに app-brand-logo-img を付ける。推奨画像は96x96px以上、表示は38x38px。 */
+.app-brand-logo-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  object-fit: contain;
+  display: block;
+}
+
+.app-topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.app-settings-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.app-settings-menu > summary {
+  list-style: none;
+}
+
+.app-settings-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid #d7e0ec;
+  background: #fff;
+  color: #344054;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  user-select: none;
+}
+
+.app-settings-button:hover {
+  background: #f2f7ff;
+}
+
+.app-settings-panel {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  z-index: 400;
+  width: 240px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--enzine-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(23, 32, 51, 0.16);
+}
+
+.app-settings-panel-title {
+  margin-bottom: 8px;
+  font-weight: 900;
+  color: var(--enzine-ink);
+}
+
+.app-settings-logout-button {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #5f6f89;
+  font-size: 14px;
+}
+
+.app-settings-note {
+  margin-top: 8px;
+  color: var(--enzine-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.app-main-shell .page-tab-nav {
+  margin-bottom: 16px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  justify-content: center;
+}
+
+.app-main-shell .page-tab-button,
+.app-main-shell .user-page-tab-nav .page-tab-button {
+  min-height: 38px;
+  padding: 7px 13px;
+  font-size: 14px;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.section-heading-row h2,
+.section-heading-row h3 {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.section-heading-row .calendar-guide {
+  margin: 0;
+  flex: 1 1 auto;
+  text-align: right;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.compact-section-heading-row .calendar-guide {
+  max-width: 280px;
+}
+
+.daily-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(320px, 1.1fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-top: 16px;
+}
+
+.app-main-shell .today-schedule-box,
+.app-main-shell .today-announcement-box {
+  margin: 0;
+  padding: 14px;
+  border-radius: 18px;
+  min-height: 0;
+}
+
+.today-schedule-text {
+  font-size: 16px;
+}
+
+.today-schedule-main {
+  padding: 5px 11px;
+}
+
+.today-announcements,
+.modal-announcements,
+.announcement-edit-list {
+  gap: 7px;
+}
+
+.announcement-card,
+.modal-announcement-card,
+.announcement-edit-item {
+  padding: 8px;
+  border-radius: 9px;
+}
+
+.app-main-shell .monthly-calendar-box,
+.app-main-shell .quick-link-box,
+.app-main-shell .weekly-report-status-box,
+.app-main-shell .weekly-report-form-box,
+.app-main-shell .staff-list-box,
+.app-main-shell .login-box,
+.app-main-shell .operation-check-box,
+.app-main-shell .workshop-resource-box,
+.app-main-shell .workshop-resource-admin-box,
+.app-main-shell .weekly-report-admin-box,
+.weekly-report-feedback-box,
+.weekly-report-readonly-box {
+  margin-top: 14px;
+  padding: 15px;
+  border-radius: 18px;
+}
+
+.app-main-shell .calendar-guide {
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.app-main-shell .calendar-month-nav,
+.app-main-shell .weekly-report-week-nav {
+  grid-template-columns: auto minmax(160px, auto) auto;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-main-shell .calendar-month-nav button,
+.app-main-shell .weekly-report-week-nav button,
+.app-main-shell .sub-button {
+  width: auto;
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: var(--enzine-soft-button);
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+  border: 1px solid #d7e0ec;
+}
+
+.app-main-shell .calendar-month-nav button:hover,
+.app-main-shell .weekly-report-week-nav button:hover,
+.app-main-shell .sub-button:hover {
+  background: var(--enzine-soft-button-hover);
+}
+
+.app-main-shell .calendar-month-nav button:disabled,
+.app-main-shell .weekly-report-week-nav button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-main-shell .calendar-month-label,
+.app-main-shell .calendar-week-label {
+  min-width: 150px;
+  font-size: 15px;
+}
+
+.app-main-shell .logout-bottom {
+  display: none;
+}
+
+.weekly-report-admin-name-button {
+  width: 100%;
+  min-height: 0;
+  padding: 12px;
+  background: #fff;
+  color: var(--enzine-ink);
+  text-align: left;
+  border: 1px solid var(--enzine-border);
+  border-radius: 14px;
+}
+
+.weekly-report-admin-name-button:hover,
+.weekly-report-admin-name-button.active {
+  background: #eef5ff;
+  border-color: #9dc7ff;
+  color: var(--enzine-ink);
+}
+
+.weekly-report-admin-card-title {
+  margin-bottom: 5px;
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.weekly-report-feedback-status {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 6px;
+  margin-bottom: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.weekly-report-feedback-status.none {
+  background: #f3f4f6;
+  color: #64748b;
+}
+
+.weekly-report-feedback-status.unread {
+  background: #fff4d6;
+  color: #9a5a00;
+}
+
+.weekly-report-feedback-status.read {
+  background: #e8f7ee;
+  color: #1f7a3f;
+}
+
+.weekly-report-detail-panel,
+.weekly-report-feedback-box,
+.weekly-report-readonly-box {
+  margin-top: 14px;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid var(--enzine-border);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+}
+
+.weekly-report-detail-body,
+.weekly-report-readonly-text,
+.weekly-report-feedback-text {
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+
+.weekly-report-detail-body {
+  display: grid;
+  gap: 8px;
+}
+
+.weekly-report-detail-row {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.weekly-report-detail-label {
+  color: var(--enzine-muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.weekly-report-detail-value {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.weekly-report-feedback-editor {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eef2f7;
+}
+
+.weekly-report-feedback-editor textarea {
+  min-height: 120px;
+}
+
+.weekly-report-feedback-box {
+  background: #fff8e8;
+  border-color: #f1cf88;
+}
+
+.weekly-report-readonly-box {
+  background: #f8fafc;
+}
+
+.weekly-report-reminder-item-feedback {
+  background: #fff8e8;
+  border-color: #f1cf88;
+}
+
+.weekly-report-reminder-item-pending {
+  background: #fff;
+}
+
+@media (min-width: 900px) {
+  .weekly-report-admin-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.6fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .app-topbar {
+    min-height: 64px;
+  }
+
+  .app-brand-icon,
+  .app-brand-logo-img {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .app-current-section {
+    display: none;
+  }
+
+  .app-main-shell .page-tab-nav {
+    justify-content: flex-start;
+  }
+
+  .daily-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .section-heading-row .calendar-guide {
+    text-align: left;
+    font-size: 14px;
+  }
+
+  .app-main-shell .calendar-month-nav,
+  .app-main-shell .weekly-report-week-nav {
+    grid-template-columns: auto minmax(120px, 1fr) auto;
+  }
+
+  .weekly-report-detail-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .app-settings-panel {
+    right: -4px;
+    width: 220px;
+  }
+}
+
+
+/* =========================================================
+   STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
+   ========================================================= */
+
+/* 週一報告の提出済み一覧は、ボタン扱いでもカードとして読みやすくする */
+.weekly-report-admin-list,
+.weekly-report-admin-list-box,
+.weekly-report-admin-list-box h3 {
+  text-align: left;
+}
+
+.weekly-report-admin-name-button,
+.weekly-report-admin-name-button:visited,
+.weekly-report-admin-name-button:hover,
+.weekly-report-admin-name-button:focus,
+.weekly-report-admin-name-button.active {
+  display: block;
+  width: 100%;
+  color: #172033 !important;
+  text-align: left !important;
+  background: #ffffff !important;
+  border: 1px solid #d8e2ef !important;
+  box-shadow: 0 6px 18px rgba(23, 32, 51, 0.06);
+}
+
+.weekly-report-admin-name-button:hover,
+.weekly-report-admin-name-button.active {
+  background: #eef6ff !important;
+  border-color: #8fc2f2 !important;
+}
+
+.weekly-report-admin-name-button * {
+  color: inherit;
+  text-align: left;
+}
+
+.weekly-report-admin-card-title {
+  color: #172033 !important;
+}
+
+.weekly-report-admin-meta,
+.weekly-report-admin-preview {
+  color: #475569 !important;
+  text-align: left;
+}
+
+.weekly-report-feedback-status {
+  color: #172033;
+}
+
+.weekly-report-feedback-status.none {
+  background: #eef2f7 !important;
+  color: #475569 !important;
+}
+
+.weekly-report-feedback-status.unread {
+  background: #fff0bf !important;
+  color: #7a4a00 !important;
+}
+
+.weekly-report-feedback-status.read {
+  background: #dff5e8 !important;
+  color: #155f2f !important;
+}
+
+/* 詳細表示：支援員側・利用者側で共通の読みやすい表示 */
+.weekly-report-readable-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.weekly-report-readable-item {
+  padding: 0 0 12px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.weekly-report-readable-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.weekly-report-readable-item.inline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.weekly-report-readable-label {
+  color: #172033;
+  font-weight: 900;
+  line-height: 1.6;
+}
+
+.weekly-report-readable-value {
+  margin-top: 4px;
+  padding-left: 1.1em;
+  color: #25324a;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.weekly-report-readable-item.inline .weekly-report-readable-value {
+  margin-top: 0;
+  padding-left: 0;
+  font-weight: 700;
+}
+
+.weekly-report-detail-body,
+.weekly-report-readonly-text {
+  white-space: normal;
+  text-align: left;
+}
+
+.weekly-report-detail-panel {
+  scroll-margin-top: 150px;
+}
+
+.weekly-report-feedback-editor textarea {
+  background: #ffffff;
+  color: #172033;
+}
+
+.weekly-report-admin-grid {
+  align-items: start;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-admin-name-button {
+    padding: 13px;
+    border-radius: 14px;
+  }
+
+  .weekly-report-admin-card-title {
+    font-size: 18px;
+  }
+
+  .weekly-report-admin-meta,
+  .weekly-report-admin-preview {
+    font-size: 15px;
+  }
+
+  .weekly-report-readable-item.inline {
+    display: block;
+  }
+
+  .weekly-report-readable-item.inline .weekly-report-readable-value {
+    margin-top: 4px;
+    padding-left: 1.1em;
+  }
+}

@@ -3,18 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>教材・リンク集 | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <title>ワークショップ・教材 | Enzine Schedule</title>
+  <link rel="stylesheet" href="style.css?v=35">
 </head>
-<body>
-  <main class="login-container user-page workshop-page">
-    <header class="app-page-header compact-page-header">
-      <h1>教材・リンク集</h1>
-      <p id="workshopUserInfo">ログイン確認中...</p>
+<body class="app-shell-body">
+  <!-- STEP6_READABILITY_FIX_20260620_V35：コンパクトWebUI -->
+  <main class="login-container user-page workshop-page app-main-shell">
+    <header class="app-topbar" aria-label="ページヘッダー">
+      <div class="app-brand">
+        <span class="app-brand-icon" aria-hidden="true">e</span>
+        <div class="app-brand-text">
+          <div class="app-brand-title">enzine スケジュール</div>
+          <p id="workshopUserInfo" class="app-user-meta">ログイン確認中...</p>
+        </div>
+      </div>
+      <div class="app-topbar-actions">
+        <div class="app-current-section" aria-label="現在のページ">ワークショップ・教材</div>
+        <details class="app-settings-menu">
+          <summary class="app-settings-button" aria-label="設定メニュー">⚙</summary>
+          <div class="app-settings-panel">
+            <div class="app-settings-panel-title">設定</div>
+            <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
+            <div class="app-settings-note">表示設定などは今後追加予定です。</div>
+          </div>
+        </details>
+      </div>
     </header>
 
+    <nav class="page-tab-nav user-page-tab-nav" aria-label="利用者メニュー">
+      <a class="page-tab-button" href="user.html">予定</a>
+      <a class="page-tab-button" href="weekly-report.html">週一報告</a>
+      <a class="page-tab-button active" href="workshops.html">ワークショップ・教材</a>
+    </nav>
+
     <section class="monthly-calendar-box workshop-resource-box">
-      <h2>ワークショップ別リンク</h2>
+      <h2>ワークショップ・教材</h2>
       <p class="calendar-guide">
         ワークショップごとの教材・提出先・開催予定・提出期限メモを確認できます。
       </p>
@@ -28,6 +51,6 @@
     <p id="workshopResourceMessage"></p>
   </main>
 
-  <script type="module" src="workshops.js?v=1"></script>
+  <script type="module" src="workshops.js?v=33"></script>
 </body>
 </html>

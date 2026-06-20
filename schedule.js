@@ -21,6 +21,10 @@ import { auth, db } from "./firebase-config.js";
 // 将来、事業所が増えたら users 側に officeId / groupId を登録していく。
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
+const WEEKLY_REPORT_CHECK_WEEKS = 8;
+const WEEKLY_REPORT_START_WEEK = "2026-06-08";
+const WEEKLY_REPORT_FEEDBACK_CHECK_WEEKS = 12;
+
 
 const userInfo = document.getElementById("userInfo");
 const scheduleDate = document.getElementById("scheduleDate");
@@ -55,6 +59,12 @@ const showAnnouncementDaysCheckbox = document.getElementById("showAnnouncementDa
 const todayAnnouncements = document.getElementById("todayAnnouncements");
 const todayScheduleBox = document.getElementById("todayScheduleBox");
 const todayScheduleText = document.getElementById("todayScheduleText");
+const weeklyReportReminderBox = document.getElementById("weeklyReportReminderBox");
+const weeklyReportReminderCount = document.getElementById("weeklyReportReminderCount");
+const weeklyReportReminderText = document.getElementById("weeklyReportReminderText");
+const weeklyReportReminderList = document.getElementById("weeklyReportReminderList");
+const weeklyReportHomeStatus = document.getElementById("weeklyReportHomeStatus");
+
 
 const scheduleModal = document.getElementById("scheduleModal");
 const closeModalButton = document.getElementById("closeModalButton");
@@ -102,6 +112,24 @@ function getWeekStartDate(date) {
   weekStart.setDate(weekStart.getDate() + diff);
   weekStart.setHours(0, 0, 0, 0);
   return weekStart;
+}
+
+function addDays(date, days) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getLastCompletedWeekStartDate() {
+  const today = new Date();
+  const thisWeekStart = getWeekStartDate(today);
+  return addDays(thisWeekStart, -7);
+}
+
+function parseDateId(dateId) {
+  const [yyyy, mm, dd] = dateId.split("-").map(Number);
+  return new Date(yyyy, mm - 1, dd);
 }
 
 function weekIntersectsMonth(weekStartDate, year, month) {
@@ -1305,6 +1333,206 @@ if (showAnnouncementDaysCheckbox) {
   });
 }
 
+// ==============================
+// 週一報告：未記入チェック
+// 直近8週のうち、運用開始週以降だけ直接 getDoc して確認する。
+// 一覧クエリを使わず、利用者本人の週報ドキュメントだけを読む。
+// ==============================
+function getWeeklyReportId(userId, weekStartDateId) {
+  return `${userId}_${weekStartDateId}`;
+}
+
+function formatWeeklyReportRangeText(weekStartDate) {
+  const weekEndDate = addDays(weekStartDate, 6);
+  return `${weekStartDate.getFullYear()}年${weekStartDate.getMonth() + 1}月${weekStartDate.getDate()}日〜${weekEndDate.getMonth() + 1}月${weekEndDate.getDate()}日`;
+}
+
+function setWeeklyReportHomeStatus(text, tone = "") {
+  if (!weeklyReportHomeStatus) {
+    return;
+  }
+
+  weeklyReportHomeStatus.textContent = text;
+  weeklyReportHomeStatus.classList.remove("weekly-report-home-status-ok", "weekly-report-home-status-alert", "weekly-report-home-status-error");
+
+  if (tone) {
+    weeklyReportHomeStatus.classList.add(`weekly-report-home-status-${tone}`);
+  }
+}
+
+function hideWeeklyReportReminder() {
+  if (weeklyReportReminderBox) {
+    weeklyReportReminderBox.classList.add("hidden");
+  }
+}
+
+function isUnreadWeeklyReportFeedback(report) {
+  return Boolean(
+    report
+    && report.submitted === true
+    && report.staffFeedbackText
+    && report.staffFeedbackVersion
+    && report.staffFeedbackReadVersion !== report.staffFeedbackVersion
+  );
+}
+
+function renderWeeklyReportReminder(pendingWeeks, unreadFeedbackReports = []) {
+  if (!weeklyReportReminderBox || !weeklyReportReminderList) {
+    setWeeklyReportHomeStatus("週一報告の確認欄が見つかりません。", "error");
+    return;
+  }
+
+  weeklyReportReminderList.innerHTML = "";
+
+  const totalCount = pendingWeeks.length + unreadFeedbackReports.length;
+
+  if (!totalCount) {
+    hideWeeklyReportReminder();
+    setWeeklyReportHomeStatus("未記入の週一報告・未確認の返信はありません。", "ok");
+    return;
+  }
+
+  weeklyReportReminderBox.classList.remove("hidden");
+  setWeeklyReportHomeStatus(
+    `未記入${pendingWeeks.length}件／返信あり${unreadFeedbackReports.length}件`,
+    "alert"
+  );
+
+  if (weeklyReportReminderCount) {
+    weeklyReportReminderCount.textContent = `${totalCount}件`;
+  }
+
+  if (weeklyReportReminderText) {
+    if (pendingWeeks.length > 0 && unreadFeedbackReports.length > 0) {
+      weeklyReportReminderText.textContent = "未記入の週一報告と、支援員からの返信があります。古い週から順番に確認できます。";
+    } else if (pendingWeeks.length > 0) {
+      weeklyReportReminderText.textContent = pendingWeeks.length === 1
+        ? "未記入の週一報告があります。記入をお願いします。"
+        : "未記入の週一報告が複数あります。古い週から順番に記入できます。";
+    } else {
+      weeklyReportReminderText.textContent = "支援員からの返信があります。確認すると、この表示は消えます。";
+    }
+  }
+
+  pendingWeeks.forEach((week) => {
+    const item = document.createElement("a");
+    item.className = "weekly-report-reminder-item weekly-report-reminder-item-pending";
+    item.href = `weekly-report.html?weekStart=${week.weekStartDate}`;
+
+    const title = document.createElement("div");
+    title.className = "weekly-report-reminder-item-title";
+    title.textContent = `未記入：${week.label}`;
+
+    const action = document.createElement("div");
+    action.className = "weekly-report-reminder-item-action";
+    action.textContent = "記入する";
+
+    item.appendChild(title);
+    item.appendChild(action);
+    weeklyReportReminderList.appendChild(item);
+  });
+
+  unreadFeedbackReports.forEach((report) => {
+    const item = document.createElement("a");
+    item.className = "weekly-report-reminder-item weekly-report-reminder-item-feedback";
+    item.href = `weekly-report.html?weekStart=${report.weekStartDate}`;
+
+    const title = document.createElement("div");
+    title.className = "weekly-report-reminder-item-title";
+    title.textContent = `返信あり：${report.label}`;
+
+    const action = document.createElement("div");
+    action.className = "weekly-report-reminder-item-action";
+    action.textContent = "確認する";
+
+    item.appendChild(title);
+    item.appendChild(action);
+    weeklyReportReminderList.appendChild(item);
+  });
+}
+
+async function loadWeeklyReportReminder() {
+  if (!currentUser || !currentUserData) {
+    return;
+  }
+
+  setWeeklyReportHomeStatus("週一報告の未記入・返信状況を確認中...");
+
+  if (!weeklyReportReminderBox) {
+    setWeeklyReportHomeStatus("週一報告の表示エリアが見つかりません。user.htmlを確認してください。", "error");
+    return;
+  }
+
+  try {
+    const latestWeekStart = getLastCompletedWeekStartDate();
+    const startWeekDate = getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK));
+    const pendingWeeks = [];
+    const unreadFeedbackReports = [];
+    const maxWeeks = Math.max(WEEKLY_REPORT_CHECK_WEEKS, WEEKLY_REPORT_FEEDBACK_CHECK_WEEKS);
+
+    for (let i = maxWeeks - 1; i >= 0; i--) {
+      const weekStartDate = addDays(latestWeekStart, -7 * i);
+
+      if (weekStartDate < startWeekDate) {
+        continue;
+      }
+
+      const weekStartDateId = formatDateId(weekStartDate);
+      const reportId = getWeeklyReportId(currentUser.uid, weekStartDateId);
+      const docSnap = await getDoc(doc(db, "weeklyReports", reportId));
+      const label = formatWeeklyReportRangeText(weekStartDate);
+
+      if (!docSnap.exists() || docSnap.data()?.submitted !== true) {
+        if (i < WEEKLY_REPORT_CHECK_WEEKS) {
+          pendingWeeks.push({
+            weekStartDate: weekStartDateId,
+            label: label
+          });
+        }
+        continue;
+      }
+
+      const report = docSnap.data();
+      if (isUnreadWeeklyReportFeedback(report)) {
+        unreadFeedbackReports.push({
+          weekStartDate: report.weekStartDate || weekStartDateId,
+          label: label,
+          staffFeedbackVersion: report.staffFeedbackVersion
+        });
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("forceWeeklyReportReminder") === "1" && pendingWeeks.length === 0 && unreadFeedbackReports.length === 0) {
+      pendingWeeks.push({
+        weekStartDate: formatDateId(latestWeekStart),
+        label: `${formatWeeklyReportRangeText(latestWeekStart)}（テスト表示）`
+      });
+    }
+
+    renderWeeklyReportReminder(pendingWeeks, unreadFeedbackReports);
+    console.log("週一報告未記入・返信チェック", {
+      startWeek: WEEKLY_REPORT_START_WEEK,
+      latestWeek: formatDateId(latestWeekStart),
+      pendingWeeks: pendingWeeks.map((week) => week.weekStartDate),
+      unreadFeedbackReports: unreadFeedbackReports.map((week) => week.weekStartDate)
+    });
+    console.log(`[Read節約] 週一報告チェック：直近${maxWeeks}週分を直接確認。未記入と未確認返信をまとめて確認します。`);
+  } catch (error) {
+    console.error("週一報告未記入・返信チェックエラー:", error);
+    setWeeklyReportHomeStatus(`週一報告チェック失敗：${error.code || error.message}`, "error");
+
+    if (weeklyReportReminderBox && weeklyReportReminderText && weeklyReportReminderList) {
+      weeklyReportReminderBox.classList.remove("hidden");
+      if (weeklyReportReminderCount) {
+        weeklyReportReminderCount.textContent = "確認失敗";
+      }
+      weeklyReportReminderText.textContent = `週一報告の確認に失敗しました：${error.code || error.message}`;
+      weeklyReportReminderList.innerHTML = `<a class="weekly-report-reminder-item" href="weekly-report.html"><div class="weekly-report-reminder-item-title">週一報告ページを開く</div><div class="weekly-report-reminder-item-action">確認する</div></a>`;
+    }
+  }
+}
+
 // ログイン状態を確認する
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -1335,6 +1563,7 @@ onAuthStateChanged(auth, async (user) => {
 
     userInfo.textContent = `${userData.name}さん`;
 
+    await loadWeeklyReportReminder();
     await loadMonthlyCalendar();
 
   } else {

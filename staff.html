@@ -4,17 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=35">
 </head>
-<body>
-  <main class="login-container user-page">
-    <header class="app-page-header compact-page-header">
-      <h1>支援員ページ</h1>
-      <p id="staffInfo">ログイン確認中...</p>
+<body class="app-shell-body">
+  <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
+  <main class="login-container user-page app-main-shell staff-main-shell">
+    <header class="app-topbar" aria-label="ページヘッダー">
+      <div class="app-brand">
+        <span class="app-brand-icon" aria-hidden="true">e</span>
+        <div class="app-brand-text">
+          <div class="app-brand-title">enzine スケジュール</div>
+          <p id="staffInfo" class="app-user-meta">ログイン確認中...</p>
+        </div>
+      </div>
+      <div class="app-topbar-actions">
+        <div id="staffCurrentSectionTitle" class="app-current-section" aria-label="現在のページ">日別予定</div>
+        <details class="app-settings-menu">
+          <summary class="app-settings-button" aria-label="設定メニュー">⚙</summary>
+          <div class="app-settings-panel">
+            <div class="app-settings-panel-title">設定</div>
+            <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
+            <div class="app-settings-note">表示設定・通知設定などは今後追加予定です。</div>
+          </div>
+        </details>
+      </div>
     </header>
 
-    <section class="login-box">
-      <h2>日別予定一覧</h2>
+    <nav id="staffTabNav" class="page-tab-nav staff-page-tab-nav" aria-label="支援員メニュー">
+      <button type="button" class="page-tab-button active" data-staff-tab="daily">日別予定</button>
+      <button type="button" class="page-tab-button" data-staff-tab="user-schedule">利用者別予定</button>
+      <button type="button" class="page-tab-button" data-staff-tab="announcements">アナウンス</button>
+      <button type="button" class="page-tab-button" data-staff-tab="workshops">ワークショップ・教材</button>
+      <button type="button" class="page-tab-button" data-staff-tab="weekly-reports">週一報告</button>
+      <button type="button" class="page-tab-button" data-staff-tab="operation">運用チェック</button>
+    </nav>
+
+    <section class="login-box staff-tab-panel active" data-staff-panel="daily">
+      <div class="section-heading-row"><h2>日別予定一覧</h2><p class="calendar-guide">対象日の通所・在宅・休みを確認します。</p></div>
 
       <label>
         表示する日付
@@ -22,13 +48,12 @@
       </label>
 
       <button id="loadButton">一覧を表示</button>
-      <button id="logoutButton" class="sub-button">ログアウト</button>
 
       <p id="message"></p>
     </section>
 
-    <section class="staff-list-box">
-      <h2>本日の一覧</h2>
+    <section class="staff-list-box staff-tab-panel active" data-staff-panel="daily">
+      <div class="section-heading-row"><h2>本日の一覧</h2><p class="calendar-guide">一覧表示後に更新されます。</p></div>
 
       <div class="status-group">
         <h3>通所</h3>
@@ -52,12 +77,8 @@
     </section>
 
     <!-- ここから追加：アナウンス管理カレンダー -->
-    <section class="monthly-calendar-box">
-      <h2 id="announcementCalendarTitle">アナウンス管理</h2>
-
-      <p class="calendar-guide">
-        日付をクリックして、アナウンスを追加・編集できます。
-      </p>
+    <section class="monthly-calendar-box staff-tab-panel" data-staff-panel="announcements">
+      <div class="section-heading-row"><h2 id="announcementCalendarTitle">アナウンス管理</h2><p class="calendar-guide">日付をクリックして追加・編集できます。</p></div>
 
       <div class="calendar-month-nav">
         <button id="prevAnnouncementMonthButton" type="button" class="sub-button">＜ 前月</button>
@@ -121,12 +142,8 @@
     <!-- ここまで追加 -->
 
     <!-- ここから追加：利用者別 月間予定表示 -->
-    <section class="monthly-calendar-box staff-user-schedule-box">
-      <h2 id="userScheduleTitle">利用者別 月間予定</h2>
-
-      <p class="calendar-guide">
-        利用者名を押すと、その人の月間予定だけを個別に読み込みます。日付を押すと支援員側で予定を登録・修正できます。利用者一覧は system/activeUsers から1 readで取得します。土日は表示しません。
-      </p>
+    <section class="monthly-calendar-box staff-user-schedule-box staff-tab-panel" data-staff-panel="user-schedule">
+      <div class="section-heading-row"><h2 id="userScheduleTitle">利用者別 月間予定</h2><p class="calendar-guide">利用者名を押して個別予定を確認・編集します。</p></div>
 
       <div class="calendar-month-nav">
         <button id="prevUserScheduleMonthButton" type="button" class="sub-button">＜ 前月</button>
@@ -181,12 +198,8 @@
     <!-- ここまで追加 -->
 
     <!-- ここから追加：教材・リンク集管理 -->
-    <section class="monthly-calendar-box workshop-resource-admin-box">
-      <h2>教材・リンク集管理</h2>
-
-      <p class="calendar-guide">
-        ワークショップごとの教材リンク・予定・提出期限メモを管理します。普段は読み込まず、「管理を開く」を押した時だけ system/workshopResources を1 readします。
-      </p>
+    <section class="monthly-calendar-box workshop-resource-admin-box staff-tab-panel" data-staff-panel="workshops">
+      <div class="section-heading-row"><h2>ワークショップ・教材管理</h2><p class="calendar-guide">教材リンク・予定・提出期限メモを管理します。</p></div>
 
       <button id="loadWorkshopResourcesButton" type="button">教材・リンク管理を開く</button>
       <p id="workshopResourceMessage" class="user-schedule-message"></p>
@@ -240,13 +253,72 @@
     </section>
     <!-- ここまで追加：教材・リンク集管理 -->
 
-    <!-- ここから追加：運用チェック -->
-    <section class="monthly-calendar-box operation-check-box">
-      <h2>運用チェック</h2>
+    <!-- STEP3_FIXED_20260620_V31：支援員用 週一報告管理 -->
+    <section class="monthly-calendar-box weekly-report-admin-box staff-tab-panel" data-staff-panel="weekly-reports">
+      <div class="section-heading-row"><h2>週一報告 管理</h2><p class="calendar-guide">提出状況確認・本文確認・支援員返信ができます。</p></div>
 
-      <p class="calendar-guide">
-        本導入前や月初に、利用者一覧・予定未入力・アナウンス件数を確認できます。チェックボタンを押した時だけ読み込みます。
-      </p>
+      <div class="calendar-month-nav weekly-report-week-nav">
+        <button id="prevStaffWeeklyReportWeekButton" type="button" class="sub-button">＜ 前週</button>
+        <div id="staffWeeklyReportWeekLabel" class="calendar-month-label">対象週を確認中...</div>
+        <button id="nextStaffWeeklyReportWeekButton" type="button" class="sub-button">次週 ＞</button>
+      </div>
+
+      <button id="loadStaffWeeklyReportsButton" type="button">この週の提出状況を表示</button>
+      <p id="staffWeeklyReportMessage" class="user-schedule-message"></p>
+
+      <div id="staffWeeklyReportSummary" class="operation-check-result weekly-report-admin-summary">
+        「この週の提出状況を表示」を押すと、提出済み・未提出を確認できます。
+      </div>
+
+      <div class="weekly-report-admin-grid">
+        <section class="weekly-report-admin-list-box">
+          <h3>提出済み</h3>
+          <div id="submittedWeeklyReportList" class="weekly-report-admin-list">
+            まだ読み込んでいません。
+          </div>
+        </section>
+
+        <section class="weekly-report-admin-list-box">
+          <h3>未提出</h3>
+          <div id="missingWeeklyReportList" class="weekly-report-admin-list">
+            まだ読み込んでいません。
+          </div>
+        </section>
+      </div>
+
+      <section id="weeklyReportDetailPanel" class="weekly-report-detail-panel hidden">
+        <div class="section-heading-row">
+          <h3 id="weeklyReportDetailTitle">週一報告の詳細</h3>
+          <p id="weeklyReportDetailMeta" class="calendar-guide">提出済み一覧の名前を押すと表示されます。</p>
+        </div>
+        <div id="weeklyReportDetailBody" class="weekly-report-detail-body"></div>
+        <div class="weekly-report-feedback-editor">
+          <label>
+            支援員からの返信・フィードバック
+            <textarea id="weeklyReportFeedbackInput" placeholder="例：振り返りありがとうございます。できたことが具体的に書けています。次回は〇〇も意識してみましょう。"></textarea>
+          </label>
+          <button id="saveWeeklyReportFeedbackButton" type="button">返信を保存して利用者に表示</button>
+          <p id="weeklyReportFeedbackMessage" class="user-schedule-message"></p>
+        </div>
+      </section>
+
+      <div class="weekly-report-copy-box staff-weekly-report-copy-box">
+        <h3>提出済み 全員分コピー用テキスト</h3>
+        <p class="calendar-guide">
+          利用者には表示されない、支援員専用のまとめ欄です。
+        </p>
+        <div class="weekly-report-copy-button-row">
+          <button id="buildWeeklyReportsTextButton" type="button" class="sub-button">提出済みをテキスト化</button>
+          <button id="copyWeeklyReportsTextButton" type="button" class="sub-button">コピー</button>
+        </div>
+        <textarea id="weeklyReportsTextOutput" readonly placeholder="提出状況を読み込んだあと、テキスト化ボタンを押すとここに表示されます。"></textarea>
+      </div>
+    </section>
+    <!-- ここまで追加：支援員用 週一報告管理 -->
+
+    <!-- ここから追加：運用チェック -->
+    <section class="monthly-calendar-box operation-check-box staff-tab-panel" data-staff-panel="operation">
+      <div class="section-heading-row"><h2>運用チェック</h2><p class="calendar-guide">月初や本導入前の確認用です。</p></div>
 
       <label class="operation-check-month-label">
         確認する月
@@ -420,6 +492,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=17"></script>
+  <script type="module" src="staff.js?v=35"></script>
 </body>
 </html>

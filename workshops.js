@@ -1,4 +1,4 @@
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
 import {
   doc,
@@ -14,6 +14,7 @@ const workshopUserInfo = document.getElementById("workshopUserInfo");
 const workshopResourceList = document.getElementById("workshopResourceList");
 const workshopResourceMessage = document.getElementById("workshopResourceMessage");
 const backToScheduleButton = document.getElementById("backToScheduleButton");
+const logoutButton = document.getElementById("logoutButton");
 
 let currentUserData = null;
 
@@ -217,5 +218,13 @@ if (backToScheduleButton) {
     } else {
       window.location.href = "user.html";
     }
+  });
+}
+
+
+if (logoutButton) {
+  logoutButton.addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.href = "index.html";
   });
 }
