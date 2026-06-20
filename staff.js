@@ -14,6 +14,9 @@ import {
 
 import { auth, db } from "./firebase-config.js";
 
+// STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：週一報告の既読互換と表示漏れ修正
+// STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
+
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
@@ -1597,7 +1600,7 @@ function formatStaffWeeklyJapaneseDate(dateId) {
 
 function getStaffWeeklyReportRangeLabel(weekStartDate) {
   const startId = formatDateId(weekStartDate);
-  const endId = formatDateId(addStaffWeeklyDays(weekStartDate, 6));
+  const endId = formatDateId(addStaffWeeklyDays(weekStartDate, 4));
   return `${formatStaffWeeklyJapaneseDate(startId)}〜${formatStaffWeeklyJapaneseDate(endId)}`;
 }
 
@@ -1693,11 +1696,16 @@ function resetStaffWeeklyReportDisplay(message = "『この週の提出状況を
 }
 
 function isStaffFeedbackUnreadByUser(report) {
+  if (!report || !report.staffFeedbackText || !report.staffFeedbackVersion) {
+    return false;
+  }
+
+  if (report.feedbackReadByUser === true) {
+    return false;
+  }
+
   return Boolean(
-    report
-    && report.staffFeedbackText
-    && report.staffFeedbackVersion
-    && report.staffFeedbackReadVersion !== report.staffFeedbackVersion
+    report.staffFeedbackReadVersion !== report.staffFeedbackVersion
   );
 }
 
@@ -1852,7 +1860,7 @@ async function loadStaffWeeklyReports() {
   }
 
   const weekStartId = formatDateId(displayedStaffWeeklyReportWeekStartDate);
-  const weekEndId = formatDateId(addStaffWeeklyDays(displayedStaffWeeklyReportWeekStartDate, 6));
+  const weekEndId = formatDateId(addStaffWeeklyDays(displayedStaffWeeklyReportWeekStartDate, 4));
 
   if (applyStaffWeeklyReportCache(weekStartId)) {
     return;
@@ -2058,6 +2066,7 @@ async function saveWeeklyReportFeedback() {
       staffFeedbackByName: feedbackByName,
       staffFeedbackAt: serverTimestamp(),
       staffFeedbackVersion: feedbackVersion,
+      feedbackReadByUser: false,
       locked: true,
       updatedAt: serverTimestamp()
     }, { merge: true });
@@ -2069,6 +2078,7 @@ async function saveWeeklyReportFeedback() {
       staffFeedbackByName: feedbackByName,
       staffFeedbackAt: new Date().toISOString(),
       staffFeedbackVersion: feedbackVersion,
+      feedbackReadByUser: false,
       staffFeedbackReadVersion: "",
       locked: true
     };
@@ -2096,6 +2106,9 @@ function buildSingleWeeklyReportText(report) {
   const feedbackText = report.staffFeedbackText
     ? `\n\n支援員からの返信\n${report.staffFeedbackText}`
     : "";
+  const noActivityReasonText = hasMeaningfulNoActivityReason(report)
+    ? report.noActivityReason
+    : "";
 
   return [
     "--------------------",
@@ -2110,7 +2123,7 @@ function buildSingleWeeklyReportText(report) {
     report.activityTime || "",
     "",
     "活動なしと答えた方へ",
-    report.noActivityReason || "1",
+    noActivityReasonText,
     "",
     "先週の体調や生活リズム",
     report.healthStatus || "",

@@ -3340,6 +3340,8 @@ body.app-shell-body {
 /* ==============================
    STEP6_READABILITY_FIX_20260620_V35：返信通知・コンパクトWebUI
    ============================== */
+/* STEP7_WEEKLY_REPORT_STABILITY_20260620_V36 */
+/* STEP8_LOGIN_UNIFY_20260620_V37 */
 :root {
   --app-content-width: 1040px;
   --app-inner-width: 980px;
@@ -3350,6 +3352,63 @@ body.app-shell-body {
 .login-container.user-page.app-main-shell {
   width: min(100%, calc(var(--app-content-width) + 36px));
   max-width: calc(var(--app-content-width) + 36px);
+}
+
+.login-container.login-page.app-main-shell {
+  width: min(100%, 480px);
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 44px 18px 56px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.login-page-header {
+  margin-bottom: 18px;
+}
+
+.login-page-brand {
+  justify-content: center;
+}
+
+.login-page-brand .app-brand-text {
+  flex: 0 1 auto;
+}
+
+.login-page-brand .app-brand-title {
+  margin: 0;
+  text-align: left;
+}
+
+.login-page .login-box {
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--enzine-border);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(23, 32, 51, 0.08);
+}
+
+.login-heading-row {
+  margin-bottom: 0;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-page #loginButton:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.login-message {
+  min-height: 20px;
+  margin: 0;
+  text-align: left;
+  line-height: 1.5;
 }
 
 .app-main-shell > section,

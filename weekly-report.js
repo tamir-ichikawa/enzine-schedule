@@ -10,6 +10,9 @@ import {
 
 import { auth, db } from "./firebase-config.js";
 
+// STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読・ロック表示を安定化
+// STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
+
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const NO_ACTIVITY_VALUE = "わからない/活動なし（追加質問あり）";
@@ -96,7 +99,7 @@ function formatJapaneseDate(dateId) {
 
 function getJapaneseWeekRange(weekStartDate) {
   const startId = formatDateId(weekStartDate);
-  const endId = formatDateId(addDays(weekStartDate, 6));
+  const endId = formatDateId(addDays(weekStartDate, 4));
   return `${formatJapaneseDate(startId)}〜${formatJapaneseDate(endId)}`;
 }
 
@@ -175,6 +178,10 @@ function buildCopyText(report) {
     return "";
   }
 
+  const noActivityReasonText = hasMeaningfulNoActivityReason(report)
+    ? report.noActivityReason
+    : "";
+
   return [
     "【週一報告】",
     `氏名：${report.userName || ""}`,
@@ -187,7 +194,7 @@ function buildCopyText(report) {
     report.activityTime || "",
     "",
     "活動なしと答えた方へ",
-    report.noActivityReason || "1",
+    noActivityReasonText,
     "",
     "先週の体調や生活リズム",
     report.healthStatus || "",
@@ -231,11 +238,16 @@ function hasMeaningfulNoActivityReason(report) {
 }
 
 function isFeedbackUnreadByUser(report) {
+  if (!report || !report.staffFeedbackText || !report.staffFeedbackVersion) {
+    return false;
+  }
+
+  if (report.feedbackReadByUser === true) {
+    return false;
+  }
+
   return Boolean(
-    report
-    && report.staffFeedbackText
-    && report.staffFeedbackVersion
-    && report.staffFeedbackReadVersion !== report.staffFeedbackVersion
+    report.staffFeedbackReadVersion !== report.staffFeedbackVersion
   );
 }
 
@@ -364,7 +376,7 @@ function resetFeedbackAndReadOnly() {
 }
 function updateWeekHeader() {
   const weekStartId = formatDateId(displayedWeekStartDate);
-  const weekEndId = formatDateId(addDays(displayedWeekStartDate, 6));
+  const weekEndId = formatDateId(addDays(displayedWeekStartDate, 4));
   const isLastWeek = weekStartId === formatDateId(baseLastWeekStartDate);
 
   weeklyReportTitle.textContent = isLastWeek ? "先週分の報告" : "過去の週一報告";
@@ -487,7 +499,7 @@ async function saveWeeklyReport(event) {
   }
 
   const weekStartDate = formatDateId(displayedWeekStartDate);
-  const weekEndDate = formatDateId(addDays(displayedWeekStartDate, 6));
+  const weekEndDate = formatDateId(addDays(displayedWeekStartDate, 4));
   const reportDueDate = formatDateId(addDays(displayedWeekStartDate, 7));
   const reportId = getWeeklyReportId(currentUser.uid, weekStartDate);
 
@@ -586,6 +598,8 @@ async function markStaffFeedbackAsRead() {
 
     await setDoc(doc(db, "weeklyReports", reportId), {
       userId: currentUser.uid,
+      feedbackReadByUser: true,
+      feedbackReadAt: serverTimestamp(),
       staffFeedbackReadVersion: currentLoadedReport.staffFeedbackVersion,
       staffFeedbackReadAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -593,6 +607,8 @@ async function markStaffFeedbackAsRead() {
 
     currentLoadedReport.staffFeedbackReadVersion = currentLoadedReport.staffFeedbackVersion;
     currentLoadedReport.staffFeedbackReadAt = new Date().toISOString();
+    currentLoadedReport.feedbackReadByUser = true;
+    currentLoadedReport.feedbackReadAt = new Date().toISOString();
     renderFeedback(currentLoadedReport);
     renderReadOnlyReport(currentLoadedReport);
     setMessage("支援員からの返信を確認済みにしました。", "green");

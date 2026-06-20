@@ -13,6 +13,9 @@ import {
 
 import { auth, db } from "./firebase-config.js";
 
+// STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読フィールドの互換対応
+// STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告は2026-06-15週の月〜金から開始
+
 // ==============================
 // 基本設定
 // ==============================
@@ -22,7 +25,7 @@ import { auth, db } from "./firebase-config.js";
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const WEEKLY_REPORT_CHECK_WEEKS = 8;
-const WEEKLY_REPORT_START_WEEK = "2026-06-08";
+const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const WEEKLY_REPORT_FEEDBACK_CHECK_WEEKS = 12;
 
 
@@ -1343,7 +1346,7 @@ function getWeeklyReportId(userId, weekStartDateId) {
 }
 
 function formatWeeklyReportRangeText(weekStartDate) {
-  const weekEndDate = addDays(weekStartDate, 6);
+  const weekEndDate = addDays(weekStartDate, 4);
   return `${weekStartDate.getFullYear()}年${weekStartDate.getMonth() + 1}月${weekStartDate.getDate()}日〜${weekEndDate.getMonth() + 1}月${weekEndDate.getDate()}日`;
 }
 
@@ -1367,12 +1370,16 @@ function hideWeeklyReportReminder() {
 }
 
 function isUnreadWeeklyReportFeedback(report) {
+  if (!report || report.submitted !== true || !report.staffFeedbackText || !report.staffFeedbackVersion) {
+    return false;
+  }
+
+  if (report.feedbackReadByUser === true) {
+    return false;
+  }
+
   return Boolean(
-    report
-    && report.submitted === true
-    && report.staffFeedbackText
-    && report.staffFeedbackVersion
-    && report.staffFeedbackReadVersion !== report.staffFeedbackVersion
+    report.staffFeedbackReadVersion !== report.staffFeedbackVersion
   );
 }
 
