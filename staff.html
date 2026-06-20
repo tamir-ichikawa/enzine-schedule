@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=50">
+  <link rel="stylesheet" href="style.css?v=57">
 </head>
 <body class="app-shell-body">
   <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
@@ -14,6 +14,11 @@
   <!-- STEP16_ASSET_VERSION_SYNC_20260620_V45 -->
   <!-- STEP18_ANNOUNCEMENT_STATUS_CACHE_20260620_V47 -->
   <!-- STEP19_STAFF_HTML_ESCAPE_20260620_V48 -->
+  <!-- STEP23_STAFF_WEEKLY_STATUS_INDEX_20260620_V52 -->
+  <!-- STEP24_STAFF_DASHBOARD_20260620_V53 -->
+  <!-- STEP25_STAFF_DATE_PICKER_20260620_V54 -->
+  <!-- STEP26_DAILY_LIST_DIRECT_EDIT_20260620_V55 -->
+  <!-- STEP27_DAILY_LIST_COMPACT_LAYOUT_20260621_V56 -->
   <main class="login-container user-page app-main-shell staff-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -45,10 +50,22 @@
       <button type="button" class="page-tab-button" data-staff-tab="operation">運用チェック</button>
     </nav>
 
+    <section class="monthly-calendar-box staff-dashboard-box staff-tab-panel active" data-staff-panel="daily">
+      <div class="section-heading-row"><h2>今日の概況</h2><p class="calendar-guide">必要な時だけ集計</p></div>
+
+      <div class="staff-dashboard-action-row">
+        <button id="loadStaffDashboardButton" type="button">今日の概況を表示</button>
+      </div>
+
+      <div id="staffDashboardResult" class="operation-check-result staff-dashboard-result">
+        まだ集計していません。
+      </div>
+    </section>
+
     <section class="login-box staff-tab-panel active" data-staff-panel="daily">
       <div class="section-heading-row"><h2>日別予定一覧</h2><p class="calendar-guide">対象日の通所・在宅・休みを確認します。</p></div>
 
-      <label>
+      <label class="staff-date-field">
         表示する日付
         <input type="date" id="targetDate">
       </label>
@@ -498,6 +515,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=50"></script>
+  <script type="module" src="staff.js?v=57"></script>
 </body>
 </html>

@@ -2062,6 +2062,64 @@ body.modal-open {
 }
 
 /* ==============================
+   STEP24_STAFF_DASHBOARD_20260620_V53：支援員 今日の概況
+   ============================== */
+
+.staff-dashboard-action-row {
+  display: flex;
+  justify-content: flex-start;
+  margin: 6px 0 12px;
+}
+
+.staff-dashboard-action-row button {
+  width: auto;
+  min-width: 180px;
+}
+
+.staff-dashboard-result {
+  background: #faf5ec;
+  border-color: #e4d8c7;
+  color: #51483e;
+}
+
+.staff-dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+}
+
+.staff-dashboard-date {
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.operation-check-card.staff-dashboard-warning {
+  background: #fff7f3;
+  border-color: #e5cabe;
+  color: #7a4a40;
+}
+
+.staff-dashboard-note {
+  margin-top: 12px;
+  color: #7f7467;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+@media (max-width: 600px) {
+  .staff-dashboard-action-row button {
+    width: 100%;
+  }
+
+  .staff-dashboard-date {
+    font-size: 20px;
+  }
+
+  .staff-dashboard-note {
+    font-size: 15px;
+  }
+}
+
+/* ==============================
    Step 14：週間表示・未入力休み表示・スマホ上部コンパクト化
    ============================== */
 
@@ -3354,6 +3412,7 @@ body.app-shell-body {
 /* STEP18_ANNOUNCEMENT_STATUS_CACHE_20260620_V47 */
 /* STEP20_USER_INPUT_ASSISTS_20260620_V49 */
 /* STEP21_SAVE_AND_NEXT_WEEKDAY_20260620_V50 */
+/* STEP22_CLEAR_USER_SCHEDULE_20260620_V51 */
 :root {
   --app-content-width: 1040px;
   --app-inner-width: 980px;
@@ -4723,6 +4782,18 @@ textarea:focus {
   transform: none;
 }
 
+.clear-user-schedule-button {
+  background: #fff7f3;
+  border-color: #e5cabe;
+  color: #7a4a40;
+}
+
+.clear-user-schedule-button:hover {
+  background: #fff1ed;
+  border-color: #ddb8ad;
+  color: #7a4a40;
+}
+
 .save-and-next-button {
   background: #edf5ec;
   border: 1px solid #b7cdb2;
@@ -4740,5 +4811,188 @@ textarea:focus {
     min-height: 38px;
     padding: 7px 12px;
     font-size: 14px;
+  }
+}
+
+/* =========================================================
+   STEP25_STAFF_DATE_PICKER_20260620_V54：日付入力の操作性と配色
+   ========================================================= */
+.app-main-shell input[type="date"],
+.app-main-shell input[type="month"] {
+  color-scheme: light;
+  cursor: pointer;
+  background: linear-gradient(180deg, #fffdf8 0%, #faf5ec 100%);
+  border-color: #d8cbbb;
+  color: #4e473d;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74), 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.app-main-shell input[type="date"]:hover,
+.app-main-shell input[type="month"]:hover {
+  background: #fffaf2;
+  border-color: #b7cdb2;
+}
+
+.app-main-shell input[type="date"]:focus,
+.app-main-shell input[type="month"]:focus {
+  border-color: #8aae7b;
+  outline: 3px solid rgba(111, 143, 114, 0.18);
+}
+
+.app-main-shell input[type="date"]::-webkit-calendar-picker-indicator,
+.app-main-shell input[type="month"]::-webkit-calendar-picker-indicator {
+  padding: 5px;
+  border-radius: 999px;
+  background-color: #edf5ec;
+  cursor: pointer;
+  opacity: 0.86;
+}
+
+.app-main-shell input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.app-main-shell input[type="month"]::-webkit-calendar-picker-indicator:hover {
+  background-color: #e1ecdf;
+  opacity: 1;
+}
+
+.staff-date-field input[type="date"] {
+  width: min(100%, 260px);
+}
+
+/* =========================================================
+   STEP26_DAILY_LIST_DIRECT_EDIT_20260620_V55：日別一覧から直接編集
+   ========================================================= */
+.status-group ul {
+  padding-left: 0;
+  list-style: none;
+}
+
+.daily-user-list-item {
+  margin-bottom: 8px;
+}
+
+.app-main-shell .daily-user-edit-button {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  background: #fffaf2;
+  border: 1px solid #dfd1bd;
+  border-radius: 10px;
+  color: #4e473d;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.app-main-shell .daily-user-edit-button:hover,
+.app-main-shell .daily-user-edit-button:focus {
+  background: #edf5ec;
+  border-color: #b7cdb2;
+  color: #405c3d;
+}
+
+.daily-user-edit-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.daily-user-edit-time,
+.daily-user-edit-action {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.daily-user-edit-time {
+  background: #f4efe7;
+  color: #665d51;
+}
+
+.daily-user-edit-action {
+  background: #edf5ec;
+  border: 1px solid #b7cdb2;
+  color: #405c3d;
+}
+
+@media (max-width: 600px) {
+  .app-main-shell .daily-user-edit-button {
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+
+  .daily-user-edit-time,
+  .daily-user-edit-action {
+    font-size: 13px;
+  }
+}
+
+/* =========================================================
+   STEP27_DAILY_LIST_COMPACT_LAYOUT_20260621_V56：本日の一覧を横並び・内容寄せ
+   ========================================================= */
+.app-main-shell .staff-list-box[data-staff-panel="daily"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] > .section-heading-row {
+  grid-column: 1 / -1;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group {
+  min-width: 0;
+  margin-top: 0;
+  padding: 12px;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group h3 {
+  margin-bottom: 10px;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group ul {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group li {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.app-main-shell .daily-user-edit-button {
+  display: inline-flex;
+  justify-content: flex-start;
+  width: auto;
+  max-width: 100%;
+}
+
+.daily-user-edit-name {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.daily-user-edit-time,
+.daily-user-edit-action {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .app-main-shell .staff-list-box[data-staff-panel="daily"] {
+    grid-template-columns: 1fr;
   }
 }

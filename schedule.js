@@ -3,7 +3,9 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
 import {
   doc,
   setDoc,
+  updateDoc,
   getDoc,
+  deleteField,
   collection,
   query,
   where,
@@ -20,6 +22,7 @@ import { auth, db } from "./firebase-config.js";
 // STEP18_WEEKLY_REPORT_STATUS_CACHE_20260620_V47：週一報告通知を集約doc優先で確認
 // STEP20_USER_INPUT_ASSISTS_20260620_V49：前回の予定入力を再利用できる補助を追加
 // STEP21_SAVE_AND_NEXT_WEEKDAY_20260620_V50：保存後に次の平日を続けて開く
+// STEP22_CLEAR_USER_SCHEDULE_20260620_V51：利用者が予定を未入力に戻せる操作を追加
 
 // ==============================
 // 基本設定
@@ -44,6 +47,7 @@ const scheduleTimeSlot = document.getElementById("scheduleTimeSlot");
 const timeSlotChoiceBox = document.getElementById("timeSlotChoiceBox");
 const scheduleMemo = document.getElementById("scheduleMemo");
 const applyLastScheduleButton = document.getElementById("applyLastScheduleButton");
+const clearScheduleButton = document.getElementById("clearScheduleButton");
 
 const modalAnnouncements = document.getElementById("modalAnnouncements");
 const statusButtons = document.querySelectorAll("[data-status]");
@@ -464,6 +468,10 @@ function setScheduleSaving(isSaving) {
     saveAndNextScheduleButton.disabled = isSaving;
     saveAndNextScheduleButton.textContent = isSaving ? "保存中..." : "保存して次の平日へ";
   }
+
+  if (clearScheduleButton) {
+    clearScheduleButton.disabled = isSaving;
+  }
 }
 
 let pageScrollY = 0;
@@ -711,6 +719,73 @@ if (applyLastScheduleButton) {
       message.style.color = "green";
       message.textContent = "前回の入力を反映しました。保存するとこの日に登録されます。";
     }
+  });
+}
+
+async function clearCurrentSchedule() {
+  if (!currentUser) {
+    message.style.color = "red";
+    message.textContent = "ログイン情報が確認できません。再ログインしてください。";
+    return;
+  }
+
+  const date = scheduleDate.value;
+
+  if (!date) {
+    message.style.color = "red";
+    message.textContent = "日付を選択してください。";
+    return;
+  }
+
+  try {
+    setScheduleSaving(true);
+
+    const monthId = getMonthIdFromDateId(date);
+    const monthlyScheduleId = getMonthlyScheduleId(currentUser.uid, monthId);
+    const existingData = getCachedScheduleForDate(date);
+
+    if (existingData) {
+      await updateDoc(doc(db, "monthlySchedules", monthlyScheduleId), {
+        [`days.${date}`]: deleteField(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    if (monthlyScheduleCache[monthId]) {
+      delete monthlyScheduleCache[monthId][date];
+    }
+
+    const displayedMonthId = formatMonthId(currentYear, currentMonth);
+
+    if (displayedMonthId === monthId) {
+      schedulesByDate = monthlyScheduleCache[monthId] || {};
+    }
+
+    scheduleStatus.value = "";
+    scheduleTimeSlot.value = "";
+    scheduleMemo.value = "";
+    clearStatusButtonActive();
+    clearTimeSlotButtonActive();
+    updateTimeSlotVisibility();
+
+    closeModal();
+    renderCurrentCalendarView(currentYear, currentMonth);
+    renderTodaySchedule();
+
+    message.style.color = "green";
+    message.textContent = "予定を未入力に戻しました。";
+  } catch (error) {
+    console.error("予定未入力戻しエラー:", error);
+    message.style.color = "red";
+    message.textContent = `未入力に戻せませんでした：${error.code || error.message}`;
+  } finally {
+    setScheduleSaving(false);
+  }
+}
+
+if (clearScheduleButton) {
+  clearScheduleButton.addEventListener("click", () => {
+    clearCurrentSchedule();
   });
 }
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>利用者ページ | enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=50">
+  <link rel="stylesheet" href="style.css?v=57">
 </head>
 <body class="app-shell-body">
   <!-- STEP2_FIXED_20260620_V30 -->
@@ -18,6 +18,7 @@
   <!-- STEP18_ANNOUNCEMENT_STATUS_CACHE_20260620_V47 -->
   <!-- STEP20_USER_INPUT_ASSISTS_20260620_V49 -->
   <!-- STEP21_SAVE_AND_NEXT_WEEKDAY_20260620_V50 -->
+  <!-- STEP22_CLEAR_USER_SCHEDULE_20260620_V51 -->
   <main class="login-container user-page app-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -169,6 +170,7 @@
           <h3>あなたの予定</h3>
           <div class="modal-assist-row">
             <button id="applyLastScheduleButton" type="button" class="assist-chip-button hidden">前回の入力を使う</button>
+            <button id="clearScheduleButton" type="button" class="assist-chip-button clear-user-schedule-button">未入力に戻す</button>
           </div>
           <div class="choice-button-group" id="statusButtonGroup">
             <button type="button" class="choice-button" data-status="通所">通所</button>
@@ -203,6 +205,6 @@
     </div>
   </div>
 
-  <script type="module" src="schedule.js?v=50"></script>
+  <script type="module" src="schedule.js?v=57"></script>
 </body>
 </html>

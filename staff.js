@@ -18,6 +18,10 @@ import { auth, db } from "./firebase-config.js";
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
 // STEP18_WEEKLY_REPORT_STATUS_CACHE_20260620_V47：支援員返信時に利用者通知用の集約docを更新
 // STEP19_STAFF_HTML_ESCAPE_20260620_V48：運用チェックなどのHTML文字列出力を安全化
+// STEP23_STAFF_WEEKLY_STATUS_INDEX_20260620_V52：週一報告一覧はステータスdoc優先で確認
+// STEP24_STAFF_DASHBOARD_20260620_V53：支援員の今日の概況をボタン実行で集計
+// STEP25_STAFF_DATE_PICKER_20260620_V54：日付入力欄全体のクリックでカレンダーを開く
+// STEP26_DAILY_LIST_DIRECT_EDIT_20260620_V55：日別一覧から利用者予定編集へ直接移動
 
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
@@ -102,11 +106,35 @@ const targetDate = document.getElementById("targetDate");
 const loadButton = document.getElementById("loadButton");
 const logoutButton = document.getElementById("logoutButton");
 const message = document.getElementById("message");
+const loadStaffDashboardButton = document.getElementById("loadStaffDashboardButton");
+const staffDashboardResult = document.getElementById("staffDashboardResult");
 
 const comingList = document.getElementById("comingList");
 const homeList = document.getElementById("homeList");
 const offList = document.getElementById("offList");
 const otherList = document.getElementById("otherList");
+
+function openNativeDatePicker(inputElement) {
+  if (!inputElement) {
+    return;
+  }
+
+  try {
+    inputElement.focus({ preventScroll: true });
+  } catch (error) {
+    inputElement.focus();
+  }
+
+  if (typeof inputElement.showPicker !== "function") {
+    return;
+  }
+
+  try {
+    inputElement.showPicker();
+  } catch (error) {
+    // showPicker はブラウザや入力状態によって拒否されることがあるため、通常の入力動作に任せる。
+  }
+}
 
 const announcementCalendarTitle = document.getElementById("announcementCalendarTitle");
 const announcementCalendar = document.getElementById("announcementCalendar");
@@ -250,6 +278,7 @@ let displayedUserScheduleMonth = new Date().getMonth();
 let displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
 let currentEditingUserMonthlySchedule = null;
 let selectedUserScheduleEditDate = "";
+let shouldRefreshDailySchedulesAfterEdit = false;
 
 // STEP3_FIXED_20260620_V31：週一報告管理用の状態
 let displayedStaffWeeklyReportWeekStartDate = null;
@@ -498,20 +527,39 @@ function clearLists() {
 
 function addUserToList(listElement, data) {
   const li = document.createElement("li");
+  li.className = "daily-user-list-item";
 
   const name = data.userName || data.userEmail || "名前不明";
   const timeSlot = data.timeSlot || "";
   const memo = data.memo || "";
 
-  const mainText = document.createElement("div");
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "daily-user-edit-button";
+  editButton.setAttribute("aria-label", `${name}さんの予定を編集`);
+
+  const nameText = document.createElement("span");
+  nameText.className = "daily-user-edit-name";
+  nameText.textContent = name;
+  editButton.appendChild(nameText);
 
   if (timeSlot) {
-    mainText.textContent = `${name}　${timeSlot}`;
-  } else {
-    mainText.textContent = name;
+    const timeSlotText = document.createElement("span");
+    timeSlotText.className = "daily-user-edit-time";
+    timeSlotText.textContent = timeSlot;
+    editButton.appendChild(timeSlotText);
   }
 
-  li.appendChild(mainText);
+  const actionText = document.createElement("span");
+  actionText.className = "daily-user-edit-action";
+  actionText.textContent = "編集";
+  editButton.appendChild(actionText);
+
+  editButton.addEventListener("click", () => {
+    openDailyScheduleEditFromList(data);
+  });
+
+  li.appendChild(editButton);
 
   if (memo) {
     const memoText = document.createElement("div");
@@ -521,6 +569,61 @@ function addUserToList(listElement, data) {
   }
 
   listElement.appendChild(li);
+}
+
+function buildDailyScheduleUserFromListData(data) {
+  return {
+    id: data.userId,
+    uid: data.userId,
+    name: data.userName || data.userEmail || "名前未設定",
+    email: data.userEmail || "",
+    officeId: data.officeId || getCurrentOfficeId(),
+    groupId: data.groupId || getCurrentGroupId(),
+    active: true
+  };
+}
+
+function buildMissingDailyMonthlySchedule(user, monthId) {
+  return {
+    id: `${user.id}_${monthId}`,
+    _missingDoc: true,
+    userId: user.id,
+    userName: user.name || "名前未設定",
+    userEmail: user.email || "",
+    officeId: user.officeId || getCurrentOfficeId(),
+    groupId: user.groupId || getCurrentGroupId(),
+    month: monthId,
+    days: {},
+    workDayCount: 0
+  };
+}
+
+async function openDailyScheduleEditFromList(data) {
+  const dateId = data.dateId || targetDate?.value || "";
+
+  if (!dateId || !data.userId) {
+    return;
+  }
+
+  const { year, month } = getYearAndMonthFromDateId(dateId);
+  const monthId = formatMonthId(year, month);
+  const user = buildDailyScheduleUserFromListData(data);
+  const cacheKey = `${user.id}_${monthId}`;
+  const monthlySchedule = data.monthlySchedule
+    || individualUserMonthlyScheduleCache[cacheKey]
+    || buildMissingDailyMonthlySchedule(user, monthId);
+
+  selectedUserScheduleId = user.id;
+  selectedUserScheduleData = user;
+  individualUserMonthlyScheduleCache[cacheKey] = monthlySchedule;
+  currentEditingUserMonthlySchedule = monthlySchedule;
+  shouldRefreshDailySchedulesAfterEdit = true;
+
+  await openUserScheduleEditModal(dateId);
+
+  if (userScheduleEditModal?.classList.contains("hidden")) {
+    shouldRefreshDailySchedulesAfterEdit = false;
+  }
 }
 
 function showEmptyTextIfNeeded() {
@@ -933,9 +1036,13 @@ async function loadDailySchedules() {
         status: status,
         timeSlot: dayData?.timeSlot || "",
         memo: dayData?.memo || "",
+        dateId: date,
+        monthlySchedule: monthlySchedule,
         userId: user.id,
         userName: user.name,
-        userEmail: user.email
+        userEmail: user.email,
+        officeId: user.officeId,
+        groupId: user.groupId
       };
 
       if (status === "通所") {
@@ -964,6 +1071,213 @@ async function loadDailySchedules() {
 
     message.style.color = "red";
     message.textContent = `読み込みに失敗しました：${error.code || error.message}`;
+  }
+}
+
+// ==============================
+// 支援員：今日の概況
+// ボタンを押した時だけ、既存の月間予定キャッシュと週一報告ステータス集約docを読む。
+// ==============================
+function getStaffDashboardUserLabel(user) {
+  return user.name || user.email || user.id || "名前未設定";
+}
+
+function buildStaffDashboardNamePreview(names) {
+  if (!names.length) {
+    return "なし";
+  }
+
+  const visibleNames = names.slice(0, 6).map((name) => escapeStaffWeeklyText(name)).join("、");
+  const hiddenCount = names.length - 6;
+  return hiddenCount > 0 ? `${visibleNames}、ほか${hiddenCount}人` : visibleNames;
+}
+
+function summarizeStaffDashboardDailySchedules(users, monthlySchedules, dateId) {
+  const scheduleMap = {};
+  const summary = {
+    coming: [],
+    home: [],
+    explicitOff: [],
+    unfilled: [],
+    other: []
+  };
+
+  monthlySchedules.forEach((monthlySchedule) => {
+    if (monthlySchedule.userId) {
+      scheduleMap[monthlySchedule.userId] = monthlySchedule;
+    }
+  });
+
+  users.forEach((user) => {
+    const monthlySchedule = scheduleMap[user.id] || null;
+    const dayData = monthlySchedule?.days?.[dateId] || null;
+    const status = dayData?.status || "";
+    const label = getStaffDashboardUserLabel(user);
+
+    if (status === "通所") {
+      summary.coming.push(label);
+    } else if (status === "在宅") {
+      summary.home.push(label);
+    } else if (status === "休み") {
+      summary.explicitOff.push(label);
+    } else if (!status) {
+      summary.unfilled.push(label);
+    } else {
+      summary.other.push(`${label}（${status}）`);
+    }
+  });
+
+  return summary;
+}
+
+function summarizeStaffDashboardWeeklyStatus(users, statusMap, weekStartId) {
+  const summary = {
+    submitted: [],
+    notSubmitted: [],
+    statusMissing: []
+  };
+
+  users.forEach((user) => {
+    const statusData = statusMap[user.id] || null;
+    const submittedWeeks = statusData?.submittedWeeks || {};
+    const label = getStaffDashboardUserLabel(user);
+
+    if (submittedWeeks[weekStartId] === true) {
+      summary.submitted.push(label);
+      return;
+    }
+
+    if (hasOwnField(submittedWeeks, weekStartId)) {
+      summary.notSubmitted.push(label);
+      return;
+    }
+
+    summary.statusMissing.push(label);
+  });
+
+  return summary;
+}
+
+function renderStaffDashboard({ dateId, users, dailySummary, weeklySummary, weeklyTargetLabel, weeklyStatusError }) {
+  if (!staffDashboardResult) {
+    return;
+  }
+
+  const weeklySubmittedCount = weeklySummary?.submitted.length || 0;
+  const weeklyNotConfirmedCount = weeklySummary
+    ? weeklySummary.notSubmitted.length + weeklySummary.statusMissing.length
+    : 0;
+  const weeklyStatusMissingCount = weeklySummary?.statusMissing.length || 0;
+
+  const weeklyCard = weeklyStatusError
+    ? `
+        <div class="operation-check-card staff-dashboard-warning">
+          <div class="operation-check-card-label">週一報告</div>
+          <div class="operation-check-card-value">確認不可</div>
+          <div class="operation-check-card-sub">${escapeStaffWeeklyText(weeklyStatusError)}</div>
+        </div>
+      `
+    : `
+        <div class="operation-check-card">
+          <div class="operation-check-card-label">週一報告 提出済み</div>
+          <div class="operation-check-card-value">${weeklySubmittedCount}人</div>
+          <div class="operation-check-card-sub">${escapeStaffWeeklyText(weeklyTargetLabel)}</div>
+        </div>
+        <div class="operation-check-card">
+          <div class="operation-check-card-label">週一報告 未提出・未確認</div>
+          <div class="operation-check-card-value">${weeklyNotConfirmedCount}人</div>
+          <div class="operation-check-card-sub">ステータス未整備 ${weeklyStatusMissingCount}人</div>
+        </div>
+      `;
+
+  staffDashboardResult.innerHTML = `
+    <div class="operation-check-grid staff-dashboard-grid">
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">対象日</div>
+        <div class="operation-check-card-value staff-dashboard-date">${escapeStaffWeeklyText(dateId)}</div>
+        <div class="operation-check-card-sub">利用者 ${users.length}人</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">通所</div>
+        <div class="operation-check-card-value">${dailySummary.coming.length}人</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">在宅</div>
+        <div class="operation-check-card-value">${dailySummary.home.length}人</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">休み入力</div>
+        <div class="operation-check-card-value">${dailySummary.explicitOff.length}人</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">予定未入力</div>
+        <div class="operation-check-card-value">${dailySummary.unfilled.length}人</div>
+        <div class="operation-check-card-sub">${buildStaffDashboardNamePreview(dailySummary.unfilled)}</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">その他</div>
+        <div class="operation-check-card-value">${dailySummary.other.length}人</div>
+        <div class="operation-check-card-sub">${buildStaffDashboardNamePreview(dailySummary.other)}</div>
+      </div>
+      ${weeklyCard}
+    </div>
+    <div class="staff-dashboard-note">
+      週一報告は提出ステータス基準です。
+    </div>
+  `;
+}
+
+async function loadStaffDashboard() {
+  if (!staffDashboardResult) {
+    return;
+  }
+
+  const dateId = getTodayDateId();
+
+  if (loadStaffDashboardButton) {
+    loadStaffDashboardButton.disabled = true;
+    loadStaffDashboardButton.textContent = "集計中...";
+  }
+
+  staffDashboardResult.innerHTML = `<div class="operation-check-loading">今日の概況を集計中...</div>`;
+
+  try {
+    const { year, month } = getYearAndMonthFromDateId(dateId);
+    const users = await loadActiveUsersForStaff();
+    const monthlySchedules = await loadMonthlySchedulesForStaff(year, month);
+    const dailySummary = summarizeStaffDashboardDailySchedules(users, monthlySchedules, dateId);
+    const weeklyStartDate = getStaffWeeklyLastCompletedWeekStartDate();
+    const weeklyStartId = formatDateId(weeklyStartDate);
+    const weeklyTargetLabel = getStaffWeeklyReportRangeLabel(weeklyStartDate);
+    let weeklySummary = null;
+    let weeklyStatusError = "";
+
+    try {
+      const statusMap = await loadWeeklyReportStatusMapForStaff(users);
+      weeklySummary = summarizeStaffDashboardWeeklyStatus(users, statusMap, weeklyStartId);
+    } catch (error) {
+      console.warn("支援員ダッシュボード：週一報告ステータスの読み込みに失敗しました。", error);
+      weeklyStatusError = error.code || error.message || "ステータスを確認できませんでした。";
+    }
+
+    renderStaffDashboard({
+      dateId,
+      users,
+      dailySummary,
+      weeklySummary,
+      weeklyTargetLabel,
+      weeklyStatusError
+    });
+
+    console.log("[Read節約] 支援員ダッシュボード：ボタン実行時のみ activeUsers / monthlySchedules / weeklyReportUserStatus を確認。週一報告本文は読みません。");
+  } catch (error) {
+    console.error("支援員ダッシュボード読み込みエラー:", error);
+    staffDashboardResult.innerHTML = `<div class="calendar-filter-empty">${escapeStaffWeeklyText(`概況の集計に失敗しました：${error.code || error.message}`)}</div>`;
+  } finally {
+    if (loadStaffDashboardButton) {
+      loadStaffDashboardButton.disabled = false;
+      loadStaffDashboardButton.textContent = "今日の概況を表示";
+    }
   }
 }
 
@@ -1601,6 +1915,55 @@ function getWeeklyReportStatusDocRef(userId) {
   return doc(db, WEEKLY_REPORT_STATUS_COLLECTION, userId);
 }
 
+function hasOwnField(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
+function hasStaffFeedbackForReport(report) {
+  return Boolean(report?.staffFeedbackText || report?.staffFeedbackVersion);
+}
+
+async function loadWeeklyReportStatusMapForStaff(users) {
+  const targetUserIds = new Set(users.map((user) => user.id));
+  const statusQuery = query(
+    collection(db, WEEKLY_REPORT_STATUS_COLLECTION),
+    where("officeId", "==", getCurrentOfficeId())
+  );
+  const snapshot = await getDocs(statusQuery);
+  const statusMap = {};
+
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data() || {};
+    const userId = data.userId || docSnap.id;
+
+    if (targetUserIds.has(userId)) {
+      statusMap[userId] = data;
+    }
+  });
+
+  return statusMap;
+}
+
+function buildStaffWeeklyReportStub(user, statusData, weekStartId, weekEndId) {
+  const feedbackVersion = statusData?.feedbackVersions?.[weekStartId] || "";
+  const feedbackReadVersion = statusData?.feedbackReadVersions?.[weekStartId] || "";
+
+  return {
+    id: getStaffWeeklyReportId(user.id, weekStartId),
+    userId: user.id,
+    _user: user,
+    _statusOnly: true,
+    submitted: true,
+    weekStartDate: weekStartId,
+    weekEndDate: weekEndId,
+    userName: user.name || user.email || "名前未設定",
+    userEmail: user.email || "",
+    staffFeedbackVersion: feedbackVersion,
+    staffFeedbackReadVersion: feedbackReadVersion,
+    feedbackReadByUser: Boolean(feedbackVersion && feedbackReadVersion === feedbackVersion)
+  };
+}
+
 async function markWeeklyReportFeedbackInStatusCache(report, feedbackVersion) {
   const userId = report?.userId;
   const weekStartDate = report?.weekStartDate || loadedStaffWeeklyReportWeekStartId || "";
@@ -1736,7 +2099,7 @@ function resetStaffWeeklyReportDisplay(message = "『この週の提出状況を
 }
 
 function isStaffFeedbackUnreadByUser(report) {
-  if (!report || !report.staffFeedbackText || !report.staffFeedbackVersion) {
+  if (!report || !report.staffFeedbackVersion) {
     return false;
   }
 
@@ -1750,7 +2113,7 @@ function isStaffFeedbackUnreadByUser(report) {
 }
 
 function getFeedbackStatusText(report) {
-  if (!report?.staffFeedbackText) {
+  if (!hasStaffFeedbackForReport(report)) {
     return "返信なし";
   }
   if (isStaffFeedbackUnreadByUser(report)) {
@@ -1791,15 +2154,19 @@ function renderSubmittedWeeklyReports(reports) {
 
     const meta = document.createElement("div");
     meta.className = "weekly-report-admin-meta";
-    meta.textContent = `自己採点：${report.selfScore || "未入力"} ／ 活動時間：${report.activityTime || "未入力"}`;
+    meta.textContent = report._statusOnly
+      ? "詳細未読込 ／ 名前を押すと本文を読み込みます"
+      : `自己採点：${report.selfScore || "未入力"} ／ 活動時間：${report.activityTime || "未入力"}`;
 
     const feedback = document.createElement("div");
-    feedback.className = `weekly-report-feedback-status ${isStaffFeedbackUnreadByUser(report) ? "unread" : report.staffFeedbackText ? "read" : "none"}`;
+    feedback.className = `weekly-report-feedback-status ${isStaffFeedbackUnreadByUser(report) ? "unread" : hasStaffFeedbackForReport(report) ? "read" : "none"}`;
     feedback.textContent = getFeedbackStatusText(report);
 
     const body = document.createElement("div");
     body.className = "weekly-report-admin-preview";
-    body.textContent = shortenStaffWeeklyText(report.workActivityText || "作業・活動内容の記入なし", 100);
+    body.textContent = report._statusOnly
+      ? "本文はまだ読み込んでいません。"
+      : shortenStaffWeeklyText(report.workActivityText || "作業・活動内容の記入なし", 100);
 
     button.appendChild(title);
     button.appendChild(meta);
@@ -1839,7 +2206,7 @@ function renderStaffWeeklyReportResult(fromCache = false) {
   const targetLabel = displayedStaffWeeklyReportWeekStartDate
     ? getStaffWeeklyReportRangeLabel(displayedStaffWeeklyReportWeekStartDate)
     : "対象週未設定";
-  const feedbackCount = loadedStaffWeeklyReports.filter((report) => report.staffFeedbackText).length;
+  const feedbackCount = loadedStaffWeeklyReports.filter(hasStaffFeedbackForReport).length;
   const unreadFeedbackCount = loadedStaffWeeklyReports.filter(isStaffFeedbackUnreadByUser).length;
 
   if (staffWeeklyReportSummary) {
@@ -1930,13 +2297,34 @@ async function loadStaffWeeklyReports() {
 
   try {
     const users = await loadActiveUsersForStaff();
+    let statusMap = {};
+    try {
+      statusMap = await loadWeeklyReportStatusMapForStaff(users);
+    } catch (statusError) {
+      console.warn("週一報告ステータスdocの読み込みに失敗したため、従来方式で確認します。", statusError);
+    }
     const submittedReports = [];
     const missingUsers = [];
+    let fallbackReportReads = 0;
 
     for (const user of users) {
+      const statusData = statusMap[user.id] || null;
+      const submittedWeeks = statusData?.submittedWeeks || {};
+
+      if (submittedWeeks[weekStartId] === true) {
+        submittedReports.push(buildStaffWeeklyReportStub(user, statusData, weekStartId, weekEndId));
+        continue;
+      }
+
+      if (hasOwnField(submittedWeeks, weekStartId)) {
+        missingUsers.push(user);
+        continue;
+      }
+
       const reportId = getStaffWeeklyReportId(user.id, weekStartId);
       const reportRef = doc(db, "weeklyReports", reportId);
       const reportSnap = await getDoc(reportRef);
+      fallbackReportReads++;
 
       if (reportSnap.exists() && reportSnap.data()?.submitted === true) {
         const data = reportSnap.data();
@@ -1964,7 +2352,7 @@ async function loadStaffWeeklyReports() {
 
     renderStaffWeeklyReportResult(false);
     setStaffWeeklyReportMessage(`提出状況を表示しました。提出済み${submittedReports.length}人、未提出${missingUsers.length}人。`, "green");
-    console.log(`[Read節約] 週一報告管理：weeklyReportsは対象週 ${weekStartId} を利用者ごとに直接確認。以後この週はキャッシュ表示。`);
+    console.log(`[Read節約] 週一報告管理：weeklyReportUserStatusを優先して提出状況を確認。ステータス未整備の${fallbackReportReads}件だけweeklyReportsを確認しました。以後この週はキャッシュ表示。`);
   } catch (error) {
     console.error("週一報告管理 読み込みエラー:", error);
     if (staffWeeklyReportSummary) {
@@ -2032,6 +2420,52 @@ function buildStaffWeeklyReportDetailHtml(report) {
   return buildWeeklyReportReadableHtml(report);
 }
 
+function replaceLoadedStaffWeeklyReport(updatedReport) {
+  loadedStaffWeeklyReports = loadedStaffWeeklyReports.map((item) => item.id === updatedReport.id ? updatedReport : item);
+
+  if (loadedStaffWeeklyReportWeekStartId && staffWeeklyReportCache[loadedStaffWeeklyReportWeekStartId]) {
+    staffWeeklyReportCache[loadedStaffWeeklyReportWeekStartId].submittedReports = loadedStaffWeeklyReports;
+  }
+}
+
+async function loadStaffWeeklyReportDetailById(reportId) {
+  const existingReport = getLoadedStaffWeeklyReportById(reportId);
+
+  if (!existingReport) {
+    return null;
+  }
+
+  if (!existingReport._statusOnly) {
+    return existingReport;
+  }
+
+  setStaffWeeklyReportMessage("週一報告本文を読み込み中...", "#333");
+
+  const reportSnap = await getDoc(doc(db, "weeklyReports", reportId));
+
+  if (!reportSnap.exists() || reportSnap.data()?.submitted !== true) {
+    setStaffWeeklyReportMessage("提出済みステータスはありますが、週一報告本文が見つかりませんでした。", "red");
+    return null;
+  }
+
+  const data = reportSnap.data();
+  const detailedReport = {
+    ...existingReport,
+    ...data,
+    id: reportSnap.id,
+    _statusOnly: false,
+    _user: existingReport._user,
+    weekStartDate: data.weekStartDate || existingReport.weekStartDate,
+    weekEndDate: data.weekEndDate || existingReport.weekEndDate,
+    userName: data.userName || existingReport.userName || existingReport._user?.name || "名前未設定",
+    userEmail: data.userEmail || existingReport.userEmail || existingReport._user?.email || ""
+  };
+
+  replaceLoadedStaffWeeklyReport(detailedReport);
+  console.log(`[Read節約] 週一報告詳細：${reportId} は名前を押した時だけ1 readしました。`);
+  return detailedReport;
+}
+
 function renderStaffWeeklyReportDetail(report) {
   if (!weeklyReportDetailPanel || !weeklyReportDetailBody) {
     return;
@@ -2058,13 +2492,14 @@ function renderStaffWeeklyReportDetail(report) {
   renderSubmittedWeeklyReports(loadedStaffWeeklyReports);
 }
 
-function openStaffWeeklyReportDetail(reportId) {
-  const report = getLoadedStaffWeeklyReportById(reportId);
+async function openStaffWeeklyReportDetail(reportId) {
+  const report = await loadStaffWeeklyReportDetailById(reportId);
   if (!report) {
     setStaffWeeklyReportMessage("選択した週一報告が見つかりません。", "red");
     return;
   }
   renderStaffWeeklyReportDetail(report);
+  setStaffWeeklyReportMessage("週一報告本文を表示しました。", "green");
 
   // 提出済み一覧の下に詳細欄が出るため、クリック後に自動で詳細までスクロールする。
   requestAnimationFrame(() => {
@@ -2190,7 +2625,23 @@ function buildSingleWeeklyReportText(report) {
   ].join("\n");
 }
 
-function buildAllWeeklyReportsText() {
+async function ensureAllLoadedStaffWeeklyReportDetails() {
+  const statusOnlyReports = loadedStaffWeeklyReports.filter((report) => report._statusOnly);
+
+  if (statusOnlyReports.length === 0) {
+    return;
+  }
+
+  setStaffWeeklyReportMessage(`コピー用テキスト作成のため、本文${statusOnlyReports.length}件を読み込み中...`, "#333");
+
+  for (const report of statusOnlyReports) {
+    await loadStaffWeeklyReportDetailById(report.id);
+  }
+
+  renderSubmittedWeeklyReports(loadedStaffWeeklyReports);
+}
+
+async function buildAllWeeklyReportsText() {
   if (!weeklyReportsTextOutput) {
     return;
   }
@@ -2200,26 +2651,43 @@ function buildAllWeeklyReportsText() {
     return;
   }
 
-  const targetLabel = getStaffWeeklyReportRangeLabel(parseStaffWeeklyDateId(loadedStaffWeeklyReportWeekStartId));
-  const missingNames = loadedStaffWeeklyMissingUsers.map((user) => user.name || user.email || user.id || "名前未設定");
+  if (buildWeeklyReportsTextButton) {
+    buildWeeklyReportsTextButton.disabled = true;
+    buildWeeklyReportsTextButton.textContent = "本文読み込み中...";
+  }
 
-  const header = [
-    "【週一報告まとめ】",
-    `対象週：${targetLabel}`,
-    `提出済み：${loadedStaffWeeklyReports.length}人`,
-    `未提出：${loadedStaffWeeklyMissingUsers.length}人`,
-    "",
-    "【未提出】",
-    missingNames.length ? missingNames.join("、") : "なし",
-    ""
-  ].join("\n");
+  try {
+    await ensureAllLoadedStaffWeeklyReportDetails();
 
-  const body = loadedStaffWeeklyReports.length
-    ? loadedStaffWeeklyReports.map(buildSingleWeeklyReportText).join("\n\n")
-    : "提出済みの週一報告はありません。";
+    const targetLabel = getStaffWeeklyReportRangeLabel(parseStaffWeeklyDateId(loadedStaffWeeklyReportWeekStartId));
+    const missingNames = loadedStaffWeeklyMissingUsers.map((user) => user.name || user.email || user.id || "名前未設定");
 
-  weeklyReportsTextOutput.value = `${header}\n${body}`;
-  setStaffWeeklyReportMessage("提出済みの週一報告をテキスト化しました。", "green");
+    const header = [
+      "【週一報告まとめ】",
+      `対象週：${targetLabel}`,
+      `提出済み：${loadedStaffWeeklyReports.length}人`,
+      `未提出：${loadedStaffWeeklyMissingUsers.length}人`,
+      "",
+      "【未提出】",
+      missingNames.length ? missingNames.join("、") : "なし",
+      ""
+    ].join("\n");
+
+    const body = loadedStaffWeeklyReports.length
+      ? loadedStaffWeeklyReports.map(buildSingleWeeklyReportText).join("\n\n")
+      : "提出済みの週一報告はありません。";
+
+    weeklyReportsTextOutput.value = `${header}\n${body}`;
+    setStaffWeeklyReportMessage("提出済みの週一報告をテキスト化しました。", "green");
+  } catch (error) {
+    console.error("週一報告テキスト化エラー:", error);
+    setStaffWeeklyReportMessage(`テキスト化に失敗しました：${error.code || error.message}`, "red");
+  } finally {
+    if (buildWeeklyReportsTextButton) {
+      buildWeeklyReportsTextButton.disabled = false;
+      buildWeeklyReportsTextButton.textContent = "提出済みをテキスト化";
+    }
+  }
 }
 
 async function copyWeeklyReportsTextToClipboard() {
@@ -2521,6 +2989,7 @@ function closeUserScheduleEditModal() {
   }
 
   userScheduleEditModal.classList.add("hidden");
+  shouldRefreshDailySchedulesAfterEdit = false;
   unlockPageScroll();
 }
 
@@ -2674,8 +3143,19 @@ async function saveUserScheduleFromStaffModal() {
     currentEditingUserMonthlySchedule = updatedMonthlySchedule;
     syncSingleMonthlyScheduleIntoStaffMonthlyCache(updatedMonthlySchedule);
 
+    const refreshDailySchedulesAfterSave = shouldRefreshDailySchedulesAfterEdit;
+    shouldRefreshDailySchedulesAfterEdit = false;
+
     closeUserScheduleEditModal();
-    await loadUserMonthlyScheduleView();
+
+    if (refreshDailySchedulesAfterSave) {
+      if (targetDate) {
+        targetDate.value = dateId;
+      }
+      await loadDailySchedules();
+    } else {
+      await loadUserMonthlyScheduleView();
+    }
 
     console.log(`[Read節約] 支援員が利用者予定を保存：追加Readなし、monthlySchedules 1 write。${updatedMonthlySchedule.id}`);
   } catch (error) {
@@ -3331,6 +3811,27 @@ onAuthStateChanged(auth, async (user) => {
 loadButton.addEventListener("click", () => {
   loadDailySchedules();
 });
+
+if (targetDate) {
+  targetDate.addEventListener("click", () => {
+    openNativeDatePicker(targetDate);
+  });
+
+  targetDate.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    openNativeDatePicker(targetDate);
+  });
+}
+
+if (loadStaffDashboardButton) {
+  loadStaffDashboardButton.addEventListener("click", () => {
+    loadStaffDashboard();
+  });
+}
 
 
 if (prevStaffWeeklyReportWeekButton) {
