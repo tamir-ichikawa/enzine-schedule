@@ -1,3 +1,9 @@
+// STEP34_WORKSHOP_FORM_TOGGLE_PREVIEW_GUIDE_20260621_V64：追加フォームをボタン開閉化・プレビュー案内色分け
+// STEP33_WORKSHOP_PREVIEW_DELETE_FILTER_20260621_V63：通常プレビュー選択・削除・非表示一覧切替
+// STEP32_WORKSHOP_CASE_COMPLETE_HIDE_20260621_V62：完了案件を支援員側から非表示にできるよう対応
+// STEP31_WORKSHOP_EDIT_PREVIEW_20260621_V61：ワークショップ管理の編集・プレビュー分離
+// STEP30_CASE_CARD_EDITOR_20260621_V60：支援員側の案件追加をカード型に変更
+// STEP29_CASE_DRAFT_20260621_V59：案件情報貼り付け下書き対応
 // STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
@@ -179,6 +185,14 @@ const loadWorkshopResourcesButton = document.getElementById("loadWorkshopResourc
 const workshopResourceAdminArea = document.getElementById("workshopResourceAdminArea");
 const workshopResourceList = document.getElementById("workshopResourceList");
 const workshopResourceMessage = document.getElementById("workshopResourceMessage");
+const workshopEditModeButton = document.getElementById("workshopEditModeButton");
+const workshopPreviewModeButton = document.getElementById("workshopPreviewModeButton");
+const workshopEditPanel = document.getElementById("workshopEditPanel");
+const workshopPreviewPanel = document.getElementById("workshopPreviewPanel");
+const workshopPreviewArea = document.getElementById("workshopPreviewArea");
+const showWorkshopFormButton = document.getElementById("showWorkshopFormButton");
+const toggleHiddenWorkshopsButton = document.getElementById("toggleHiddenWorkshopsButton");
+const workshopFormPanel = document.getElementById("workshopFormPanel");
 const workshopResourceFormTitle = document.getElementById("workshopResourceFormTitle");
 const editingWorkshopResourceId = document.getElementById("editingWorkshopResourceId");
 const workshopResourceActive = document.getElementById("workshopResourceActive");
@@ -187,6 +201,12 @@ const workshopResourceScheduleText = document.getElementById("workshopResourceSc
 const workshopResourceDescription = document.getElementById("workshopResourceDescription");
 const workshopResourceLinksText = document.getElementById("workshopResourceLinksText");
 const workshopResourceDeadlinesText = document.getElementById("workshopResourceDeadlinesText");
+const workshopResourceCasesText = document.getElementById("workshopResourceCasesText");
+const workshopCaseCardList = document.getElementById("workshopCaseCardList");
+const addWorkshopCaseCardButton = document.getElementById("addWorkshopCaseCardButton");
+const workshopCaseRawText = document.getElementById("workshopCaseRawText");
+const buildWorkshopCaseDraftButton = document.getElementById("buildWorkshopCaseDraftButton");
+const workshopCaseDraftPreview = document.getElementById("workshopCaseDraftPreview");
 const saveWorkshopResourceButton = document.getElementById("saveWorkshopResourceButton");
 const resetWorkshopResourceFormButton = document.getElementById("resetWorkshopResourceFormButton");
 
@@ -255,7 +275,9 @@ let announcementsByDate = {};
 let currentEditingAnnouncementId = "";
 let currentUser = null;
 let workshopResourcesLoaded = false;
-let workshopResourcesCache = { workshops: [] };
+let workshopResourcesCache = { schemaVersion: 2, workshops: [], cases: [], guides: [] };
+let showInactiveWorkshops = false;
+let workshopFormOpen = false;
 
 // 支援員ページ用キャッシュ
 // 日別一覧：月ごとの全利用者 monthlySchedules を1回だけ取得し、同じ月の日付選択では再利用する。
@@ -3485,8 +3507,9 @@ async function loadAnnouncementCalendar() {
 }
 
 // ==============================
-// 支援員：教材・リンク集管理
+// 支援員：ワークショップ・教材・案件管理
 // system/workshopResources_{officeId} を、開いた時だけ1 readする。
+// schemaVersion 2：workshops / cases / guides を1ドキュメントにまとめる。
 // ==============================
 function getWorkshopResourcesDocId() {
   return `${WORKSHOP_RESOURCES_DOC_PREFIX}${getCurrentOfficeId()}`;
@@ -3502,45 +3525,956 @@ function normalizeWorkshopId(text) {
   return `${base || "workshop"}_${Date.now().toString(36)}`;
 }
 
+function normalizeCaseNo(caseNo) {
+  return String(caseNo || "")
+    .replace(/案件/g, "")
+    .replace(/no\.?/ig, "")
+    .replace(/[：:]/g, "")
+    .trim();
+}
+
 function generateSmallId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function parseWorkshopLinks(text) {
+function parsePipeLines(text, mapper) {
   return (text || "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => {
-      const parts = line.split("|").map((part) => part.trim());
-      return {
-        id: generateSmallId("link"),
-        title: parts[0] || "リンク",
-        url: parts[1] || "",
-        note: parts[2] || "",
-        active: true
-      };
-    })
-    .filter((item) => item.title || item.url);
+    .map((line) => line.split("|").map((part) => part.trim()))
+    .map(mapper)
+    .filter(Boolean);
+}
+
+function parseWorkshopLinks(text) {
+  return parsePipeLines(text, (parts) => ({
+    id: generateSmallId("link"),
+    title: parts[0] || "リンク",
+    url: parts[1] || "",
+    note: parts[2] || "",
+    active: true
+  })).filter((item) => item.title || item.url);
 }
 
 function parseWorkshopDeadlines(text) {
-  return (text || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const parts = line.split("|").map((part) => part.trim());
+  return parsePipeLines(text, (parts) => ({
+    id: generateSmallId("deadline"),
+    title: parts[0] || "提出物",
+    dueDate: parts[1] || "",
+    dueTime: parts[2] || "",
+    note: parts[3] || "",
+    active: true
+  })).filter((item) => item.title || item.dueDate || item.note);
+}
+
+function parseWorkshopCases(text, workshopId) {
+  return parsePipeLines(text, (parts) => {
+    const caseNo = normalizeCaseNo(parts[0] || "");
+    const title = parts[1] || parts[0] || "案件";
+    const status = parts[2] || "";
+    const dueDate = parts[3] || "";
+    const summary = parts[4] || "";
+    const type = parts[5] || "";
+    const deliverableText = parts[6] || "";
+
+    if (!caseNo && !title && !summary && !deliverableText) {
+      return null;
+    }
+
+    return {
+      id: generateSmallId("case"),
+      workshopId: workshopId,
+      caseNo: caseNo,
+      title: title,
+      status: status,
+      dueDate: dueDate,
+      summary: summary,
+      type: type,
+      deliverableText: deliverableText,
+      active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  });
+}
+
+function createBlankWorkshopCase() {
+  return {
+    id: "",
+    caseNo: "",
+    title: "",
+    status: "制作中",
+    dueDate: "",
+    summary: "",
+    type: "",
+    deliverableText: "",
+    active: true
+  };
+}
+
+function createTextInput(value, placeholder, className = "") {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value || "";
+  input.placeholder = placeholder || "";
+  if (className) {
+    input.className = className;
+  }
+  return input;
+}
+
+function createDateInput(value, className = "") {
+  const input = document.createElement("input");
+  input.type = "date";
+  input.value = value || "";
+  if (className) {
+    input.className = className;
+  }
+
+  input.addEventListener("click", () => {
+    openNativeDatePicker(input);
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    openNativeDatePicker(input);
+  });
+
+  return input;
+}
+
+function createTextArea(value, placeholder, className = "") {
+  const textarea = document.createElement("textarea");
+  textarea.value = value || "";
+  textarea.placeholder = placeholder || "";
+  if (className) {
+    textarea.className = className;
+  }
+  return textarea;
+}
+
+function createCaseCardField(labelText, fieldElement) {
+  const label = document.createElement("label");
+  label.className = "workshop-case-card-field";
+
+  const caption = document.createElement("span");
+  caption.textContent = labelText;
+  label.appendChild(caption);
+  label.appendChild(fieldElement);
+
+  return label;
+}
+
+function isCompletedCaseStatus(status) {
+  return /納品済|完了|終了/.test(String(status || ""));
+}
+
+function normalizeCaseForCard(caseItem = {}) {
+  return {
+    id: caseItem.id || "",
+    caseNo: normalizeCaseNo(caseItem.caseNo || ""),
+    title: caseItem.title || "",
+    status: caseItem.status || "制作中",
+    dueDate: caseItem.dueDate || "",
+    summary: caseItem.summary || caseItem.description || "",
+    type: caseItem.type || "",
+    deliverableText: caseItem.deliverableText || "",
+    requirements: Array.isArray(caseItem.requirements) ? caseItem.requirements : [],
+    checklist: Array.isArray(caseItem.checklist) ? caseItem.checklist : [],
+    active: caseItem.active !== false,
+    createdAt: caseItem.createdAt || ""
+  };
+}
+
+function parseCaseCardDatasetList(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function buildWorkshopCaseCard(caseItem = {}) {
+  const normalized = normalizeCaseForCard(caseItem);
+  const card = document.createElement("article");
+  card.className = "workshop-case-edit-card";
+  card.dataset.caseId = normalized.id || generateSmallId("case_draft");
+  card.dataset.createdAt = normalized.createdAt || "";
+  card.dataset.requirements = JSON.stringify(normalized.requirements || []);
+  card.dataset.checklist = JSON.stringify(normalized.checklist || []);
+
+  const header = document.createElement("div");
+  header.className = "workshop-case-edit-card-header";
+
+  const title = document.createElement("h5");
+  title.textContent = normalized.caseNo ? `案件No.${normalized.caseNo}` : "新しい案件";
+  header.appendChild(title);
+
+  const actionRow = document.createElement("div");
+  actionRow.className = "workshop-case-edit-actions";
+
+  const activeLabel = document.createElement("label");
+  activeLabel.className = "workshop-case-active-toggle";
+
+  const activeInput = document.createElement("input");
+  activeInput.type = "checkbox";
+  activeInput.className = "case-card-active";
+  activeInput.checked = normalized.active;
+  activeLabel.appendChild(activeInput);
+  activeLabel.appendChild(document.createTextNode("利用者に表示する"));
+  actionRow.appendChild(activeLabel);
+
+  const completeButton = document.createElement("button");
+  completeButton.type = "button";
+  completeButton.className = "small-button";
+  completeButton.textContent = "完了して非表示";
+  actionRow.appendChild(completeButton);
+
+  const removeButton = document.createElement("button");
+  removeButton.type = "button";
+  removeButton.className = "small-button danger-button";
+  removeButton.textContent = "削除";
+  removeButton.addEventListener("click", () => {
+    card.remove();
+    syncWorkshopCaseTextareaFromCards();
+    renderWorkshopCaseCardsEmptyState();
+  });
+  actionRow.appendChild(removeButton);
+  header.appendChild(actionRow);
+
+  const grid = document.createElement("div");
+  grid.className = "workshop-case-card-grid";
+
+  const caseNoInput = createTextInput(normalized.caseNo, "例：005", "case-card-case-no");
+  const titleInput = createTextInput(normalized.title, "例：EPIC DAY ポスター", "case-card-title");
+  const statusInput = createTextInput(normalized.status, "例：制作中 / 修正中 / 納品済み", "case-card-status");
+  const dueDateInput = createDateInput(normalized.dueDate, "case-card-due-date");
+  const typeInput = createTextInput(normalized.type, "例：ポスター / 名刺 / 動画", "case-card-type");
+  const summaryInput = createTextArea(normalized.summary, "利用者に見せる案件概要。価格・原価・電話番号などの内部情報は入れない。", "case-card-summary");
+  const deliverableInput = createTextArea(normalized.deliverableText, "例：A1サイズ / Illustrator形式 / PDF提出など", "case-card-deliverable");
+
+  const syncInactiveStyle = () => {
+    card.classList.toggle("inactive-case", !activeInput.checked);
+  };
+
+  grid.appendChild(createCaseCardField("案件No", caseNoInput));
+  grid.appendChild(createCaseCardField("案件名", titleInput));
+  grid.appendChild(createCaseCardField("状態", statusInput));
+  grid.appendChild(createCaseCardField("納期", dueDateInput));
+  grid.appendChild(createCaseCardField("種別", typeInput));
+
+  const summaryField = createCaseCardField("概要", summaryInput);
+  summaryField.classList.add("wide");
+  grid.appendChild(summaryField);
+
+  const deliverableField = createCaseCardField("制作物・納品形式", deliverableInput);
+  deliverableField.classList.add("wide");
+  grid.appendChild(deliverableField);
+
+  completeButton.addEventListener("click", () => {
+    statusInput.value = "納品済み";
+    activeInput.checked = false;
+    title.textContent = caseNoInput.value.trim() ? `案件No.${normalizeCaseNo(caseNoInput.value)}` : "新しい案件";
+    syncInactiveStyle();
+    syncWorkshopCaseTextareaFromCards();
+  });
+
+  activeInput.addEventListener("change", () => {
+    syncInactiveStyle();
+    syncWorkshopCaseTextareaFromCards();
+  });
+
+  [caseNoInput, titleInput, statusInput, dueDateInput, typeInput, summaryInput, deliverableInput].forEach((input) => {
+    input.addEventListener("input", () => {
+      title.textContent = caseNoInput.value.trim() ? `案件No.${normalizeCaseNo(caseNoInput.value)}` : "新しい案件";
+      syncWorkshopCaseTextareaFromCards();
+    });
+  });
+
+  card.appendChild(header);
+  card.appendChild(grid);
+  syncInactiveStyle();
+  return card;
+}
+
+function renderWorkshopCaseCardsEmptyState() {
+  if (!workshopCaseCardList) {
+    return;
+  }
+
+  if (workshopCaseCardList.querySelector(".workshop-case-edit-card")) {
+    return;
+  }
+
+  workshopCaseCardList.innerHTML = `<div class="workshop-case-card-empty">案件を追加すると、ここにカードで表示されます。</div>`;
+}
+
+function renderWorkshopCaseCards(cases = []) {
+  if (!workshopCaseCardList) {
+    return;
+  }
+
+  workshopCaseCardList.innerHTML = "";
+  (cases || []).filter(Boolean).forEach((caseItem) => {
+    workshopCaseCardList.appendChild(buildWorkshopCaseCard(caseItem));
+  });
+
+  renderWorkshopCaseCardsEmptyState();
+  syncWorkshopCaseTextareaFromCards();
+}
+
+function collectWorkshopCaseCards(workshopId) {
+  if (!workshopCaseCardList) {
+    return workshopResourceCasesText ? parseWorkshopCases(workshopResourceCasesText.value, workshopId) : [];
+  }
+
+  return Array.from(workshopCaseCardList.querySelectorAll(".workshop-case-edit-card"))
+    .map((card) => {
+      const caseNo = normalizeCaseNo(card.querySelector(".case-card-case-no")?.value || "");
+      const title = (card.querySelector(".case-card-title")?.value || "").trim();
+      const status = (card.querySelector(".case-card-status")?.value || "").trim();
+      const dueDate = (card.querySelector(".case-card-due-date")?.value || "").trim();
+      const type = (card.querySelector(".case-card-type")?.value || "").trim();
+      const summary = (card.querySelector(".case-card-summary")?.value || "").trim();
+      const deliverableText = (card.querySelector(".case-card-deliverable")?.value || "").trim();
+      const active = card.querySelector(".case-card-active")?.checked !== false;
+
+      if (!caseNo && !title && !summary && !deliverableText) {
+        return null;
+      }
+
       return {
-        id: generateSmallId("deadline"),
-        title: parts[0] || "提出物",
-        dueDate: parts[1] || "",
-        dueTime: parts[2] || "",
-        note: parts[3] || "",
-        active: true
+        id: card.dataset.caseId || generateSmallId("case"),
+        workshopId,
+        caseNo,
+        title: title || (caseNo ? `案件No.${caseNo}` : "案件"),
+        status,
+        dueDate,
+        summary,
+        type,
+        deliverableText,
+        requirements: parseCaseCardDatasetList(card.dataset.requirements),
+        checklist: parseCaseCardDatasetList(card.dataset.checklist),
+        active,
+        createdAt: card.dataset.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
     })
-    .filter((item) => item.title || item.dueDate || item.note);
+    .filter(Boolean);
+}
+
+function syncWorkshopCaseTextareaFromCards() {
+  if (!workshopResourceCasesText || !workshopCaseCardList) {
+    return;
+  }
+
+  const cases = collectWorkshopCaseCards("");
+  workshopResourceCasesText.value = cases
+    .map((caseItem) => [
+      caseItem.caseNo || "",
+      caseItem.title || "",
+      caseItem.status || "",
+      caseItem.dueDate || "",
+      caseItem.summary || "",
+      caseItem.type || "",
+      caseItem.deliverableText || ""
+    ].join(" | ").trim())
+    .join("\n");
+}
+
+function addWorkshopCaseCard(caseItem = {}) {
+  if (!workshopCaseCardList) {
+    return;
+  }
+
+  const empty = workshopCaseCardList.querySelector(".workshop-case-card-empty");
+  if (empty) {
+    empty.remove();
+  }
+
+  const card = buildWorkshopCaseCard({ ...createBlankWorkshopCase(), ...caseItem });
+  workshopCaseCardList.appendChild(card);
+  syncWorkshopCaseTextareaFromCards();
+  card.querySelector(".case-card-case-no")?.focus();
+}
+
+function refreshWorkshopCaseCardsFromTextarea() {
+  if (!workshopResourceCasesText || !workshopCaseCardList) {
+    return;
+  }
+
+  renderWorkshopCaseCards(parseWorkshopCases(workshopResourceCasesText.value, ""));
+}
+
+function getWorkshopFormCasesForPreview() {
+  return collectWorkshopCaseCards(editingWorkshopResourceId?.value || "preview_workshop");
+}
+
+function getWorkshopFormLinksForPreview() {
+  return parseWorkshopLinks(workshopResourceLinksText?.value || "");
+}
+
+function buildWorkshopPreviewHtml(previewData) {
+  const title = previewData.title || "ワークショップ名未入力";
+  const scheduleText = previewData.scheduleText || "";
+  const description = previewData.description || "";
+  const cases = (previewData.cases || []).filter((caseItem) => caseItem.active !== false);
+  const links = (previewData.links || []).filter((link) => link.active !== false && (link.title || link.url));
+  const deadlines = (previewData.deadlines || []).filter((deadline) => {
+    return deadline.active !== false && (deadline.title || deadline.dueDate || deadline.note);
+  }).sort((a, b) => (a.dueDate || "9999-99-99").localeCompare(b.dueDate || "9999-99-99"));
+
+  const caseCards = cases.length
+    ? cases.map((caseItem) => `
+        <article class="workshop-case-card">
+          <h5 class="workshop-case-title">${escapeStaffWeeklyText(caseItem.caseNo ? `案件No.${caseItem.caseNo} ${caseItem.title || ""}` : caseItem.title || "無題の案件")}</h5>
+          <div class="workshop-case-meta">
+            ${caseItem.status ? `<span class="workshop-status-badge">${escapeStaffWeeklyText(caseItem.status)}</span>` : ""}
+            ${caseItem.type ? `<span class="workshop-summary-chip">${escapeStaffWeeklyText(caseItem.type)}</span>` : ""}
+            ${caseItem.dueDate ? `<span class="workshop-summary-chip">納期 ${escapeStaffWeeklyText(caseItem.dueDate)}</span>` : ""}
+          </div>
+          ${caseItem.summary ? `<div class="workshop-case-summary">${escapeStaffWeeklyText(caseItem.summary)}</div>` : ""}
+          ${caseItem.deliverableText ? `<div class="workshop-case-summary">${escapeStaffWeeklyText(caseItem.deliverableText)}</div>` : ""}
+        </article>
+      `).join("")
+    : `<div class="workshop-empty-section">登録されている案件はありません。</div>`;
+
+  const linkItems = links.length
+    ? links.map((link) => `
+        <div class="workshop-resource-link-item">
+          ${link.url
+            ? `<a href="${escapeStaffWeeklyText(link.url)}" target="_blank" rel="noopener noreferrer">${escapeStaffWeeklyText(link.title || link.url)}</a>`
+            : `<strong>${escapeStaffWeeklyText(link.title || "リンク")}</strong>`}
+          ${link.note ? `<div class="workshop-resource-note">${escapeStaffWeeklyText(link.note)}</div>` : ""}
+        </div>
+      `).join("")
+    : `<div class="workshop-empty-section">登録されている教材・リンクはありません。</div>`;
+
+  const deadlineItems = deadlines.length
+    ? deadlines.map((deadline) => `
+        <div class="workshop-deadline-item">
+          <div class="workshop-deadline-title">${escapeStaffWeeklyText(deadline.title || "提出物")}</div>
+          <div class="workshop-deadline-date">${escapeStaffWeeklyText(`${deadline.dueDate || "日付未設定"}${deadline.dueTime ? ` ${deadline.dueTime}` : ""}`)}</div>
+          ${deadline.note ? `<div class="workshop-resource-note">${escapeStaffWeeklyText(deadline.note)}</div>` : ""}
+        </div>
+      `).join("")
+    : `<div class="workshop-empty-section">納期が設定された案件はありません。</div>`;
+
+  return `
+    <article class="workshop-resource-card workshop-detail-card">
+      <div class="workshop-detail-header">
+        <h3 class="workshop-resource-title">${escapeStaffWeeklyText(title)}</h3>
+        <div class="workshop-summary-chip-row">
+          <span class="workshop-summary-chip">案件 ${cases.length}件</span>
+          <span class="workshop-summary-chip">教材 ${links.length}件</span>
+          <span class="workshop-summary-chip">期限 ${deadlines.length}件</span>
+        </div>
+      </div>
+      ${scheduleText ? `<div class="workshop-resource-schedule">${escapeStaffWeeklyText(scheduleText)}</div>` : ""}
+      ${description ? `<div class="workshop-resource-description">${escapeStaffWeeklyText(description)}</div>` : ""}
+      <section class="workshop-resource-section">
+        <h4>進行中の案件</h4>
+        ${caseCards}
+      </section>
+      <section class="workshop-resource-section workshop-deadline-section">
+        <h4>提出期限一覧</h4>
+        ${deadlineItems}
+      </section>
+      <section class="workshop-resource-section">
+        <h4>教材・リンク</h4>
+        ${linkItems}
+      </section>
+    </article>
+  `;
+}
+
+function getCaseDeadlinePreviewItems(cases = []) {
+  return cases
+    .filter((caseItem) => caseItem.active !== false && caseItem.dueDate && !isCompletedCaseStatus(caseItem.status))
+    .map((caseItem) => ({
+      id: `case_deadline_${caseItem.id || caseItem.caseNo || caseItem.title || ""}`,
+      title: `${caseItem.caseNo ? `案件No.${caseItem.caseNo} ` : ""}${caseItem.title || "無題の案件"}`,
+      dueDate: caseItem.dueDate,
+      dueTime: "",
+      note: "",
+      active: true
+    }));
+}
+
+function getWorkshopFormPreviewData() {
+  const cases = getWorkshopFormCasesForPreview().filter((caseItem) => caseItem.active !== false);
+
+  return {
+    title: (workshopResourceTitle?.value || "").trim() || "ワークショップ名未入力",
+    scheduleText: (workshopResourceScheduleText?.value || "").trim(),
+    description: (workshopResourceDescription?.value || "").trim(),
+    cases,
+    links: getWorkshopFormLinksForPreview(),
+    deadlines: getCaseDeadlinePreviewItems(cases)
+  };
+}
+
+function getStoredWorkshopPreviewData(workshop) {
+  const cases = getActiveCasesForWorkshop(workshop.id);
+  const activeDeadlines = (workshop.deadlines || []).filter((deadline) => deadline.active !== false);
+
+  return {
+    title: workshop.title || "無題のワークショップ",
+    scheduleText: workshop.scheduleText || "",
+    description: workshop.description || workshop.summary || "",
+    cases,
+    links: (workshop.links || []).filter((link) => link.active !== false),
+    deadlines: [...getCaseDeadlinePreviewItems(cases), ...activeDeadlines]
+  };
+}
+
+function hasWorkshopFormDraft() {
+  if (editingWorkshopResourceId?.value) {
+    return true;
+  }
+
+  return Boolean(
+    (workshopResourceTitle?.value || "").trim() ||
+    (workshopResourceScheduleText?.value || "").trim() ||
+    (workshopResourceDescription?.value || "").trim() ||
+    (workshopResourceLinksText?.value || "").trim() ||
+    (workshopResourceCasesText?.value || "").trim()
+  );
+}
+
+function renderWorkshopFormPreview() {
+  if (!workshopPreviewArea) {
+    return;
+  }
+
+  workshopPreviewArea.innerHTML = buildWorkshopPreviewHtml(getWorkshopFormPreviewData());
+}
+
+function renderStoredWorkshopPreview(workshopId) {
+  if (!workshopPreviewArea) {
+    return;
+  }
+
+  const workshop = (workshopResourcesCache.workshops || []).find((item) => item.id === workshopId);
+  if (!workshop) {
+    renderWorkshopPreviewPicker();
+    return;
+  }
+
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.className = "sub-button workshop-back-button";
+  backButton.textContent = "＜ プレビュー一覧へ戻る";
+  backButton.addEventListener("click", renderWorkshopPreviewPicker);
+
+  workshopPreviewArea.innerHTML = "";
+  workshopPreviewArea.appendChild(backButton);
+  workshopPreviewArea.insertAdjacentHTML("beforeend", buildWorkshopPreviewHtml(getStoredWorkshopPreviewData(workshop)));
+}
+
+function createWorkshopPreviewChoiceCard(workshop) {
+  const card = document.createElement("article");
+  card.className = "workshop-admin-card";
+
+  const title = document.createElement("div");
+  title.className = "workshop-admin-card-title";
+  title.textContent = workshop.title || "無題のワークショップ";
+
+  const cases = getActiveCasesForWorkshop(workshop.id);
+  const links = (workshop.links || []).filter((item) => item.active !== false);
+  const deadlines = [...getCaseDeadlinePreviewItems(cases), ...(workshop.deadlines || []).filter((item) => item.active !== false)];
+
+  const meta = document.createElement("div");
+  meta.className = "workshop-admin-card-meta";
+  meta.textContent = `案件${cases.length}件 ／ リンク${links.length}件 ／ 提出期限${deadlines.length}件`;
+
+  const body = document.createElement("div");
+  body.className = "workshop-admin-card-body";
+  body.textContent = workshop.scheduleText || workshop.description || "説明なし";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small-button";
+  button.textContent = "この内容をプレビュー";
+  button.addEventListener("click", () => renderStoredWorkshopPreview(workshop.id));
+
+  const buttons = document.createElement("div");
+  buttons.className = "announcement-edit-buttons";
+  buttons.appendChild(button);
+
+  card.appendChild(title);
+  card.appendChild(meta);
+  card.appendChild(body);
+  card.appendChild(buttons);
+  return card;
+}
+
+function getSortedWorkshopsForAdmin() {
+  return [...(workshopResourcesCache.workshops || [])]
+    .filter((workshop) => showInactiveWorkshops || workshop.active !== false)
+    .sort((a, b) => {
+      const orderA = typeof a.order === "number" ? a.order : 9999;
+      const orderB = typeof b.order === "number" ? b.order : 9999;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return (a.title || "").localeCompare(b.title || "", "ja");
+    });
+}
+
+function renderWorkshopPreviewPicker() {
+  if (!workshopPreviewArea) {
+    return;
+  }
+
+  const hiddenCount = (workshopResourcesCache.workshops || []).filter((workshop) => workshop.active === false).length;
+  if (hiddenCount === 0) {
+    showInactiveWorkshops = false;
+  }
+  const workshops = getSortedWorkshopsForAdmin();
+  workshopPreviewArea.innerHTML = "";
+
+  if (hiddenCount > 0) {
+    const tools = document.createElement("div");
+    tools.className = "workshop-admin-list-tools";
+
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.className = "sub-button";
+    toggleButton.textContent = showInactiveWorkshops
+      ? "非表示のワークショップを隠す"
+      : `非表示のワークショップを表示（${hiddenCount}件）`;
+    toggleButton.addEventListener("click", () => {
+      showInactiveWorkshops = !showInactiveWorkshops;
+      renderWorkshopResourceAdminList();
+      renderWorkshopPreviewPicker();
+    });
+
+    tools.appendChild(toggleButton);
+    workshopPreviewArea.appendChild(tools);
+  }
+
+  if (workshops.length === 0) {
+    workshopPreviewArea.insertAdjacentHTML("beforeend", `<div class="calendar-filter-empty">プレビューできるワークショップがありません。</div>`);
+    return;
+  }
+
+  const intro = document.createElement("div");
+  intro.className = "workshop-preview-picker-guide";
+  intro.textContent = "プレビューしたいワークショップを選んでください。";
+  workshopPreviewArea.appendChild(intro);
+
+  workshops.forEach((workshop) => {
+    workshopPreviewArea.appendChild(createWorkshopPreviewChoiceCard(workshop));
+  });
+}
+
+function renderWorkshopPreview() {
+  if (hasWorkshopFormDraft()) {
+    renderWorkshopFormPreview();
+    return;
+  }
+
+  renderWorkshopPreviewPicker();
+}
+
+function updateWorkshopFormVisibility() {
+  const isPreview = workshopPreviewPanel && !workshopPreviewPanel.classList.contains("hidden");
+
+  if (workshopFormPanel) {
+    workshopFormPanel.classList.toggle("hidden", Boolean(isPreview) || !workshopFormOpen);
+  }
+
+  if (showWorkshopFormButton) {
+    showWorkshopFormButton.textContent = workshopFormOpen ? "追加フォームを閉じる" : "ワークショップを追加";
+  }
+}
+
+function setWorkshopFormOpen(isOpen) {
+  workshopFormOpen = Boolean(isOpen);
+  updateWorkshopFormVisibility();
+}
+
+function setWorkshopAdminMode(mode) {
+  const isPreview = mode === "preview";
+
+  if (workshopEditModeButton) {
+    workshopEditModeButton.classList.toggle("active", !isPreview);
+  }
+
+  if (workshopPreviewModeButton) {
+    workshopPreviewModeButton.classList.toggle("active", isPreview);
+  }
+
+  if (workshopEditPanel) {
+    workshopEditPanel.classList.toggle("hidden", isPreview);
+  }
+
+  if (workshopPreviewPanel) {
+    workshopPreviewPanel.classList.toggle("hidden", !isPreview);
+  }
+
+  updateWorkshopFormVisibility();
+
+  if (isPreview) {
+    renderWorkshopPreview();
+  }
+}
+
+
+// STEP29_CASE_DRAFT_20260621_V59：案件情報の貼り付けから、利用者向けの案件下書きを作成する。
+// 価格・原価・電話番号などの内部情報は、下書きには反映しない。
+function toHalfWidthText(text) {
+  return String(text || "").replace(/[０-９Ａ-Ｚａ-ｚ]/g, (char) => {
+    return String.fromCharCode(char.charCodeAt(0) - 0xFEE0);
+  });
+}
+
+function normalizeCaseDraftDate(rawDate) {
+  const text = toHalfWidthText(rawDate || "").trim();
+  const isoMatch = text.match(/(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
+
+  if (isoMatch) {
+    return `${isoMatch[1]}-${String(Number(isoMatch[2])).padStart(2, "0")}-${String(Number(isoMatch[3])).padStart(2, "0")}`;
+  }
+
+  const shortMatch = text.match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})\s*日?/);
+
+  if (shortMatch) {
+    const year = new Date().getFullYear();
+    return `${year}-${String(Number(shortMatch[1])).padStart(2, "0")}-${String(Number(shortMatch[2])).padStart(2, "0")}`;
+  }
+
+  return "";
+}
+
+function extractLatestCaseDraftDate(block) {
+  const normalized = toHalfWidthText(block || "");
+  const candidates = [];
+  const pattern = /(20\d{2}[-/.年]\d{1,2}[-/.月]\d{1,2}|\d{1,2}\s*[\/月]\s*\d{1,2}\s*日?)/g;
+  let match;
+
+  while ((match = pattern.exec(normalized)) !== null) {
+    const dateId = normalizeCaseDraftDate(match[1]);
+    if (dateId) {
+      candidates.push(dateId);
+    }
+  }
+
+  candidates.sort();
+  return candidates[candidates.length - 1] || "";
+}
+
+function extractCaseDraftType(block) {
+  const text = String(block || "");
+
+  if (/名刺/.test(text)) {
+    return "名刺";
+  }
+  if (/ロゴ/.test(text)) {
+    return "ロゴ";
+  }
+  if (/求人|チラシ|ちらし|折込|折り込み/.test(text)) {
+    return "チラシ";
+  }
+  if (/ポスター/.test(text)) {
+    return "ポスター";
+  }
+  if (/動画|映像/.test(text)) {
+    return "動画";
+  }
+
+  return "デザイン";
+}
+
+function extractCaseDraftStatus(block) {
+  const text = String(block || "");
+
+  if (/納品済|完了|終了/.test(text)) {
+    return "納品済み";
+  }
+  if (/修正依頼|再度|不採用|やり直し|修正/.test(text)) {
+    return "修正中";
+  }
+  if (/フィードバック|確認/.test(text)) {
+    return "確認中";
+  }
+  if (/募集/.test(text)) {
+    return "募集中";
+  }
+
+  return "制作中";
+}
+
+function extractSectionBody(block, heading) {
+  const text = String(block || "").replace(/\r\n/g, "\n");
+  const pattern = new RegExp(`■\\s*${heading}\\s*\\n([\\s\\S]*?)(?=\\n■\\s*|$)`);
+  const match = text.match(pattern);
+  return match ? match[1].trim() : "";
+}
+
+function cleanupCaseDraftSummary(text) {
+  return String(text || "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/価格[\s\S]*$/g, "")
+    .replace(/デザイン制作費[\s\S]*$/g, "")
+    .replace(/印刷代[\s\S]*$/g, "")
+    .replace(/原価[\s\S]*$/g, "")
+    .replace(/電話[:：]?.*/g, "")
+    .replace(/[\t　]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function shortenCaseDraftSummary(text, maxLength = 90) {
+  const normalized = cleanupCaseDraftSummary(text).replace(/\s+/g, " ");
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized;
+}
+
+function extractCaseDraftClientName(block) {
+  const text = String(block || "");
+  const shopName = text.match(/店名[：:]\s*([^\n\r]+)/);
+  if (shopName) {
+    return shopName[1].trim();
+  }
+
+  const companyName = text.match(/(株式会社[^\s\n、。]+|[A-Z0-9][A-Z0-9\s\-_.&]+|[\u30A0-\u30FF\u3040-\u309F\u4E00-\u9FFF]+フーズ)/);
+  if (companyName) {
+    return companyName[1].trim();
+  }
+
+  return "";
+}
+
+function extractCaseDraftTitle(block, caseNo) {
+  const type = extractCaseDraftType(block);
+  const text = String(block || "");
+  const clientName = extractCaseDraftClientName(text);
+
+  if (clientName) {
+    return `${clientName} ${type}`.trim();
+  }
+
+  const sameLine = toHalfWidthText(text).match(new RegExp(`案件\\s*No\\.?\\s*${caseNo}\\s*([^\\n\\r]*)`, "i"));
+  if (sameLine && sameLine[1].trim()) {
+    return shortenCaseDraftSummary(sameLine[1], 28) || `案件No.${caseNo}`;
+  }
+
+  const firstMeaningfulLine = text
+    .split(/\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !/^案件\s*No/i.test(toHalfWidthText(line)) && !/^■/.test(line));
+
+  if (firstMeaningfulLine) {
+    return shortenCaseDraftSummary(firstMeaningfulLine, 28);
+  }
+
+  return `案件No.${caseNo}`;
+}
+
+function extractCaseDraftSummary(block) {
+  const content = extractSectionBody(block, "内容");
+  if (content) {
+    return shortenCaseDraftSummary(content);
+  }
+
+  const request = extractSectionBody(block, "修正依頼");
+  if (request) {
+    return shortenCaseDraftSummary(request);
+  }
+
+  return shortenCaseDraftSummary(block);
+}
+
+function splitCaseDraftBlocks(rawText) {
+  const normalized = String(rawText || "").replace(/\r\n/g, "\n");
+  const caseHeaderPattern = /(案件\s*No\.?\s*[0-9０-９]+)/gi;
+  const matches = [...normalized.matchAll(caseHeaderPattern)];
+
+  if (matches.length === 0) {
+    return normalized.trim() ? [{ caseNo: "", block: normalized.trim() }] : [];
+  }
+
+  return matches.map((match, index) => {
+    const start = match.index;
+    const end = index + 1 < matches.length ? matches[index + 1].index : normalized.length;
+    const caseNo = normalizeCaseNo(match[1]);
+    return {
+      caseNo,
+      block: normalized.slice(start, end).trim()
+    };
+  });
+}
+
+function buildCaseDraftLinesFromRawText(rawText) {
+  const blocks = splitCaseDraftBlocks(rawText);
+  const lines = [];
+
+  blocks.forEach(({ caseNo, block }, index) => {
+    const normalizedNo = normalizeCaseNo(caseNo) || String(index + 1).padStart(3, "0");
+    const title = extractCaseDraftTitle(block, normalizedNo);
+    const status = extractCaseDraftStatus(block);
+    const dueDate = extractLatestCaseDraftDate(block);
+    const summary = extractCaseDraftSummary(block);
+    const type = extractCaseDraftType(block);
+
+    if (!title && !summary) {
+      return;
+    }
+
+    lines.push(`${normalizedNo} | ${title} | ${status} | ${dueDate} | ${summary} | ${type}`);
+  });
+
+  return lines;
+}
+
+function renderCaseDraftPreview(lines) {
+  if (!workshopCaseDraftPreview) {
+    return;
+  }
+
+  if (!lines.length) {
+    workshopCaseDraftPreview.textContent = "案件Noを含む文章、または案件説明文を貼り付けてください。";
+    workshopCaseDraftPreview.classList.add("empty");
+    return;
+  }
+
+  workshopCaseDraftPreview.classList.remove("empty");
+  workshopCaseDraftPreview.innerHTML = lines
+    .map((line) => `<div class="workshop-case-draft-line">${escapeStaffWeeklyText(line)}</div>`)
+    .join("");
+}
+
+function appendCaseDraftLinesToTextarea(lines) {
+  if (!workshopResourceCasesText || !lines.length) {
+    return;
+  }
+
+  const currentLines = workshopResourceCasesText.value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const existingLineSet = new Set(currentLines);
+  const addLines = lines.filter((line) => !existingLineSet.has(line));
+
+  if (addLines.length === 0) {
+    return;
+  }
+
+  if (workshopCaseCardList) {
+    parseWorkshopCases(addLines.join("\n"), editingWorkshopResourceId?.value || "")
+      .forEach((caseItem) => addWorkshopCaseCard(caseItem));
+    return;
+  }
+
+  workshopResourceCasesText.value = [...currentLines, ...addLines].join("\n");
+  refreshWorkshopCaseCardsFromTextarea();
 }
 
 function formatWorkshopLinksForTextarea(links) {
@@ -3557,6 +4491,30 @@ function formatWorkshopDeadlinesForTextarea(deadlines) {
     .join("\n");
 }
 
+function formatWorkshopCasesForTextarea(cases) {
+  return (cases || [])
+    .filter((item) => item.active !== false)
+    .map((item) => `${item.caseNo || ""} | ${item.title || ""} | ${item.status || ""} | ${item.dueDate || ""} | ${item.summary || ""} | ${item.type || ""} | ${item.deliverableText || ""}`.trim())
+    .join("\n");
+}
+
+function getCasesForWorkshop(workshopId) {
+  return (workshopResourcesCache.cases || [])
+    .filter((caseItem) => caseItem && caseItem.workshopId === workshopId)
+    .sort((a, b) => {
+      const noA = String(a.caseNo || "9999").padStart(4, "0");
+      const noB = String(b.caseNo || "9999").padStart(4, "0");
+      if (noA !== noB) {
+        return noA.localeCompare(noB, "ja");
+      }
+      return (a.dueDate || "9999-99-99").localeCompare(b.dueDate || "9999-99-99");
+    });
+}
+
+function getActiveCasesForWorkshop(workshopId) {
+  return getCasesForWorkshop(workshopId).filter((caseItem) => caseItem.active !== false);
+}
+
 function resetWorkshopResourceForm() {
   if (!workshopResourceFormTitle) {
     return;
@@ -3569,7 +4527,46 @@ function resetWorkshopResourceForm() {
   workshopResourceScheduleText.value = "";
   workshopResourceDescription.value = "";
   workshopResourceLinksText.value = "";
-  workshopResourceDeadlinesText.value = "";
+
+  if (workshopResourceDeadlinesText) {
+    workshopResourceDeadlinesText.value = "";
+  }
+
+  if (workshopResourceCasesText) {
+    workshopResourceCasesText.value = "";
+  }
+
+  renderWorkshopCaseCards([]);
+}
+
+async function deleteWorkshopResource(workshop) {
+  const title = workshop.title || "無題のワークショップ";
+  const caseCount = getCasesForWorkshop(workshop.id).length;
+  const ok = confirm(`「${title}」を削除します。\n\nこのワークショップ、教材リンク、提出期限、関連する案件${caseCount}件を管理データから削除します。\nこの操作は元に戻せません。削除してよろしいですか？`);
+  if (!ok) {
+    return;
+  }
+
+  workshopResourcesCache.workshops = (workshopResourcesCache.workshops || []).filter((item) => item.id !== workshop.id);
+  workshopResourcesCache.cases = (workshopResourcesCache.cases || []).filter((caseItem) => caseItem.workshopId !== workshop.id);
+  workshopResourcesCache.guides = (workshopResourcesCache.guides || []).filter((guide) => guide.workshopId !== workshop.id);
+
+  if (editingWorkshopResourceId?.value === workshop.id) {
+    resetWorkshopResourceForm();
+    setWorkshopFormOpen(false);
+  }
+
+  await persistWorkshopResources();
+  renderWorkshopResourceAdminList();
+
+  if (workshopPreviewPanel && !workshopPreviewPanel.classList.contains("hidden")) {
+    renderWorkshopPreview();
+  }
+
+  if (workshopResourceMessage) {
+    workshopResourceMessage.style.color = "green";
+    workshopResourceMessage.textContent = `「${title}」を削除しました。`;
+  }
 }
 
 function renderWorkshopResourceAdminList() {
@@ -3577,11 +4574,25 @@ function renderWorkshopResourceAdminList() {
     return;
   }
 
-  const workshops = [...(workshopResourcesCache.workshops || [])];
+  const hiddenCount = (workshopResourcesCache.workshops || []).filter((workshop) => workshop.active === false).length;
+  if (hiddenCount === 0) {
+    showInactiveWorkshops = false;
+  }
+  const workshops = getSortedWorkshopsForAdmin();
+
+  if (toggleHiddenWorkshopsButton) {
+    toggleHiddenWorkshopsButton.disabled = hiddenCount === 0;
+    toggleHiddenWorkshopsButton.textContent = showInactiveWorkshops
+      ? "非表示のワークショップを隠す"
+      : `非表示のワークショップを表示${hiddenCount ? `（${hiddenCount}件）` : ""}`;
+  }
+
   workshopResourceList.innerHTML = "";
 
   if (workshops.length === 0) {
-    workshopResourceList.innerHTML = `<div class="calendar-filter-empty">まだワークショップが登録されていません。</div>`;
+    workshopResourceList.innerHTML = hiddenCount > 0
+      ? `<div class="calendar-filter-empty">表示中のワークショップはありません。非表示のワークショップを表示すると確認できます。</div>`
+      : `<div class="calendar-filter-empty">まだワークショップが登録されていません。</div>`;
     return;
   }
 
@@ -3600,7 +4611,8 @@ function renderWorkshopResourceAdminList() {
     meta.className = "workshop-admin-card-meta";
     const linkCount = (workshop.links || []).filter((item) => item.active !== false).length;
     const deadlineCount = (workshop.deadlines || []).filter((item) => item.active !== false).length;
-    meta.textContent = `${workshop.active === false ? "非表示" : "表示中"} ／ リンク${linkCount}件 ／ 提出期限${deadlineCount}件`;
+    const caseCount = getActiveCasesForWorkshop(workshop.id).length;
+    meta.textContent = `${workshop.active === false ? "非表示" : "表示中"} ／ 案件${caseCount}件 ／ リンク${linkCount}件 ／ 提出期限${deadlineCount}件`;
 
     const body = document.createElement("div");
     body.className = "workshop-admin-card-body";
@@ -3614,6 +4626,8 @@ function renderWorkshopResourceAdminList() {
     editButton.className = "small-button";
     editButton.textContent = "編集";
     editButton.addEventListener("click", () => {
+      setWorkshopAdminMode("edit");
+      setWorkshopFormOpen(true);
       workshopResourceFormTitle.textContent = "編集中";
       editingWorkshopResourceId.value = workshop.id;
       workshopResourceActive.checked = workshop.active !== false;
@@ -3621,7 +4635,17 @@ function renderWorkshopResourceAdminList() {
       workshopResourceScheduleText.value = workshop.scheduleText || "";
       workshopResourceDescription.value = workshop.description || "";
       workshopResourceLinksText.value = formatWorkshopLinksForTextarea(workshop.links || []);
-      workshopResourceDeadlinesText.value = formatWorkshopDeadlinesForTextarea(workshop.deadlines || []);
+
+      if (workshopResourceDeadlinesText) {
+        workshopResourceDeadlinesText.value = formatWorkshopDeadlinesForTextarea(workshop.deadlines || []);
+      }
+
+      if (workshopResourceCasesText) {
+        const cases = getCasesForWorkshop(workshop.id);
+        workshopResourceCasesText.value = formatWorkshopCasesForTextarea(cases);
+        renderWorkshopCaseCards(cases);
+      }
+
       workshopResourceTitle.focus();
     });
 
@@ -3645,10 +4669,22 @@ function renderWorkshopResourceAdminList() {
 
       await persistWorkshopResources();
       renderWorkshopResourceAdminList();
+      if (workshopPreviewPanel && !workshopPreviewPanel.classList.contains("hidden")) {
+        renderWorkshopPreview();
+      }
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "small-button danger-button";
+    deleteButton.textContent = "削除";
+    deleteButton.addEventListener("click", async () => {
+      await deleteWorkshopResource(workshop);
     });
 
     buttons.appendChild(editButton);
     buttons.appendChild(hideButton);
+    buttons.appendChild(deleteButton);
 
     card.appendChild(title);
     card.appendChild(meta);
@@ -3670,45 +4706,95 @@ async function loadWorkshopResourcesForStaff() {
   if (docSnap.exists()) {
     const data = docSnap.data();
     workshopResourcesCache = {
+      schemaVersion: data.schemaVersion || 2,
       officeId: data.officeId || getCurrentOfficeId(),
       groupId: data.groupId || getCurrentGroupId(),
-      workshops: Array.isArray(data.workshops) ? data.workshops : []
+      workshops: Array.isArray(data.workshops) ? data.workshops : [],
+      cases: Array.isArray(data.cases) ? data.cases : [],
+      guides: Array.isArray(data.guides) ? data.guides : []
     };
   } else {
     workshopResourcesCache = {
+      schemaVersion: 2,
       officeId: getCurrentOfficeId(),
       groupId: getCurrentGroupId(),
-      workshops: []
+      workshops: [],
+      cases: [],
+      guides: []
     };
   }
 
   workshopResourcesLoaded = true;
   renderWorkshopResourceAdminList();
-  console.log(`[Read節約] 教材・リンク集管理：${getWorkshopResourcesDocId()} を開いた時だけ1 readしました。`);
+  console.log(`[Read節約] ワークショップ・教材管理：${getWorkshopResourcesDocId()} を開いた時だけ1 readしました。案件も同じドキュメント内で取得します。`);
 }
 
-async function persistWorkshopResources() {
-  const docRef = doc(db, "system", getWorkshopResourcesDocId());
-  const cleanedWorkshops = (workshopResourcesCache.workshops || []).map((workshop) => ({
+function cleanWorkshop(workshop) {
+  return {
     id: workshop.id,
     title: workshop.title || "",
     active: workshop.active !== false,
     description: workshop.description || "",
+    summary: workshop.summary || "",
     scheduleText: workshop.scheduleText || "",
+    order: typeof workshop.order === "number" ? workshop.order : 9999,
     links: Array.isArray(workshop.links) ? workshop.links : [],
     deadlines: Array.isArray(workshop.deadlines) ? workshop.deadlines : [],
     createdAt: workshop.createdAt || new Date().toISOString(),
     updatedAt: workshop.updatedAt || new Date().toISOString()
+  };
+}
+
+function cleanCase(caseItem) {
+  return {
+    id: caseItem.id || generateSmallId("case"),
+    workshopId: caseItem.workshopId || "",
+    caseNo: normalizeCaseNo(caseItem.caseNo || ""),
+    title: caseItem.title || "",
+    type: caseItem.type || "",
+    status: caseItem.status || "",
+    dueDate: caseItem.dueDate || "",
+    summary: caseItem.summary || caseItem.description || "",
+    deliverableText: caseItem.deliverableText || "",
+    requirements: Array.isArray(caseItem.requirements) ? caseItem.requirements : [],
+    checklist: Array.isArray(caseItem.checklist) ? caseItem.checklist : [],
+    active: caseItem.active !== false,
+    createdAt: caseItem.createdAt || new Date().toISOString(),
+    updatedAt: caseItem.updatedAt || new Date().toISOString()
+  };
+}
+
+async function persistWorkshopResources() {
+  const docRef = doc(db, "system", getWorkshopResourcesDocId());
+  const cleanedWorkshops = (workshopResourcesCache.workshops || []).map(cleanWorkshop);
+  const cleanedCases = (workshopResourcesCache.cases || []).map(cleanCase);
+  const cleanedGuides = (workshopResourcesCache.guides || []).map((guide) => ({
+    id: guide.id || generateSmallId("guide"),
+    workshopId: guide.workshopId || "",
+    title: guide.title || "",
+    body: guide.body || guide.note || "",
+    active: guide.active !== false,
+    createdAt: guide.createdAt || new Date().toISOString(),
+    updatedAt: guide.updatedAt || new Date().toISOString()
   }));
 
   await setDoc(docRef, {
+    schemaVersion: 2,
     officeId: getCurrentOfficeId(),
     groupId: getCurrentGroupId(),
     workshops: cleanedWorkshops,
+    cases: cleanedCases,
+    guides: cleanedGuides,
     updatedAt: serverTimestamp()
   });
 
-  workshopResourcesCache.workshops = cleanedWorkshops;
+  workshopResourcesCache = {
+    ...workshopResourcesCache,
+    schemaVersion: 2,
+    workshops: cleanedWorkshops,
+    cases: cleanedCases,
+    guides: cleanedGuides
+  };
 }
 
 async function saveWorkshopResourceFromForm() {
@@ -3725,15 +4811,21 @@ async function saveWorkshopResourceFromForm() {
 
   const now = new Date().toISOString();
   const editingId = editingWorkshopResourceId.value;
+  const targetWorkshopId = editingId || normalizeWorkshopId(title);
+  const existingWorkshop = (workshopResourcesCache.workshops || []).find((workshop) => workshop.id === editingId);
   const nextWorkshop = {
-    id: editingId || normalizeWorkshopId(title),
+    id: targetWorkshopId,
     title: title,
     active: workshopResourceActive.checked,
     description: (workshopResourceDescription.value || "").trim(),
+    summary: existingWorkshop?.summary || "",
     scheduleText: (workshopResourceScheduleText.value || "").trim(),
+    order: typeof existingWorkshop?.order === "number" ? existingWorkshop.order : 9999,
     links: parseWorkshopLinks(workshopResourceLinksText.value),
-    deadlines: parseWorkshopDeadlines(workshopResourceDeadlinesText.value),
-    createdAt: now,
+    deadlines: workshopResourceDeadlinesText
+      ? parseWorkshopDeadlines(workshopResourceDeadlinesText.value)
+      : Array.isArray(existingWorkshop?.deadlines) ? existingWorkshop.deadlines : [],
+    createdAt: existingWorkshop?.createdAt || now,
     updatedAt: now
   };
 
@@ -3742,22 +4834,29 @@ async function saveWorkshopResourceFromForm() {
       if (workshop.id !== editingId) {
         return workshop;
       }
-      return {
-        ...nextWorkshop,
-        createdAt: workshop.createdAt || now
-      };
+      return nextWorkshop;
     });
   } else {
     workshopResourcesCache.workshops = [...(workshopResourcesCache.workshops || []), nextWorkshop];
   }
 
+  const otherCases = (workshopResourcesCache.cases || []).filter((caseItem) => caseItem.workshopId !== targetWorkshopId);
+  const nextCases = workshopCaseCardList
+    ? collectWorkshopCaseCards(targetWorkshopId)
+    : workshopResourceCasesText
+      ? parseWorkshopCases(workshopResourceCasesText.value, targetWorkshopId)
+      : getCasesForWorkshop(targetWorkshopId);
+
+  workshopResourcesCache.cases = [...otherCases, ...nextCases];
+
   await persistWorkshopResources();
   resetWorkshopResourceForm();
+  setWorkshopFormOpen(false);
   renderWorkshopResourceAdminList();
 
   if (workshopResourceMessage) {
     workshopResourceMessage.style.color = "green";
-    workshopResourceMessage.textContent = "教材・リンク集を保存しました。";
+    workshopResourceMessage.textContent = "ワークショップ・案件情報を保存しました。";
   }
 }
 
@@ -3882,10 +4981,14 @@ if (loadWorkshopResourcesButton) {
       }
 
       await loadWorkshopResourcesForStaff();
+      renderWorkshopCaseCards([]);
+      resetWorkshopResourceForm();
+      setWorkshopFormOpen(false);
+      setWorkshopAdminMode("edit");
 
       if (workshopResourceMessage) {
         workshopResourceMessage.style.color = "green";
-        workshopResourceMessage.textContent = "教材・リンク集を読み込みました。";
+        workshopResourceMessage.textContent = "ワークショップ・案件管理を読み込みました。";
       }
     } catch (error) {
       console.error("教材・リンク集読み込みエラー:", error);
@@ -3895,8 +4998,74 @@ if (loadWorkshopResourcesButton) {
       }
     } finally {
       loadWorkshopResourcesButton.disabled = false;
-      loadWorkshopResourcesButton.textContent = "教材・リンク管理を開く";
+      loadWorkshopResourcesButton.textContent = "ワークショップ・案件管理を開く";
     }
+  });
+}
+
+if (workshopEditModeButton) {
+  workshopEditModeButton.addEventListener("click", () => {
+    setWorkshopAdminMode("edit");
+  });
+}
+
+if (workshopPreviewModeButton) {
+  workshopPreviewModeButton.addEventListener("click", () => {
+    setWorkshopAdminMode("preview");
+  });
+}
+
+if (showWorkshopFormButton) {
+  showWorkshopFormButton.addEventListener("click", () => {
+    if (workshopFormOpen) {
+      resetWorkshopResourceForm();
+      setWorkshopFormOpen(false);
+      return;
+    }
+
+    resetWorkshopResourceForm();
+    setWorkshopAdminMode("edit");
+    setWorkshopFormOpen(true);
+    workshopResourceTitle?.focus();
+  });
+}
+
+if (toggleHiddenWorkshopsButton) {
+  toggleHiddenWorkshopsButton.addEventListener("click", () => {
+    showInactiveWorkshops = !showInactiveWorkshops;
+    renderWorkshopResourceAdminList();
+    if (workshopPreviewPanel && !workshopPreviewPanel.classList.contains("hidden") && !hasWorkshopFormDraft()) {
+      renderWorkshopPreviewPicker();
+    }
+  });
+}
+
+if (buildWorkshopCaseDraftButton) {
+  buildWorkshopCaseDraftButton.addEventListener("click", () => {
+    const rawText = workshopCaseRawText?.value || "";
+    const lines = buildCaseDraftLinesFromRawText(rawText);
+    renderCaseDraftPreview(lines);
+
+    if (!lines.length) {
+      if (workshopResourceMessage) {
+        workshopResourceMessage.style.color = "red";
+        workshopResourceMessage.textContent = "案件情報の下書きを作成できませんでした。案件Noや内容を含む文章を貼り付けてください。";
+      }
+      return;
+    }
+
+    appendCaseDraftLinesToTextarea(lines);
+
+    if (workshopResourceMessage) {
+      workshopResourceMessage.style.color = "green";
+      workshopResourceMessage.textContent = `案件情報の下書きを${lines.length}件作成しました。内容を確認してから保存してください。`;
+    }
+  });
+}
+
+if (addWorkshopCaseCardButton) {
+  addWorkshopCaseCardButton.addEventListener("click", () => {
+    addWorkshopCaseCard();
   });
 }
 
@@ -3919,6 +5088,8 @@ if (saveWorkshopResourceButton) {
 if (resetWorkshopResourceFormButton) {
   resetWorkshopResourceFormButton.addEventListener("click", () => {
     resetWorkshopResourceForm();
+    setWorkshopFormOpen(true);
+    setWorkshopAdminMode("edit");
   });
 }
 

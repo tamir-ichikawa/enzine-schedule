@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=57">
+  <link rel="stylesheet" href="style.css?v=61">
 </head>
 <body class="app-shell-body">
   <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
@@ -19,6 +19,12 @@
   <!-- STEP25_STAFF_DATE_PICKER_20260620_V54 -->
   <!-- STEP26_DAILY_LIST_DIRECT_EDIT_20260620_V55 -->
   <!-- STEP27_DAILY_LIST_COMPACT_LAYOUT_20260621_V56 -->
+  <!-- STEP29_CASE_DRAFT_20260621_V59 -->
+  <!-- STEP30_CASE_CARD_EDITOR_20260621_V60 -->
+  <!-- STEP31_WORKSHOP_EDIT_PREVIEW_20260621_V61 -->
+  <!-- STEP32_WORKSHOP_CASE_COMPLETE_HIDE_20260621_V62 -->
+  <!-- STEP33_WORKSHOP_PREVIEW_DELETE_FILTER_20260621_V63 -->
+  <!-- STEP34_WORKSHOP_FORM_TOGGLE_PREVIEW_GUIDE_20260621_V64 -->
   <main class="login-container user-page app-main-shell staff-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -222,17 +228,34 @@
 
     <!-- ここから追加：教材・リンク集管理 -->
     <section class="monthly-calendar-box workshop-resource-admin-box staff-tab-panel" data-staff-panel="workshops">
-      <div class="section-heading-row"><h2>ワークショップ・教材管理</h2><p class="calendar-guide">教材リンク・予定・提出期限メモを管理します。</p></div>
+      <div class="section-heading-row"><h2>ワークショップ・案件管理</h2><p class="calendar-guide">ワークショップ・案件・教材リンクを管理します。</p></div>
 
-      <button id="loadWorkshopResourcesButton" type="button">教材・リンク管理を開く</button>
+      <button id="loadWorkshopResourcesButton" type="button">ワークショップ・案件管理を開く</button>
       <p id="workshopResourceMessage" class="user-schedule-message"></p>
 
       <div id="workshopResourceAdminArea" class="workshop-resource-admin-area hidden">
-        <div id="workshopResourceList" class="workshop-resource-admin-list">
-          読み込み中...
+        <div class="calendar-view-toggle workshop-admin-mode-toggle">
+          <button id="workshopEditModeButton" type="button" class="view-toggle-button active">編集</button>
+          <button id="workshopPreviewModeButton" type="button" class="view-toggle-button">プレビュー</button>
         </div>
 
-        <div class="workshop-resource-form-box">
+        <div id="workshopEditPanel" class="workshop-admin-panel">
+          <div class="workshop-admin-list-tools">
+            <button id="showWorkshopFormButton" type="button">ワークショップを追加</button>
+            <button id="toggleHiddenWorkshopsButton" type="button" class="sub-button">非表示のワークショップを表示</button>
+          </div>
+          <div id="workshopResourceList" class="workshop-resource-admin-list">
+            読み込み中...
+          </div>
+        </div>
+
+        <div id="workshopPreviewPanel" class="workshop-admin-panel hidden">
+          <div id="workshopPreviewArea" class="workshop-resource-list workshop-preview-area">
+            編集中の内容を利用者側に近い形で確認できます。
+          </div>
+        </div>
+
+        <div id="workshopFormPanel" class="workshop-resource-form-box hidden">
           <h3 id="workshopResourceFormTitle">ワークショップを追加</h3>
 
           <input type="hidden" id="editingWorkshopResourceId">
@@ -257,16 +280,25 @@
             <textarea id="workshopResourceDescription" placeholder="例：動画編集の基礎操作を学ぶワークショップです。"></textarea>
           </label>
 
+          <div class="workshop-case-card-editor">
+            <div class="workshop-case-card-editor-header">
+              <h4>案件カード</h4>
+              <button id="addWorkshopCaseCardButton" type="button" class="sub-button">案件を追加</button>
+            </div>
+            <div id="workshopCaseCardList" class="workshop-case-card-list">
+              案件を追加すると、ここにカードで表示されます。
+            </div>
+            <label class="workshop-case-legacy-field hidden">
+              案件情報 互換用
+              <textarea id="workshopResourceCasesText" placeholder="1行に1件：案件No | 案件名 | 状態 | 納期 | 概要 | 種別
+例：002 | GARAGE RR 名刺 | 修正中 | 2026-06-23 | 自動車販売業の名刺デザイン | 名刺"></textarea>
+            </label>
+          </div>
+
           <label>
             リンク
             <textarea id="workshopResourceLinksText" placeholder="1行に1件：タイトル | URL | メモ
 例：教材PDF | https://example.com | 最初に確認"></textarea>
-          </label>
-
-          <label>
-            提出期限メモ
-            <textarea id="workshopResourceDeadlinesText" placeholder="1行に1件：タイトル | YYYY-MM-DD | HH:MM | メモ
-例：カット編集課題 | 2026-06-21 | 15:00 | 未完成でも提出"></textarea>
           </label>
 
           <button id="saveWorkshopResourceButton" type="button">保存</button>
@@ -515,6 +547,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=57"></script>
+  <script type="module" src="staff.js?v=64"></script>
 </body>
 </html>

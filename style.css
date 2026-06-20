@@ -4996,3 +4996,440 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ==============================
+   STEP28：ワークショップ一覧→詳細表示 / 案件カード
+   ============================== */
+
+.workshop-list-guide {
+  padding: 10px 12px;
+  border: 1px solid #dfe7f0;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #4f5f6f;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.workshop-list-card.is-clickable {
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.08s ease;
+}
+
+.workshop-list-card.is-clickable:active {
+  transform: scale(0.99);
+}
+
+.workshop-summary-chip-row,
+.workshop-case-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.workshop-summary-chip,
+.workshop-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.workshop-status-badge {
+  background: #fff3d6;
+  color: #9a5a00;
+}
+
+.workshop-resource-card-action {
+  margin-top: 12px;
+  color: #5f7f62;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: right;
+}
+
+.workshop-back-button {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.workshop-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workshop-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workshop-empty-section {
+  padding: 10px;
+  border: 1px dashed #cfd8e3;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.workshop-case-card,
+.workshop-guide-item {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #e3e8ef;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.workshop-case-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.workshop-case-summary {
+  margin-top: 8px;
+  color: #444;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.workshop-case-subsection {
+  margin-top: 10px;
+}
+
+.workshop-case-subtitle,
+.workshop-guide-title {
+  margin-bottom: 4px;
+  color: #3f3a32;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.workshop-case-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  color: #444;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .workshop-list-guide,
+  .workshop-empty-section,
+  .workshop-case-summary,
+  .workshop-case-subtitle,
+  .workshop-guide-title,
+  .workshop-case-list,
+  .workshop-resource-card-action {
+    font-size: 17px;
+  }
+
+  .workshop-summary-chip,
+  .workshop-status-badge {
+    min-height: 32px;
+    padding: 6px 10px;
+    font-size: 15px;
+  }
+
+  .workshop-case-card,
+  .workshop-guide-item {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .workshop-case-title {
+    font-size: 19px;
+  }
+}
+
+/* ==============================
+   STEP29：案件情報貼り付け→下書き作成
+   ============================== */
+
+.workshop-case-draft-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dfe7f0;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.workshop-case-draft-box h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.workshop-case-draft-guide {
+  margin: 0;
+  text-align: left;
+}
+
+.workshop-case-draft-preview {
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid #d7e2ee;
+  border-radius: 10px;
+  background: #fff;
+  color: #3f3a32;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.workshop-case-draft-preview.empty {
+  color: #777;
+}
+
+.workshop-case-draft-line {
+  padding: 7px 0;
+  border-bottom: 1px solid #eef2f7;
+  word-break: break-word;
+}
+
+.workshop-case-draft-line:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 600px) {
+  .workshop-case-draft-box {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .workshop-case-draft-box h4 {
+    font-size: 20px;
+  }
+
+  .workshop-case-draft-preview {
+    font-size: 16px;
+  }
+}
+
+/* ==============================
+   STEP30：支援員 案件カード型エディタ
+   ============================== */
+.workshop-case-card-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e4d8c7;
+  border-radius: 14px;
+  background: #fffaf2;
+}
+
+.workshop-case-card-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workshop-case-card-editor-header h4 {
+  margin: 0;
+  color: #3f3a32;
+  font-size: 16px;
+}
+
+.workshop-case-card-editor-header button {
+  flex: 0 0 auto;
+}
+
+.workshop-case-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.workshop-case-card-empty {
+  padding: 12px;
+  border: 1px dashed #d8cbbb;
+  border-radius: 12px;
+  background: #fffdf8;
+  color: #7f7467;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.workshop-case-edit-card {
+  padding: 12px;
+  border: 1px solid #dfd1bd;
+  border-radius: 12px;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.workshop-case-edit-card.inactive-case {
+  border-style: dashed;
+  background: #f7f3ed;
+  opacity: 0.78;
+}
+
+.workshop-case-edit-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.workshop-case-edit-card-header h5 {
+  margin: 0;
+  color: #3f3a32;
+  font-size: 15px;
+}
+
+.workshop-case-edit-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workshop-case-active-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #4e473d;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.workshop-case-active-toggle input {
+  width: auto;
+  margin: 0;
+}
+
+.workshop-case-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workshop-case-card-field {
+  min-width: 0;
+  gap: 6px;
+  color: #4e473d;
+  font-size: 13px;
+}
+
+.workshop-case-card-field.wide {
+  grid-column: 1 / -1;
+}
+
+.workshop-case-card-field textarea {
+  min-height: 96px;
+}
+
+@media (max-width: 600px) {
+  .workshop-case-card-editor {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .workshop-case-card-editor-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workshop-case-card-editor-header h4 {
+    font-size: 20px;
+  }
+
+  .workshop-case-edit-card-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workshop-case-edit-actions {
+    justify-content: flex-start;
+  }
+
+  .workshop-case-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workshop-case-card-field {
+    font-size: 17px;
+  }
+}
+
+/* ==============================
+   STEP31：ワークショップ管理 編集 / プレビュー
+   ============================== */
+.workshop-admin-list-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.workshop-admin-mode-toggle {
+  margin: 0;
+}
+
+.workshop-admin-panel {
+  min-width: 0;
+}
+
+.workshop-preview-area {
+  padding: 14px;
+  border: 1px solid #e4d8c7;
+  border-radius: 14px;
+  background: #fffaf2;
+}
+
+.workshop-preview-area .workshop-resource-card {
+  background: #fffdf8;
+}
+
+.workshop-resource-form-box.hidden {
+  display: none;
+}
+
+.workshop-preview-picker-guide {
+  padding: 10px 12px;
+  border: 1px solid #b9d8c4;
+  border-radius: 12px;
+  background: #eef8f1;
+  color: #2f6140;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .workshop-admin-list-tools {
+    align-items: stretch;
+    flex-direction: column;
+    justify-content: stretch;
+  }
+
+  .workshop-admin-list-tools button {
+    width: 100%;
+  }
+
+  .workshop-preview-area {
+    padding: 12px;
+    border-radius: 16px;
+  }
+}
