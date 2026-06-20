@@ -3342,6 +3342,7 @@ body.app-shell-body {
    ============================== */
 /* STEP7_WEEKLY_REPORT_STABILITY_20260620_V36 */
 /* STEP8_LOGIN_UNIFY_20260620_V37 */
+/* STEP10_LOGO_IMAGE_20260620_V39 */
 :root {
   --app-content-width: 1040px;
   --app-inner-width: 980px;
@@ -3434,7 +3435,7 @@ body.app-shell-body {
 .app-brand-logo-img {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: 0;
   object-fit: contain;
   display: block;
 }
@@ -3791,7 +3792,14 @@ body.app-shell-body {
   .app-brand-logo-img {
     width: 34px;
     height: 34px;
+  }
+
+  .app-brand-icon {
     border-radius: 10px;
+  }
+
+  .app-brand-logo-img {
+    border-radius: 0;
   }
 
   .app-current-section {
