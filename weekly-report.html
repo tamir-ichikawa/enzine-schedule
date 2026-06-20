@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>週一報告 | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=39">
+  <link rel="stylesheet" href="style.css?v=50">
 </head>
 <body class="app-shell-body">
   <!-- STEP2_FIXED_20260620_V30 -->
@@ -12,6 +12,9 @@
   <!-- STEP7_WEEKLY_REPORT_STABILITY_20260620_V36 -->
   <!-- STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38 -->
   <!-- STEP10_LOGO_IMAGE_20260620_V39 -->
+  <!-- STEP16_ASSET_VERSION_SYNC_20260620_V45 -->
+  <!-- STEP18_ANNOUNCEMENT_STATUS_CACHE_20260620_V47 -->
+  <!-- STEP20_USER_INPUT_ASSISTS_20260620_V49 -->
   <main class="login-container user-page weekly-report-page app-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -139,6 +142,9 @@
           困ったこと・しんどかったことがあれば教えてください
           <textarea id="troubleText" required placeholder="特になければ「特になし」と入力してください"></textarea>
         </label>
+        <div class="assist-button-row">
+          <button type="button" class="assist-chip-button" data-weekly-fill-target="troubleText" data-weekly-fill-value="特になし">特になし</button>
+        </div>
 
         <label>
           できたこと・がんばれたことがあれば教えてください
@@ -154,6 +160,9 @@
           その他伝えたいこと、質問など
           <textarea id="otherText" placeholder="任意"></textarea>
         </label>
+        <div class="assist-button-row">
+          <button type="button" class="assist-chip-button" data-weekly-fill-target="otherText" data-weekly-fill-value="特になし">特になし</button>
+        </div>
 
         <button id="saveWeeklyReportButton" type="submit">週一報告を保存</button>
       </form>
@@ -163,6 +172,6 @@
     <p id="weeklyReportMessage"></p>
   </main>
 
-  <script type="module" src="weekly-report.js?v=38"></script>
+  <script type="module" src="weekly-report.js?v=50"></script>
 </body>
 </html>

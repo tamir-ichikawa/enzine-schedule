@@ -16,10 +16,14 @@ import { auth, db } from "./firebase-config.js";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：週一報告の既読互換と表示漏れ修正
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
+// STEP18_WEEKLY_REPORT_STATUS_CACHE_20260620_V47：支援員返信時に利用者通知用の集約docを更新
+// STEP19_STAFF_HTML_ESCAPE_20260620_V48：運用チェックなどのHTML文字列出力を安全化
 
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
+const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
+const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
 
 // STEP5_WEBUI_20260620_V33：支援員ページ タブ切り替え・現在位置表示
 const STAFF_TAB_STORAGE_KEY = "enzineStaffActiveTab";
@@ -1146,7 +1150,7 @@ function renderUserSchedulePlaceholder(text = "利用者を選択すると、月
     userScheduleCalendarWeekHeader.classList.remove("hidden");
   }
 
-  userScheduleCalendar.innerHTML = `<div class="calendar-filter-empty">${text}</div>`;
+  userScheduleCalendar.innerHTML = `<div class="calendar-filter-empty">${escapeStaffWeeklyText(text)}</div>`;
 
   if (userScheduleMessage) {
     userScheduleMessage.textContent = "";
@@ -1268,7 +1272,7 @@ async function loadUserMonthlyScheduleView() {
 
   } catch (error) {
     console.error("利用者別月間予定の読み込みエラー:", error);
-    userScheduleCalendar.innerHTML = `<div class="calendar-filter-empty">月間予定の読み込みに失敗しました：${error.code || error.message}</div>`;
+    userScheduleCalendar.innerHTML = `<div class="calendar-filter-empty">${escapeStaffWeeklyText(`月間予定の読み込みに失敗しました：${error.code || error.message}`)}</div>`;
   }
 }
 
@@ -1591,6 +1595,42 @@ function getStaffWeeklyLastCompletedWeekStartDate() {
 
 function getStaffWeeklyReportId(userId, weekStartDateId) {
   return `${userId}_${weekStartDateId}`;
+}
+
+function getWeeklyReportStatusDocRef(userId) {
+  return doc(db, WEEKLY_REPORT_STATUS_COLLECTION, userId);
+}
+
+async function markWeeklyReportFeedbackInStatusCache(report, feedbackVersion) {
+  const userId = report?.userId;
+  const weekStartDate = report?.weekStartDate || loadedStaffWeeklyReportWeekStartId || "";
+
+  if (!userId || !weekStartDate || !feedbackVersion) {
+    return;
+  }
+
+  try {
+    await setDoc(getWeeklyReportStatusDocRef(userId), {
+      userId,
+      userName: report.userName || report._user?.name || "",
+      userEmail: report.userEmail || report._user?.email || "",
+      officeId: report.officeId || getCurrentOfficeId(),
+      groupId: report.groupId || getCurrentGroupId(),
+      schemaVersion: WEEKLY_REPORT_STATUS_SCHEMA_VERSION,
+      submittedWeeks: {
+        [weekStartDate]: true
+      },
+      feedbackVersions: {
+        [weekStartDate]: feedbackVersion
+      },
+      feedbackReadVersions: {
+        [weekStartDate]: ""
+      },
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    console.warn("週一報告ステータス集約docの更新に失敗しました。返信本文の保存は完了しています。", error);
+  }
 }
 
 function formatStaffWeeklyJapaneseDate(dateId) {
@@ -2070,6 +2110,7 @@ async function saveWeeklyReportFeedback() {
       locked: true,
       updatedAt: serverTimestamp()
     }, { merge: true });
+    await markWeeklyReportFeedbackInStatusCache(report, feedbackVersion);
 
     const updatedReport = {
       ...report,
@@ -2330,10 +2371,10 @@ function countUnfilledWeekdays(monthlySchedule, year, month) {
 
 function renderNameList(items, emptyText) {
   if (!items.length) {
-    return `<div class="operation-check-muted">${emptyText}</div>`;
+    return `<div class="operation-check-muted">${escapeStaffWeeklyText(emptyText)}</div>`;
   }
 
-  return `<ul class="operation-check-name-list">${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+  return `<ul class="operation-check-name-list">${items.map((item) => `<li>${escapeStaffWeeklyText(item)}</li>`).join("")}</ul>`;
 }
 
 async function runOperationCheck() {
@@ -2390,7 +2431,7 @@ async function runOperationCheck() {
       <div class="operation-check-grid">
         <div class="operation-check-card">
           <div class="operation-check-card-label">対象月</div>
-          <div class="operation-check-card-value">${monthId}</div>
+          <div class="operation-check-card-value">${escapeStaffWeeklyText(monthId)}</div>
         </div>
         <div class="operation-check-card">
           <div class="operation-check-card-label">利用者数</div>
@@ -2430,7 +2471,7 @@ async function runOperationCheck() {
     console.log(`[Read節約] 運用チェック：${monthId} はボタン実行時のみ利用者別monthlySchedulesを確認。キャッシュ済み分は追加Readなし。`);
   } catch (error) {
     console.error("運用チェックエラー:", error);
-    operationCheckResult.innerHTML = `<div class="calendar-filter-empty">運用チェックに失敗しました：${error.code || error.message}</div>`;
+    operationCheckResult.innerHTML = `<div class="calendar-filter-empty">${escapeStaffWeeklyText(`運用チェックに失敗しました：${error.code || error.message}`)}</div>`;
   }
 }
 

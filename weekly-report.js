@@ -12,10 +12,14 @@ import { auth, db } from "./firebase-config.js";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読・ロック表示を安定化
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
+// STEP18_WEEKLY_REPORT_STATUS_CACHE_20260620_V47：週一報告通知用の集約docを更新
+// STEP20_USER_INPUT_ASSISTS_20260620_V49：特になしボタンで入力負担を軽減
 
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const NO_ACTIVITY_VALUE = "わからない/活動なし（追加質問あり）";
+const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
+const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
 
 const weeklyReportUserInfo = document.getElementById("weeklyReportUserInfo");
 const weeklyReportTitle = document.getElementById("weeklyReportTitle");
@@ -47,6 +51,7 @@ const troubleText = document.getElementById("troubleText");
 const goodText = document.getElementById("goodText");
 const nextWeekText = document.getElementById("nextWeekText");
 const otherText = document.getElementById("otherText");
+const weeklyQuickFillButtons = document.querySelectorAll("[data-weekly-fill-target]");
 
 // 利用者ページではコピー用テキストを表示しない。
 // コピー用テキスト化は支援員ページ側で扱う。
@@ -113,6 +118,53 @@ function getGroupId() {
 
 function getWeeklyReportId(userId, weekStartDateId) {
   return `${userId}_${weekStartDateId}`;
+}
+
+function getWeeklyReportStatusDocRef(userId) {
+  return doc(db, WEEKLY_REPORT_STATUS_COLLECTION, userId);
+}
+
+async function mergeWeeklyReportStatusCache(updateData) {
+  if (!currentUser || !currentUserData) {
+    return;
+  }
+
+  try {
+    await setDoc(getWeeklyReportStatusDocRef(currentUser.uid), {
+      userId: currentUser.uid,
+      userName: currentUserData.name || currentUser.email || "",
+      userEmail: currentUser.email || "",
+      officeId: getOfficeId(),
+      groupId: getGroupId(),
+      schemaVersion: WEEKLY_REPORT_STATUS_SCHEMA_VERSION,
+      ...updateData,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    console.warn("週一報告ステータス集約docの更新に失敗しました。週一報告本体の保存は完了しています。", error);
+  }
+}
+
+async function markWeeklyReportSubmittedInStatusCache(weekStartDate) {
+  await mergeWeeklyReportStatusCache({
+    submittedWeeks: {
+      [weekStartDate]: true
+    }
+  });
+}
+
+async function markWeeklyReportFeedbackReadInStatusCache(weekStartDate, feedbackVersion) {
+  await mergeWeeklyReportStatusCache({
+    submittedWeeks: {
+      [weekStartDate]: true
+    },
+    feedbackVersions: {
+      [weekStartDate]: feedbackVersion
+    },
+    feedbackReadVersions: {
+      [weekStartDate]: feedbackVersion
+    }
+  });
 }
 
 function setMessage(text, color = "#333") {
@@ -532,6 +584,7 @@ async function saveWeeklyReport(event) {
     saveWeeklyReportButton.textContent = "保存中...";
 
     await setDoc(doc(db, "weeklyReports", reportId), reportData, { merge: true });
+    await markWeeklyReportSubmittedInStatusCache(weekStartDate);
 
     currentLoadedReport = {
       id: reportId,
@@ -604,6 +657,7 @@ async function markStaffFeedbackAsRead() {
       staffFeedbackReadAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }, { merge: true });
+    await markWeeklyReportFeedbackReadInStatusCache(weekStartDate, currentLoadedReport.staffFeedbackVersion);
 
     currentLoadedReport.staffFeedbackReadVersion = currentLoadedReport.staffFeedbackVersion;
     currentLoadedReport.staffFeedbackReadAt = new Date().toISOString();
@@ -623,6 +677,20 @@ activityTime.addEventListener("change", updateNoActivityReasonVisibility);
 selfScoreButtonGroup.querySelectorAll("[data-score]").forEach((button) => {
   button.addEventListener("click", () => {
     setSelfScore(button.dataset.score);
+  });
+});
+
+weeklyQuickFillButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const targetId = button.dataset.weeklyFillTarget;
+    const target = document.getElementById(targetId);
+
+    if (!target) {
+      return;
+    }
+
+    target.value = button.dataset.weeklyFillValue || "";
+    target.focus();
   });
 });
 
