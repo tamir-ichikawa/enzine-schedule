@@ -4,33 +4,83 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>利用者ページ | enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=61">
 </head>
-<body>
-  <main class="login-container user-page">
-    <header class="app-page-header compact-page-header">
-      <h1>enzine スケジュール</h1>
-      <p id="userInfo">ログイン確認中...</p>
+<body class="app-shell-body">
+  <!-- STEP2_FIXED_20260620_V30 -->
+  <!-- STEP6_READABILITY_FIX_20260620_V35：返信通知・コンパクトWebUI -->
+  <!-- STEP7_WEEKLY_REPORT_STABILITY_20260620_V36 -->
+  <!-- STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38 -->
+  <!-- STEP10_LOGO_IMAGE_20260620_V39 -->
+  <!-- STEP11_USER_CALENDAR_READABILITY_20260620_V40 -->
+  <!-- STEP12_CALENDAR_STYLE_TUNE_20260620_V41 -->
+  <!-- STEP16_ASSET_VERSION_SYNC_20260620_V45 -->
+  <!-- STEP18_ANNOUNCEMENT_STATUS_CACHE_20260620_V47 -->
+  <!-- STEP20_USER_INPUT_ASSISTS_20260620_V49 -->
+  <!-- STEP21_SAVE_AND_NEXT_WEEKDAY_20260620_V50 -->
+  <!-- STEP22_CLEAR_USER_SCHEDULE_20260620_V51 -->
+  <main class="login-container user-page app-main-shell">
+    <header class="app-topbar" aria-label="ページヘッダー">
+      <div class="app-brand">
+        <img src="enzine_icon.png" alt="enzine" class="app-brand-logo-img">
+        <div class="app-brand-text">
+          <div class="app-brand-title">enzine スケジュール</div>
+          <p id="userInfo" class="app-user-meta">ログイン確認中...</p>
+        </div>
+      </div>
+      <div class="app-topbar-actions">
+        <div class="app-current-section" aria-label="現在のページ">予定</div>
+        <details class="app-settings-menu">
+          <summary class="app-settings-button" aria-label="設定メニュー">⚙</summary>
+          <div class="app-settings-panel">
+            <div class="app-settings-panel-title">設定</div>
+            <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
+            <div class="app-settings-note">表示設定などは今後追加予定です。</div>
+          </div>
+        </details>
+      </div>
     </header>
 
-    <section id="todayScheduleBox" class="today-schedule-box hidden">
-      <h2>本日の予定</h2>
-      <div id="todayScheduleText" class="today-schedule-text"></div>
-    </section>
+    <nav class="page-tab-nav user-page-tab-nav" aria-label="利用者メニュー">
+      <a class="page-tab-button active" href="user.html">予定</a>
+      <a class="page-tab-button" href="weekly-report.html">週一報告</a>
+      <a class="page-tab-button" href="workshops.html">ワークショップ・教材</a>
+    </nav>
 
-    <section class="today-announcement-box">
-      <h2>本日のアナウンス</h2>
-      <div id="todayAnnouncements" class="today-announcements">
-        読み込み中...
+    <section id="weeklyReportReminderBox" class="weekly-report-reminder-box hidden">
+      <div class="weekly-report-reminder-header">
+        <div>
+          <h2>週一報告があります</h2>
+          <p id="weeklyReportReminderText">未記入の週一報告があります。記入をお願いします。</p>
+        </div>
+        <div id="weeklyReportReminderCount" class="weekly-report-reminder-count">0件</div>
       </div>
+      <div id="weeklyReportReminderList" class="weekly-report-reminder-list"></div>
     </section>
 
-    <p class="calendar-guide">
-      カレンダーの日付をタップして予定を入力してください。
-    </p>
+    <section class="daily-overview-grid" aria-label="本日の確認">
+      <section id="todayScheduleBox" class="today-schedule-box hidden">
+        <div class="section-heading-row compact-section-heading-row">
+          <h2>本日の予定</h2>
+          <div id="todayScheduleText" class="today-schedule-text"></div>
+        </div>
+      </section>
+
+      <section class="today-announcement-box">
+        <div class="section-heading-row compact-section-heading-row">
+          <h2>本日のアナウンス</h2>
+        </div>
+        <div id="todayAnnouncements" class="today-announcements">
+          読み込み中...
+        </div>
+      </section>
+    </section>
 
     <section class="monthly-calendar-box">
-      <h2 id="calendarTitle">今月の予定</h2>
+      <div class="section-heading-row">
+        <h2 id="calendarTitle">今月の予定</h2>
+        <p class="calendar-guide">日付をタップして予定を入力してください。</p>
+      </div>
 
       <div class="calendar-month-nav">
         <button id="prevMonthButton" type="button" class="sub-button">＜ 前月</button>
@@ -79,15 +129,23 @@
       </div>
     </section>
 
-    <section class="quick-link-box resource-link-entry-box">
-      <h2>教材・リンク集</h2>
-      <p class="calendar-guide resource-link-guide">
-        ワークショップごとの教材・リンク・提出期限メモを確認できます。必要な時に開くページなので、この画面では読み込みません。
-      </p>
-      <a class="resource-page-button" href="workshops.html">教材・リンク集を見る</a>
+    <section class="quick-link-box weekly-report-entry-box">
+      <div class="section-heading-row">
+        <h2>週一報告</h2>
+      </div>
+      <div id="weeklyReportHomeStatus" class="weekly-report-home-status">
+        週一報告の未記入状況を確認中...
+      </div>
+      <a class="resource-page-button weekly-report-page-button" href="weekly-report.html">週一報告を書く</a>
     </section>
 
-    <button id="logoutButton" class="sub-button logout-bottom">ログアウト</button>
+    <section class="quick-link-box resource-link-entry-box">
+      <div class="section-heading-row">
+        <h2>ワークショップ・教材</h2>
+      </div>
+      <a class="resource-page-button" href="workshops.html">ワークショップ・教材を見る</a>
+    </section>
+
     <p id="message"></p>
   </main>
 
@@ -110,6 +168,10 @@
 
         <div>
           <h3>あなたの予定</h3>
+          <div class="modal-assist-row">
+            <button id="applyLastScheduleButton" type="button" class="assist-chip-button hidden">前回の入力を使う</button>
+            <button id="clearScheduleButton" type="button" class="assist-chip-button clear-user-schedule-button">未入力に戻す</button>
+          </div>
           <div class="choice-button-group" id="statusButtonGroup">
             <button type="button" class="choice-button" data-status="通所">通所</button>
             <button type="button" class="choice-button" data-status="在宅">在宅</button>
@@ -137,11 +199,12 @@
         </label>
 
         <button id="saveScheduleButton">保存</button>
+        <button id="saveAndNextScheduleButton" type="button" class="sub-button save-and-next-button">保存して次の平日へ</button>
         <button id="cancelModalButton" class="sub-button">キャンセル</button>
       </div>
     </div>
   </div>
 
-  <script type="module" src="schedule.js?v=20"></script>
+  <script type="module" src="schedule.js?v=61"></script>
 </body>
 </html>

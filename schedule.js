@@ -3,7 +3,9 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
 import {
   doc,
   setDoc,
+  updateDoc,
   getDoc,
+  deleteField,
   collection,
   query,
   where,
@@ -13,6 +15,15 @@ import {
 
 import { auth, db } from "./firebase-config.js";
 
+// STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読フィールドの互換対応
+// STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告は2026-06-15週の月〜金から開始
+// STEP11_USER_CALENDAR_READABILITY_20260620_V40：未入力日と明示休み表示を分離
+// STEP12_CALENDAR_STYLE_TUNE_20260620_V41：本日未入力表示とカレンダー配色を調整
+// STEP18_WEEKLY_REPORT_STATUS_CACHE_20260620_V47：週一報告通知を集約doc優先で確認
+// STEP20_USER_INPUT_ASSISTS_20260620_V49：前回の予定入力を再利用できる補助を追加
+// STEP21_SAVE_AND_NEXT_WEEKDAY_20260620_V50：保存後に次の平日を続けて開く
+// STEP22_CLEAR_USER_SCHEDULE_20260620_V51：利用者が予定を未入力に戻せる操作を追加
+
 // ==============================
 // 基本設定
 // ==============================
@@ -21,6 +32,13 @@ import { auth, db } from "./firebase-config.js";
 // 将来、事業所が増えたら users 側に officeId / groupId を登録していく。
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
+const WEEKLY_REPORT_CHECK_WEEKS = 8;
+const WEEKLY_REPORT_START_WEEK = "2026-06-15";
+const WEEKLY_REPORT_FEEDBACK_CHECK_WEEKS = 12;
+const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
+const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
+const LAST_SCHEDULE_INPUT_STORAGE_KEY = "enzineLastScheduleInput";
+
 
 const userInfo = document.getElementById("userInfo");
 const scheduleDate = document.getElementById("scheduleDate");
@@ -28,12 +46,15 @@ const scheduleStatus = document.getElementById("scheduleStatus");
 const scheduleTimeSlot = document.getElementById("scheduleTimeSlot");
 const timeSlotChoiceBox = document.getElementById("timeSlotChoiceBox");
 const scheduleMemo = document.getElementById("scheduleMemo");
+const applyLastScheduleButton = document.getElementById("applyLastScheduleButton");
+const clearScheduleButton = document.getElementById("clearScheduleButton");
 
 const modalAnnouncements = document.getElementById("modalAnnouncements");
 const statusButtons = document.querySelectorAll("[data-status]");
 const timeSlotButtons = document.querySelectorAll("[data-timeslot]");
 
 const saveScheduleButton = document.getElementById("saveScheduleButton");
+const saveAndNextScheduleButton = document.getElementById("saveAndNextScheduleButton");
 const logoutButton = document.getElementById("logoutButton");
 const message = document.getElementById("message");
 const monthlyCalendar = document.getElementById("monthlyCalendar");
@@ -55,6 +76,12 @@ const showAnnouncementDaysCheckbox = document.getElementById("showAnnouncementDa
 const todayAnnouncements = document.getElementById("todayAnnouncements");
 const todayScheduleBox = document.getElementById("todayScheduleBox");
 const todayScheduleText = document.getElementById("todayScheduleText");
+const weeklyReportReminderBox = document.getElementById("weeklyReportReminderBox");
+const weeklyReportReminderCount = document.getElementById("weeklyReportReminderCount");
+const weeklyReportReminderText = document.getElementById("weeklyReportReminderText");
+const weeklyReportReminderList = document.getElementById("weeklyReportReminderList");
+const weeklyReportHomeStatus = document.getElementById("weeklyReportHomeStatus");
+
 
 const scheduleModal = document.getElementById("scheduleModal");
 const closeModalButton = document.getElementById("closeModalButton");
@@ -102,6 +129,34 @@ function getWeekStartDate(date) {
   weekStart.setDate(weekStart.getDate() + diff);
   weekStart.setHours(0, 0, 0, 0);
   return weekStart;
+}
+
+function addDays(date, days) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getLastCompletedWeekStartDate() {
+  const today = new Date();
+  const thisWeekStart = getWeekStartDate(today);
+  return addDays(thisWeekStart, -7);
+}
+
+function parseDateId(dateId) {
+  const [yyyy, mm, dd] = dateId.split("-").map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+function getNextWeekdayDateId(dateId) {
+  let nextDate = addDays(parseDateId(dateId), 1);
+
+  while (isWeekend(nextDate)) {
+    nextDate = addDays(nextDate, 1);
+  }
+
+  return formatDateId(nextDate);
 }
 
 function weekIntersectsMonth(weekStartDate, year, month) {
@@ -333,6 +388,92 @@ function applyTimeSlotButtonActive(timeSlot) {
   });
 }
 
+function normalizeReusableScheduleInput(rawData) {
+  if (!rawData || typeof rawData !== "object") {
+    return null;
+  }
+
+  const status = rawData.status || "";
+  if (!["通所", "在宅", "休み"].includes(status)) {
+    return null;
+  }
+
+  const timeSlot = status === "休み" ? "" : (rawData.timeSlot || "");
+  if ((status === "通所" || status === "在宅") && !["終日", "午前", "午後"].includes(timeSlot)) {
+    return null;
+  }
+
+  return {
+    status,
+    timeSlot,
+    memo: rawData.memo || ""
+  };
+}
+
+function getLastScheduleInput() {
+  try {
+    return normalizeReusableScheduleInput(
+      JSON.parse(localStorage.getItem(LAST_SCHEDULE_INPUT_STORAGE_KEY) || "null")
+    );
+  } catch (_error) {
+    return null;
+  }
+}
+
+function saveLastScheduleInput(dayData) {
+  const reusableData = normalizeReusableScheduleInput(dayData);
+  if (!reusableData) {
+    return;
+  }
+
+  try {
+    localStorage.setItem(LAST_SCHEDULE_INPUT_STORAGE_KEY, JSON.stringify(reusableData));
+  } catch (error) {
+    console.warn("前回の予定入力の保存に失敗しました。", error);
+  }
+}
+
+function applyScheduleInputToForm(dayData) {
+  const reusableData = normalizeReusableScheduleInput(dayData);
+  if (!reusableData) {
+    return false;
+  }
+
+  scheduleStatus.value = reusableData.status;
+  scheduleTimeSlot.value = reusableData.timeSlot;
+  scheduleMemo.value = reusableData.memo;
+  applyStatusButtonActive(reusableData.status);
+  applyTimeSlotButtonActive(reusableData.timeSlot);
+  updateTimeSlotVisibility();
+  return true;
+}
+
+function updateLastScheduleButtonVisibility() {
+  if (!applyLastScheduleButton) {
+    return;
+  }
+
+  const hasReusableData = Boolean(getLastScheduleInput());
+  applyLastScheduleButton.classList.toggle("hidden", !hasReusableData);
+  applyLastScheduleButton.disabled = !hasReusableData;
+}
+
+function setScheduleSaving(isSaving) {
+  if (saveScheduleButton) {
+    saveScheduleButton.disabled = isSaving;
+    saveScheduleButton.textContent = isSaving ? "保存中..." : "保存";
+  }
+
+  if (saveAndNextScheduleButton) {
+    saveAndNextScheduleButton.disabled = isSaving;
+    saveAndNextScheduleButton.textContent = isSaving ? "保存中..." : "保存して次の平日へ";
+  }
+
+  if (clearScheduleButton) {
+    clearScheduleButton.disabled = isSaving;
+  }
+}
+
 let pageScrollY = 0;
 
 function lockPageScroll() {
@@ -437,7 +578,7 @@ function getTodayScheduleClass(status) {
     return "today-schedule-off";
   }
 
-  return "";
+  return "today-schedule-unset";
 }
 
 function renderTodaySchedule() {
@@ -447,7 +588,7 @@ function renderTodaySchedule() {
 
   const todayId = formatDateId(new Date());
   const data = getDisplayScheduleData(todayId);
-  const status = data.status || "休み";
+  const status = data.status || "無し";
   const timeSlot = data.timeSlot || "";
   const statusClass = getTodayScheduleClass(status);
 
@@ -538,16 +679,114 @@ function openScheduleModal(dateId) {
   const data = getCachedScheduleForDate(dateId);
 
   if (data) {
-    scheduleStatus.value = data.status || "";
-    scheduleTimeSlot.value = data.timeSlot || "";
-    scheduleMemo.value = data.memo || "";
-
-    applyStatusButtonActive(scheduleStatus.value);
-    applyTimeSlotButtonActive(scheduleTimeSlot.value);
+    applyScheduleInputToForm(data);
   }
 
   updateTimeSlotVisibility();
+  updateLastScheduleButtonVisibility();
   openModal();
+}
+
+async function openScheduleModalAfterSave(dateId) {
+  const targetDate = parseDateId(dateId);
+  const targetYear = targetDate.getFullYear();
+  const targetMonth = targetDate.getMonth();
+  const isDifferentMonth = targetYear !== currentYear || targetMonth !== currentMonth;
+
+  closeModal();
+
+  currentYear = targetYear;
+  currentMonth = targetMonth;
+
+  if (currentViewMode === "week" || isDifferentMonth) {
+    currentWeekStartDate = getWeekStartDate(targetDate);
+  }
+
+  selectedDateId = null;
+
+  if (isDifferentMonth) {
+    await loadMonthlyCalendar();
+  } else {
+    renderCurrentCalendarView(currentYear, currentMonth);
+  }
+
+  openScheduleModal(dateId);
+}
+
+if (applyLastScheduleButton) {
+  applyLastScheduleButton.addEventListener("click", () => {
+    if (applyScheduleInputToForm(getLastScheduleInput())) {
+      message.style.color = "green";
+      message.textContent = "前回の入力を反映しました。保存するとこの日に登録されます。";
+    }
+  });
+}
+
+async function clearCurrentSchedule() {
+  if (!currentUser) {
+    message.style.color = "red";
+    message.textContent = "ログイン情報が確認できません。再ログインしてください。";
+    return;
+  }
+
+  const date = scheduleDate.value;
+
+  if (!date) {
+    message.style.color = "red";
+    message.textContent = "日付を選択してください。";
+    return;
+  }
+
+  try {
+    setScheduleSaving(true);
+
+    const monthId = getMonthIdFromDateId(date);
+    const monthlyScheduleId = getMonthlyScheduleId(currentUser.uid, monthId);
+    const existingData = getCachedScheduleForDate(date);
+
+    if (existingData) {
+      await updateDoc(doc(db, "monthlySchedules", monthlyScheduleId), {
+        [`days.${date}`]: deleteField(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    if (monthlyScheduleCache[monthId]) {
+      delete monthlyScheduleCache[monthId][date];
+    }
+
+    const displayedMonthId = formatMonthId(currentYear, currentMonth);
+
+    if (displayedMonthId === monthId) {
+      schedulesByDate = monthlyScheduleCache[monthId] || {};
+    }
+
+    scheduleStatus.value = "";
+    scheduleTimeSlot.value = "";
+    scheduleMemo.value = "";
+    clearStatusButtonActive();
+    clearTimeSlotButtonActive();
+    updateTimeSlotVisibility();
+
+    closeModal();
+    renderCurrentCalendarView(currentYear, currentMonth);
+    renderTodaySchedule();
+
+    message.style.color = "green";
+    message.textContent = "予定を未入力に戻しました。";
+  } catch (error) {
+    console.error("予定未入力戻しエラー:", error);
+    message.style.color = "red";
+    message.textContent = `未入力に戻せませんでした：${error.code || error.message}`;
+  } finally {
+    setScheduleSaving(false);
+  }
+}
+
+if (clearScheduleButton) {
+  clearScheduleButton.addEventListener("click", () => {
+    clearCurrentSchedule();
+  });
 }
 
 statusButtons.forEach((button) => {
@@ -672,10 +911,10 @@ function getDisplayScheduleData(dateId) {
   }
 
   return {
-    status: "休み",
+    status: "",
     timeSlot: "",
     memo: "",
-    _implicitOff: true
+    _implicitEmpty: true
   };
 }
 
@@ -711,7 +950,6 @@ function shouldShowDate(dateId, date) {
 
 function getUserDayToneClass(dateId) {
   const actualScheduleData = schedulesByDate[dateId] || null;
-  const displayScheduleData = getDisplayScheduleData(dateId);
   const announcements = announcementsByDate[dateId] || [];
   const isUseDay = isUseDaySchedule(actualScheduleData);
   const hasAnnouncement = announcements.length > 0;
@@ -728,7 +966,7 @@ function getUserDayToneClass(dateId) {
     return "day-announcement-only";
   }
 
-  if (displayScheduleData.status === "休み") {
+  if (actualScheduleData?.status === "休み") {
     return "day-off";
   }
 
@@ -819,7 +1057,7 @@ function renderMonthlyCalendarGrid(year, month) {
     hasRenderedDay = true;
 
     const scheduleData = getDisplayScheduleData(dateId);
-    const status = scheduleData.status || "休み";
+    const status = scheduleData.status || "";
     const timeSlot = scheduleData.timeSlot || "";
     const memo = scheduleData.memo || "";
 
@@ -841,15 +1079,19 @@ function renderMonthlyCalendarGrid(year, month) {
 
     const statusEl = document.createElement("div");
     statusEl.className = `calendar-status ${getStatusClass(status)}`;
-    statusEl.textContent = status || "";
+    statusEl.textContent = status;
 
     const timeSlotEl = document.createElement("div");
     timeSlotEl.className = "calendar-time-slot";
     timeSlotEl.textContent = timeSlot || "";
 
     dayCell.appendChild(dateEl);
-    dayCell.appendChild(statusEl);
-    dayCell.appendChild(timeSlotEl);
+    if (status) {
+      dayCell.appendChild(statusEl);
+    }
+    if (timeSlot) {
+      dayCell.appendChild(timeSlotEl);
+    }
 
     if (memo) {
       const memoDot = document.createElement("span");
@@ -937,7 +1179,7 @@ function renderWeeklyCalendarGrid(year, month) {
     hasRenderedDay = true;
 
     const scheduleData = getDisplayScheduleData(dateId);
-    const status = scheduleData.status || "休み";
+    const status = scheduleData.status || "";
     const timeSlot = scheduleData.timeSlot || "";
     const memo = scheduleData.memo || "";
     const dayCell = document.createElement("div");
@@ -961,7 +1203,9 @@ function renderWeeklyCalendarGrid(year, month) {
     statusEl.textContent = status;
 
     dayCell.appendChild(dateEl);
-    dayCell.appendChild(statusEl);
+    if (status) {
+      dayCell.appendChild(statusEl);
+    }
 
     if (timeSlot) {
       const timeSlotEl = document.createElement("div");
@@ -1042,7 +1286,7 @@ function renderMonthlyCalendarList(year, month) {
     const scheduleData = getDisplayScheduleData(dateId);
     const announcements = announcementsByDate[dateId] || [];
 
-    const status = scheduleData.status || "休み";
+    const status = scheduleData.status || "";
     const timeSlot = scheduleData.timeSlot || "";
     const memo = scheduleData.memo || "";
 
@@ -1065,19 +1309,20 @@ function renderMonthlyCalendarList(year, month) {
     dateText.className = "calendar-list-date";
     dateText.textContent = `${month + 1}月${day}日（${getJapaneseWeekday(targetDate)}）`;
 
-    const statusBadge = document.createElement("div");
-    statusBadge.className = `calendar-list-status ${getStatusClass(status)}`;
-    statusBadge.textContent = status;
-
     header.appendChild(dateText);
-    header.appendChild(statusBadge);
+    if (status) {
+      const statusBadge = document.createElement("div");
+      statusBadge.className = `calendar-list-status ${getStatusClass(status)}`;
+      statusBadge.textContent = status;
+      header.appendChild(statusBadge);
+    }
     dayItem.appendChild(header);
 
-    if (status !== "休み" || timeSlot || memo) {
+    if (status || timeSlot || memo) {
       const scheduleArea = document.createElement("div");
       scheduleArea.className = "calendar-list-schedule";
 
-      if (status !== "休み") {
+      if (status && status !== "休み") {
         const scheduleMain = document.createElement("div");
         scheduleMain.className = "calendar-list-schedule-main";
         scheduleMain.textContent = timeSlot ? `予定：${status}　${timeSlot}` : `予定：${status}`;
@@ -1305,6 +1550,359 @@ if (showAnnouncementDaysCheckbox) {
   });
 }
 
+// ==============================
+// 週一報告：未記入チェック
+// 直近8週のうち、運用開始週以降だけ直接 getDoc して確認する。
+// 一覧クエリを使わず、利用者本人の週報ドキュメントだけを読む。
+// ==============================
+function getWeeklyReportId(userId, weekStartDateId) {
+  return `${userId}_${weekStartDateId}`;
+}
+
+function getWeeklyReportStatusDocRef(userId) {
+  return doc(db, WEEKLY_REPORT_STATUS_COLLECTION, userId);
+}
+
+function formatWeeklyReportRangeText(weekStartDate) {
+  const weekEndDate = addDays(weekStartDate, 4);
+  return `${weekStartDate.getFullYear()}年${weekStartDate.getMonth() + 1}月${weekStartDate.getDate()}日〜${weekEndDate.getMonth() + 1}月${weekEndDate.getDate()}日`;
+}
+
+function buildWeeklyReportReminderWeekItems(latestWeekStart, startWeekDate) {
+  const weekItems = [];
+  const maxWeeks = Math.max(WEEKLY_REPORT_CHECK_WEEKS, WEEKLY_REPORT_FEEDBACK_CHECK_WEEKS);
+
+  for (let i = maxWeeks - 1; i >= 0; i--) {
+    const weekStartDate = addDays(latestWeekStart, -7 * i);
+
+    if (weekStartDate < startWeekDate) {
+      continue;
+    }
+
+    weekItems.push({
+      weekStartDate,
+      weekStartDateId: formatDateId(weekStartDate),
+      label: formatWeeklyReportRangeText(weekStartDate),
+      checkPending: i < WEEKLY_REPORT_CHECK_WEEKS
+    });
+  }
+
+  return weekItems;
+}
+
+function isWeeklyReportStatusCacheReliable(statusData, firstWeekId, latestWeekId) {
+  if (!statusData || statusData.schemaVersion !== WEEKLY_REPORT_STATUS_SCHEMA_VERSION) {
+    return false;
+  }
+
+  if (!firstWeekId || statusData.reminderCheckedThroughWeek !== latestWeekId) {
+    return false;
+  }
+
+  return Boolean(statusData.reminderCheckedFromWeek && statusData.reminderCheckedFromWeek <= firstWeekId);
+}
+
+function buildWeeklyReportReminderFromStatus(statusData, weekItems) {
+  const submittedWeeks = statusData?.submittedWeeks || {};
+  const feedbackVersions = statusData?.feedbackVersions || {};
+  const feedbackReadVersions = statusData?.feedbackReadVersions || {};
+  const pendingWeeks = [];
+  const unreadFeedbackReports = [];
+
+  weekItems.forEach((week) => {
+    if (week.checkPending && submittedWeeks[week.weekStartDateId] !== true) {
+      pendingWeeks.push({
+        weekStartDate: week.weekStartDateId,
+        label: week.label
+      });
+    }
+
+    const feedbackVersion = feedbackVersions[week.weekStartDateId] || "";
+    const readVersion = feedbackReadVersions[week.weekStartDateId] || "";
+
+    if (feedbackVersion && readVersion !== feedbackVersion) {
+      unreadFeedbackReports.push({
+        weekStartDate: week.weekStartDateId,
+        label: week.label,
+        staffFeedbackVersion: feedbackVersion
+      });
+    }
+  });
+
+  return { pendingWeeks, unreadFeedbackReports };
+}
+
+function buildWeeklyReportStatusMaps(reportStates) {
+  const submittedWeeks = {};
+  const feedbackVersions = {};
+  const feedbackReadVersions = {};
+
+  reportStates.forEach((state) => {
+    const report = state.report;
+    const weekStartDateId = state.weekStartDateId;
+    const feedbackVersion = report?.staffFeedbackVersion || "";
+
+    submittedWeeks[weekStartDateId] = report?.submitted === true;
+
+    if (feedbackVersion) {
+      feedbackVersions[weekStartDateId] = feedbackVersion;
+
+      if (report?.feedbackReadByUser === true || report?.staffFeedbackReadVersion === feedbackVersion) {
+        feedbackReadVersions[weekStartDateId] = feedbackVersion;
+      } else {
+        feedbackReadVersions[weekStartDateId] = report?.staffFeedbackReadVersion || "";
+      }
+    }
+  });
+
+  return { submittedWeeks, feedbackVersions, feedbackReadVersions };
+}
+
+async function saveWeeklyReportStatusCache(reportStates, firstWeekId, latestWeekId) {
+  if (!currentUser || !firstWeekId || !latestWeekId) {
+    return;
+  }
+
+  const statusMaps = buildWeeklyReportStatusMaps(reportStates);
+
+  await setDoc(getWeeklyReportStatusDocRef(currentUser.uid), {
+    userId: currentUser.uid,
+    userName: currentUserData?.name || currentUser.email || "",
+    userEmail: currentUser.email || "",
+    officeId: getCurrentOfficeId(),
+    groupId: getCurrentGroupId(),
+    schemaVersion: WEEKLY_REPORT_STATUS_SCHEMA_VERSION,
+    ...statusMaps,
+    reminderCheckedFromWeek: firstWeekId,
+    reminderCheckedThroughWeek: latestWeekId,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+function setWeeklyReportHomeStatus(text, tone = "") {
+  if (!weeklyReportHomeStatus) {
+    return;
+  }
+
+  weeklyReportHomeStatus.textContent = text;
+  weeklyReportHomeStatus.classList.remove("weekly-report-home-status-ok", "weekly-report-home-status-alert", "weekly-report-home-status-error");
+
+  if (tone) {
+    weeklyReportHomeStatus.classList.add(`weekly-report-home-status-${tone}`);
+  }
+}
+
+function hideWeeklyReportReminder() {
+  if (weeklyReportReminderBox) {
+    weeklyReportReminderBox.classList.add("hidden");
+  }
+}
+
+function isUnreadWeeklyReportFeedback(report) {
+  if (!report || report.submitted !== true || !report.staffFeedbackText || !report.staffFeedbackVersion) {
+    return false;
+  }
+
+  if (report.feedbackReadByUser === true) {
+    return false;
+  }
+
+  return Boolean(
+    report.staffFeedbackReadVersion !== report.staffFeedbackVersion
+  );
+}
+
+function renderWeeklyReportReminder(pendingWeeks, unreadFeedbackReports = []) {
+  if (!weeklyReportReminderBox || !weeklyReportReminderList) {
+    setWeeklyReportHomeStatus("週一報告の確認欄が見つかりません。", "error");
+    return;
+  }
+
+  weeklyReportReminderList.innerHTML = "";
+
+  const totalCount = pendingWeeks.length + unreadFeedbackReports.length;
+
+  if (!totalCount) {
+    hideWeeklyReportReminder();
+    setWeeklyReportHomeStatus("未記入の週一報告・未確認の返信はありません。", "ok");
+    return;
+  }
+
+  weeklyReportReminderBox.classList.remove("hidden");
+  setWeeklyReportHomeStatus(
+    `未記入${pendingWeeks.length}件／返信あり${unreadFeedbackReports.length}件`,
+    "alert"
+  );
+
+  if (weeklyReportReminderCount) {
+    weeklyReportReminderCount.textContent = `${totalCount}件`;
+  }
+
+  if (weeklyReportReminderText) {
+    if (pendingWeeks.length > 0 && unreadFeedbackReports.length > 0) {
+      weeklyReportReminderText.textContent = "未記入の週一報告と、支援員からの返信があります。古い週から順番に確認できます。";
+    } else if (pendingWeeks.length > 0) {
+      weeklyReportReminderText.textContent = pendingWeeks.length === 1
+        ? "未記入の週一報告があります。記入をお願いします。"
+        : "未記入の週一報告が複数あります。古い週から順番に記入できます。";
+    } else {
+      weeklyReportReminderText.textContent = "支援員からの返信があります。確認すると、この表示は消えます。";
+    }
+  }
+
+  pendingWeeks.forEach((week) => {
+    const item = document.createElement("a");
+    item.className = "weekly-report-reminder-item weekly-report-reminder-item-pending";
+    item.href = `weekly-report.html?weekStart=${week.weekStartDate}`;
+
+    const title = document.createElement("div");
+    title.className = "weekly-report-reminder-item-title";
+    title.textContent = `未記入：${week.label}`;
+
+    const action = document.createElement("div");
+    action.className = "weekly-report-reminder-item-action";
+    action.textContent = "記入する";
+
+    item.appendChild(title);
+    item.appendChild(action);
+    weeklyReportReminderList.appendChild(item);
+  });
+
+  unreadFeedbackReports.forEach((report) => {
+    const item = document.createElement("a");
+    item.className = "weekly-report-reminder-item weekly-report-reminder-item-feedback";
+    item.href = `weekly-report.html?weekStart=${report.weekStartDate}`;
+
+    const title = document.createElement("div");
+    title.className = "weekly-report-reminder-item-title";
+    title.textContent = `返信あり：${report.label}`;
+
+    const action = document.createElement("div");
+    action.className = "weekly-report-reminder-item-action";
+    action.textContent = "確認する";
+
+    item.appendChild(title);
+    item.appendChild(action);
+    weeklyReportReminderList.appendChild(item);
+  });
+}
+
+async function loadWeeklyReportReminder() {
+  if (!currentUser || !currentUserData) {
+    return;
+  }
+
+  setWeeklyReportHomeStatus("週一報告の未記入・返信状況を確認中...");
+
+  if (!weeklyReportReminderBox) {
+    setWeeklyReportHomeStatus("週一報告の表示エリアが見つかりません。user.htmlを確認してください。", "error");
+    return;
+  }
+
+  try {
+    const latestWeekStart = getLastCompletedWeekStartDate();
+    const startWeekDate = getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK));
+    const weekItems = buildWeeklyReportReminderWeekItems(latestWeekStart, startWeekDate);
+    const latestWeekId = formatDateId(latestWeekStart);
+    const firstWeekId = weekItems[0]?.weekStartDateId || "";
+    const pendingWeeks = [];
+    const unreadFeedbackReports = [];
+
+    if (weekItems.length === 0) {
+      renderWeeklyReportReminder([], []);
+      console.log("[Read節約] 週一報告チェック：運用開始前のため確認対象週はありません。");
+      return;
+    }
+
+    try {
+      const statusSnap = await getDoc(getWeeklyReportStatusDocRef(currentUser.uid));
+
+      if (statusSnap.exists() && isWeeklyReportStatusCacheReliable(statusSnap.data(), firstWeekId, latestWeekId)) {
+        const cachedState = buildWeeklyReportReminderFromStatus(statusSnap.data(), weekItems);
+        renderWeeklyReportReminder(cachedState.pendingWeeks, cachedState.unreadFeedbackReports);
+        console.log("週一報告未記入・返信チェック（集約doc）", {
+          startWeek: WEEKLY_REPORT_START_WEEK,
+          latestWeek: latestWeekId,
+          pendingWeeks: cachedState.pendingWeeks.map((week) => week.weekStartDate),
+          unreadFeedbackReports: cachedState.unreadFeedbackReports.map((week) => week.weekStartDate)
+        });
+        console.log("[Read節約] 週一報告チェック：weeklyReportUserStatus 1 readで確認しました。");
+        return;
+      }
+    } catch (cacheError) {
+      console.warn("週一報告ステータス集約docの読み込みに失敗したため、従来方式で確認します。", cacheError);
+    }
+
+    const reportStates = [];
+
+    for (const week of weekItems) {
+      const reportId = getWeeklyReportId(currentUser.uid, week.weekStartDateId);
+      const docSnap = await getDoc(doc(db, "weeklyReports", reportId));
+      const report = docSnap.exists() ? docSnap.data() : null;
+
+      reportStates.push({
+        weekStartDateId: week.weekStartDateId,
+        report
+      });
+
+      if (!report || report.submitted !== true) {
+        if (week.checkPending) {
+          pendingWeeks.push({
+            weekStartDate: week.weekStartDateId,
+            label: week.label
+          });
+        }
+        continue;
+      }
+
+      if (isUnreadWeeklyReportFeedback(report)) {
+        unreadFeedbackReports.push({
+          weekStartDate: report.weekStartDate || week.weekStartDateId,
+          label: week.label,
+          staffFeedbackVersion: report.staffFeedbackVersion
+        });
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("forceWeeklyReportReminder") === "1" && pendingWeeks.length === 0 && unreadFeedbackReports.length === 0) {
+      pendingWeeks.push({
+        weekStartDate: formatDateId(latestWeekStart),
+        label: `${formatWeeklyReportRangeText(latestWeekStart)}（テスト表示）`
+      });
+    }
+
+    renderWeeklyReportReminder(pendingWeeks, unreadFeedbackReports);
+
+    try {
+      await saveWeeklyReportStatusCache(reportStates, firstWeekId, latestWeekId);
+      console.log("[Read節約] 週一報告チェック：従来方式で確認した結果をweeklyReportUserStatusへ保存しました。次回以降は1 readで確認できます。");
+    } catch (cacheSaveError) {
+      console.warn("週一報告ステータス集約docの保存に失敗しました。通知表示は従来方式の結果で継続します。", cacheSaveError);
+    }
+
+    console.log("週一報告未記入・返信チェック", {
+      startWeek: WEEKLY_REPORT_START_WEEK,
+      latestWeek: latestWeekId,
+      pendingWeeks: pendingWeeks.map((week) => week.weekStartDate),
+      unreadFeedbackReports: unreadFeedbackReports.map((week) => week.weekStartDate)
+    });
+    console.log(`[Read節約] 週一報告チェック：集約docが未整備または古い場合のみ、対象${weekItems.length}週分を直接確認します。`);
+  } catch (error) {
+    console.error("週一報告未記入・返信チェックエラー:", error);
+    setWeeklyReportHomeStatus(`週一報告チェック失敗：${error.code || error.message}`, "error");
+
+    if (weeklyReportReminderBox && weeklyReportReminderText && weeklyReportReminderList) {
+      weeklyReportReminderBox.classList.remove("hidden");
+      if (weeklyReportReminderCount) {
+        weeklyReportReminderCount.textContent = "確認失敗";
+      }
+      weeklyReportReminderText.textContent = `週一報告の確認に失敗しました：${error.code || error.message}`;
+      weeklyReportReminderList.innerHTML = `<a class="weekly-report-reminder-item" href="weekly-report.html"><div class="weekly-report-reminder-item-title">週一報告ページを開く</div><div class="weekly-report-reminder-item-action">確認する</div></a>`;
+    }
+  }
+}
+
 // ログイン状態を確認する
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -1335,6 +1933,7 @@ onAuthStateChanged(auth, async (user) => {
 
     userInfo.textContent = `${userData.name}さん`;
 
+    await loadWeeklyReportReminder();
     await loadMonthlyCalendar();
 
   } else {
@@ -1343,7 +1942,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // 予定を保存する
-saveScheduleButton.addEventListener("click", async () => {
+async function saveCurrentSchedule(options = {}) {
   if (!currentUser) {
     message.style.color = "red";
     message.textContent = "ログイン情報が確認できません。再ログインしてください。";
@@ -1374,6 +1973,8 @@ saveScheduleButton.addEventListener("click", async () => {
   }
 
   try {
+    setScheduleSaving(true);
+
     const monthId = getMonthIdFromDateId(date);
     const monthlyScheduleId = getMonthlyScheduleId(currentUser.uid, monthId);
     const dayData = {
@@ -1402,6 +2003,7 @@ saveScheduleButton.addEventListener("click", async () => {
     }
 
     monthlyScheduleCache[monthId][date] = dayData;
+    saveLastScheduleInput(dayData);
 
     const displayedMonthId = formatMonthId(currentYear, currentMonth);
 
@@ -1412,18 +2014,37 @@ saveScheduleButton.addEventListener("click", async () => {
     message.style.color = "green";
     message.textContent = "予定を保存しました。";
 
-    closeModal();
-
     renderCurrentCalendarView(currentYear, currentMonth);
     renderTodaySchedule();
+
+    if (options.openNext === true) {
+      const nextDateId = getNextWeekdayDateId(date);
+      await openScheduleModalAfterSave(nextDateId);
+      message.style.color = "green";
+      message.textContent = "保存しました。次の平日を開きました。";
+    } else {
+      closeModal();
+    }
 
   } catch (error) {
     console.error("保存エラー:", error);
 
     message.style.color = "red";
     message.textContent = `保存に失敗しました：${error.code || error.message}`;
+  } finally {
+    setScheduleSaving(false);
   }
+}
+
+saveScheduleButton.addEventListener("click", () => {
+  saveCurrentSchedule();
 });
+
+if (saveAndNextScheduleButton) {
+  saveAndNextScheduleButton.addEventListener("click", () => {
+    saveCurrentSchedule({ openNext: true });
+  });
+}
 
 // ログアウト
 logoutButton.addEventListener("click", async () => {

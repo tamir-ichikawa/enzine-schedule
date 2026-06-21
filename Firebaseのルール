@@ -1,0 +1,181 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myUserDocExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isActive() {
+      return signedIn()
+        && myUserDocExists()
+        && myUserDoc().data.active == true;
+    }
+
+    function isStaff() {
+      return isActive()
+        && (
+          myUserDoc().data.role == "staff"
+          || myUserDoc().data.role == "admin"
+        );
+    }
+
+    function isOwnerSchedule(scheduleId) {
+      return isActive()
+        && scheduleId.matches(request.auth.uid + "_.*");
+    }
+
+    function isOwnerScheduleData() {
+      return isActive()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    function isOwnerMonthlySchedule(monthlyScheduleId) {
+      return isActive()
+        && monthlyScheduleId.matches(request.auth.uid + "_.*");
+    }
+
+    function isOwnerMonthlyScheduleCreate(monthlyScheduleId) {
+      return isActive()
+        && monthlyScheduleId.matches(request.auth.uid + "_.*")
+        && request.resource.data.userId == request.auth.uid;
+    }
+
+    function isOwnerMonthlyScheduleUpdate(monthlyScheduleId) {
+      return isActive()
+        && monthlyScheduleId.matches(request.auth.uid + "_.*")
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+    }
+
+    // 教材・リンク集は利用者にも表示するが、利用者一覧などの system 情報は支援員のみ。
+    function isWorkshopResourceDoc(systemDocId) {
+      return systemDocId.matches("workshopResources_.*");
+    }
+
+    match /users/{userId} {
+      allow read: if isStaff() || (signedIn() && request.auth.uid == userId);
+      allow create, update: if isStaff();
+      allow delete: if false;
+    }
+
+    // 旧方式：移行期間だけ残す
+    match /schedules/{scheduleId} {
+      allow read: if isStaff() || isOwnerSchedule(scheduleId) || isOwnerScheduleData();
+
+      allow create: if isActive()
+        && request.resource.data.userId == request.auth.uid
+        && scheduleId.matches(request.auth.uid + "_.*");
+
+      allow update: if isStaff()
+        || (
+          isActive()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && scheduleId.matches(request.auth.uid + "_.*")
+        );
+
+      allow delete: if false;
+    }
+
+    match /weeklyReports/{reportId} {
+      // 利用者本人：自分の週一報告を読む
+      allow read: if isActive()
+        && reportId.matches(request.auth.uid + "_.*");
+
+      // 利用者本人：自分の週一報告を新規作成
+      allow create: if isActive()
+        && reportId.matches(request.auth.uid + "_.*")
+        && request.resource.data.userId == request.auth.uid;
+
+      // 利用者本人：自分の週一報告を更新
+      allow update: if isActive()
+        && reportId.matches(request.auth.uid + "_.*")
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+
+      // 支援員・管理者：週一報告を読む・返信を書く
+      allow read, update: if isStaff();
+
+      // 削除は禁止
+      allow delete: if false;
+    }
+
+    match /weeklyReportUserStatus/{userId} {
+      allow read: if isStaff()
+        || (isActive() && request.auth.uid == userId);
+
+      allow create, update: if isStaff()
+        || (
+          isActive()
+          && request.auth.uid == userId
+          && request.resource.data.userId == request.auth.uid
+        );
+
+      allow delete: if false;
+    }
+
+    // 新方式：1人1か月の予定
+    match /monthlySchedules/{monthlyScheduleId} {
+      // 重要：支援員は存在しないドキュメントも getDoc できるようにする。
+      // resource.data.officeId 条件にすると、未作成ユーザーの予定確認で permission-denied になる。
+      allow read: if isStaff() || isOwnerMonthlySchedule(monthlyScheduleId);
+
+      allow create: if isStaff() || isOwnerMonthlyScheduleCreate(monthlyScheduleId);
+
+      allow update: if isStaff() || isOwnerMonthlyScheduleUpdate(monthlyScheduleId);
+
+      allow delete: if false;
+    }
+
+    // 旧方式：移行期間だけ残す
+    match /announcements/{announcementId} {
+      allow read: if isActive();
+
+      allow create: if isStaff()
+        && request.resource.data.active == true
+        && request.resource.data.date is string
+        && request.resource.data.title is string
+        && request.resource.data.createdByUid == request.auth.uid;
+
+      allow update: if isStaff();
+      allow delete: if false;
+    }
+
+    // 新方式：1事業所1か月のアナウンス
+    match /monthlyAnnouncements/{monthlyAnnouncementId} {
+      // 移行中は有効ユーザーなら engine_chiba の月次アナウンスを読めるようにする
+      allow read: if isActive()
+        && monthlyAnnouncementId.matches("engine_chiba_.*");
+
+      allow create, update: if isStaff()
+        && monthlyAnnouncementId.matches("engine_chiba_.*");
+
+      allow delete: if false;
+    }
+
+    // system 配下
+    // - activeUsers など：支援員のみ read/write
+    // - workshopResources_〇〇：有効ユーザーなら read 可、編集は支援員のみ
+    match /system/{systemDocId} {
+      allow read: if isStaff()
+        || (
+          isActive()
+          && isWorkshopResourceDoc(systemDocId)
+        );
+
+      allow create, update: if isStaff();
+      allow delete: if false;
+    }
+  }
+}

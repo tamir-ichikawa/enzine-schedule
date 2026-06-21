@@ -1,3 +1,10 @@
+// STEP34_WORKSHOP_FORM_TOGGLE_PREVIEW_GUIDE_20260621_V64：追加フォームをボタン開閉化・プレビュー案内色分け
+// STEP33_WORKSHOP_PREVIEW_DELETE_FILTER_20260621_V63：通常プレビュー選択・削除・非表示一覧切替
+// STEP32_WORKSHOP_CASE_COMPLETE_HIDE_20260621_V62：完了案件を支援員側から非表示にできるよう対応
+// STEP31_WORKSHOP_EDIT_PREVIEW_20260621_V61：ワークショップ管理の編集・プレビュー分離
+// STEP30_CASE_CARD_EDITOR_20260621_V60：支援員側の案件追加をカード型に変更
+// STEP29_CASE_DRAFT_20260621_V59：案件情報貼り付け下書き対応
+// STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
 import {
@@ -13,20 +20,127 @@ import {
 
 import { auth, db } from "./firebase-config.js";
 
+// STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：週一報告の既読互換と表示漏れ修正
+// STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
+// STEP18_WEEKLY_REPORT_STATUS_CACHE_20260620_V47：支援員返信時に利用者通知用の集約docを更新
+// STEP19_STAFF_HTML_ESCAPE_20260620_V48：運用チェックなどのHTML文字列出力を安全化
+// STEP23_STAFF_WEEKLY_STATUS_INDEX_20260620_V52：週一報告一覧はステータスdoc優先で確認
+// STEP24_STAFF_DASHBOARD_20260620_V53：支援員の今日の概況をボタン実行で集計
+// STEP25_STAFF_DATE_PICKER_20260620_V54：日付入力欄全体のクリックでカレンダーを開く
+// STEP26_DAILY_LIST_DIRECT_EDIT_20260620_V55：日別一覧から利用者予定編集へ直接移動
+
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
+const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
+const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
+
+// STEP5_WEBUI_20260620_V33：支援員ページ タブ切り替え・現在位置表示
+const STAFF_TAB_STORAGE_KEY = "enzineStaffActiveTab";
+const staffTabButtons = document.querySelectorAll("[data-staff-tab]");
+const staffTabPanels = document.querySelectorAll("[data-staff-panel]");
+const staffCurrentSectionTitle = document.getElementById("staffCurrentSectionTitle");
+
+const STAFF_TAB_LABELS = {
+  daily: "日別予定",
+  "user-schedule": "利用者別予定",
+  announcements: "アナウンス",
+  workshops: "ワークショップ・教材",
+  "weekly-reports": "週一報告",
+  operation: "運用チェック"
+};
+
+function setStaffActiveTab(tabName, options = {}) {
+  const targetTab = tabName || "daily";
+
+  if (staffCurrentSectionTitle) {
+    staffCurrentSectionTitle.textContent = STAFF_TAB_LABELS[targetTab] || "日別予定";
+  }
+
+  staffTabButtons.forEach((button) => {
+    const isActive = button.dataset.staffTab === targetTab;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+
+  staffTabPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.staffPanel === targetTab);
+  });
+
+  if (!options.skipStorage) {
+    try {
+      localStorage.setItem(STAFF_TAB_STORAGE_KEY, targetTab);
+    } catch (error) {
+      console.warn("支援員タブ状態の保存に失敗しました。", error);
+    }
+  }
+}
+
+function initializeStaffTabs() {
+  if (!staffTabButtons.length || !staffTabPanels.length) {
+    return;
+  }
+
+  const availableTabs = Array.from(staffTabButtons).map((button) => button.dataset.staffTab);
+  const params = new URLSearchParams(window.location.search);
+  const urlTab = params.get("tab");
+  let savedTab = "";
+
+  try {
+    savedTab = localStorage.getItem(STAFF_TAB_STORAGE_KEY) || "";
+  } catch (error) {
+    savedTab = "";
+  }
+
+  const initialTab = availableTabs.includes(urlTab)
+    ? urlTab
+    : availableTabs.includes(savedTab)
+      ? savedTab
+      : "daily";
+
+  setStaffActiveTab(initialTab, { skipStorage: false });
+
+  staffTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setStaffActiveTab(button.dataset.staffTab);
+    });
+  });
+}
 
 const staffInfo = document.getElementById("staffInfo");
 const targetDate = document.getElementById("targetDate");
 const loadButton = document.getElementById("loadButton");
 const logoutButton = document.getElementById("logoutButton");
 const message = document.getElementById("message");
+const loadStaffDashboardButton = document.getElementById("loadStaffDashboardButton");
+const staffDashboardResult = document.getElementById("staffDashboardResult");
 
 const comingList = document.getElementById("comingList");
 const homeList = document.getElementById("homeList");
 const offList = document.getElementById("offList");
 const otherList = document.getElementById("otherList");
+
+function openNativeDatePicker(inputElement) {
+  if (!inputElement) {
+    return;
+  }
+
+  try {
+    inputElement.focus({ preventScroll: true });
+  } catch (error) {
+    inputElement.focus();
+  }
+
+  if (typeof inputElement.showPicker !== "function") {
+    return;
+  }
+
+  try {
+    inputElement.showPicker();
+  } catch (error) {
+    // showPicker はブラウザや入力状態によって拒否されることがあるため、通常の入力動作に任せる。
+  }
+}
 
 const announcementCalendarTitle = document.getElementById("announcementCalendarTitle");
 const announcementCalendar = document.getElementById("announcementCalendar");
@@ -71,6 +185,14 @@ const loadWorkshopResourcesButton = document.getElementById("loadWorkshopResourc
 const workshopResourceAdminArea = document.getElementById("workshopResourceAdminArea");
 const workshopResourceList = document.getElementById("workshopResourceList");
 const workshopResourceMessage = document.getElementById("workshopResourceMessage");
+const workshopEditModeButton = document.getElementById("workshopEditModeButton");
+const workshopPreviewModeButton = document.getElementById("workshopPreviewModeButton");
+const workshopEditPanel = document.getElementById("workshopEditPanel");
+const workshopPreviewPanel = document.getElementById("workshopPreviewPanel");
+const workshopPreviewArea = document.getElementById("workshopPreviewArea");
+const showWorkshopFormButton = document.getElementById("showWorkshopFormButton");
+const toggleHiddenWorkshopsButton = document.getElementById("toggleHiddenWorkshopsButton");
+const workshopFormPanel = document.getElementById("workshopFormPanel");
 const workshopResourceFormTitle = document.getElementById("workshopResourceFormTitle");
 const editingWorkshopResourceId = document.getElementById("editingWorkshopResourceId");
 const workshopResourceActive = document.getElementById("workshopResourceActive");
@@ -79,6 +201,12 @@ const workshopResourceScheduleText = document.getElementById("workshopResourceSc
 const workshopResourceDescription = document.getElementById("workshopResourceDescription");
 const workshopResourceLinksText = document.getElementById("workshopResourceLinksText");
 const workshopResourceDeadlinesText = document.getElementById("workshopResourceDeadlinesText");
+const workshopResourceCasesText = document.getElementById("workshopResourceCasesText");
+const workshopCaseCardList = document.getElementById("workshopCaseCardList");
+const addWorkshopCaseCardButton = document.getElementById("addWorkshopCaseCardButton");
+const workshopCaseRawText = document.getElementById("workshopCaseRawText");
+const buildWorkshopCaseDraftButton = document.getElementById("buildWorkshopCaseDraftButton");
+const workshopCaseDraftPreview = document.getElementById("workshopCaseDraftPreview");
 const saveWorkshopResourceButton = document.getElementById("saveWorkshopResourceButton");
 const resetWorkshopResourceFormButton = document.getElementById("resetWorkshopResourceFormButton");
 
@@ -86,6 +214,26 @@ const resetWorkshopResourceFormButton = document.getElementById("resetWorkshopRe
 const operationCheckMonth = document.getElementById("operationCheckMonth");
 const runOperationCheckButton = document.getElementById("runOperationCheckButton");
 const operationCheckResult = document.getElementById("operationCheckResult");
+
+// 支援員：週一報告管理
+const prevStaffWeeklyReportWeekButton = document.getElementById("prevStaffWeeklyReportWeekButton");
+const nextStaffWeeklyReportWeekButton = document.getElementById("nextStaffWeeklyReportWeekButton");
+const staffWeeklyReportWeekLabel = document.getElementById("staffWeeklyReportWeekLabel");
+const loadStaffWeeklyReportsButton = document.getElementById("loadStaffWeeklyReportsButton");
+const staffWeeklyReportMessage = document.getElementById("staffWeeklyReportMessage");
+const staffWeeklyReportSummary = document.getElementById("staffWeeklyReportSummary");
+const submittedWeeklyReportList = document.getElementById("submittedWeeklyReportList");
+const missingWeeklyReportList = document.getElementById("missingWeeklyReportList");
+const buildWeeklyReportsTextButton = document.getElementById("buildWeeklyReportsTextButton");
+const copyWeeklyReportsTextButton = document.getElementById("copyWeeklyReportsTextButton");
+const weeklyReportsTextOutput = document.getElementById("weeklyReportsTextOutput");
+const weeklyReportDetailPanel = document.getElementById("weeklyReportDetailPanel");
+const weeklyReportDetailTitle = document.getElementById("weeklyReportDetailTitle");
+const weeklyReportDetailMeta = document.getElementById("weeklyReportDetailMeta");
+const weeklyReportDetailBody = document.getElementById("weeklyReportDetailBody");
+const weeklyReportFeedbackInput = document.getElementById("weeklyReportFeedbackInput");
+const saveWeeklyReportFeedbackButton = document.getElementById("saveWeeklyReportFeedbackButton");
+const weeklyReportFeedbackMessage = document.getElementById("weeklyReportFeedbackMessage");
 
 // 支援員：利用者予定編集モーダル
 const userScheduleEditModal = document.getElementById("userScheduleEditModal");
@@ -127,7 +275,9 @@ let announcementsByDate = {};
 let currentEditingAnnouncementId = "";
 let currentUser = null;
 let workshopResourcesLoaded = false;
-let workshopResourcesCache = { workshops: [] };
+let workshopResourcesCache = { schemaVersion: 2, workshops: [], cases: [], guides: [] };
+let showInactiveWorkshops = false;
+let workshopFormOpen = false;
 
 // 支援員ページ用キャッシュ
 // 日別一覧：月ごとの全利用者 monthlySchedules を1回だけ取得し、同じ月の日付選択では再利用する。
@@ -150,6 +300,15 @@ let displayedUserScheduleMonth = new Date().getMonth();
 let displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
 let currentEditingUserMonthlySchedule = null;
 let selectedUserScheduleEditDate = "";
+let shouldRefreshDailySchedulesAfterEdit = false;
+
+// STEP3_FIXED_20260620_V31：週一報告管理用の状態
+let displayedStaffWeeklyReportWeekStartDate = null;
+let loadedStaffWeeklyReports = [];
+let loadedStaffWeeklyMissingUsers = [];
+let loadedStaffWeeklyReportWeekStartId = "";
+let selectedStaffWeeklyReportId = "";
+let staffWeeklyReportCache = {};
 
 function getTodayDateId() {
   const today = new Date();
@@ -390,20 +549,39 @@ function clearLists() {
 
 function addUserToList(listElement, data) {
   const li = document.createElement("li");
+  li.className = "daily-user-list-item";
 
   const name = data.userName || data.userEmail || "名前不明";
   const timeSlot = data.timeSlot || "";
   const memo = data.memo || "";
 
-  const mainText = document.createElement("div");
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "daily-user-edit-button";
+  editButton.setAttribute("aria-label", `${name}さんの予定を編集`);
+
+  const nameText = document.createElement("span");
+  nameText.className = "daily-user-edit-name";
+  nameText.textContent = name;
+  editButton.appendChild(nameText);
 
   if (timeSlot) {
-    mainText.textContent = `${name}　${timeSlot}`;
-  } else {
-    mainText.textContent = name;
+    const timeSlotText = document.createElement("span");
+    timeSlotText.className = "daily-user-edit-time";
+    timeSlotText.textContent = timeSlot;
+    editButton.appendChild(timeSlotText);
   }
 
-  li.appendChild(mainText);
+  const actionText = document.createElement("span");
+  actionText.className = "daily-user-edit-action";
+  actionText.textContent = "編集";
+  editButton.appendChild(actionText);
+
+  editButton.addEventListener("click", () => {
+    openDailyScheduleEditFromList(data);
+  });
+
+  li.appendChild(editButton);
 
   if (memo) {
     const memoText = document.createElement("div");
@@ -413,6 +591,61 @@ function addUserToList(listElement, data) {
   }
 
   listElement.appendChild(li);
+}
+
+function buildDailyScheduleUserFromListData(data) {
+  return {
+    id: data.userId,
+    uid: data.userId,
+    name: data.userName || data.userEmail || "名前未設定",
+    email: data.userEmail || "",
+    officeId: data.officeId || getCurrentOfficeId(),
+    groupId: data.groupId || getCurrentGroupId(),
+    active: true
+  };
+}
+
+function buildMissingDailyMonthlySchedule(user, monthId) {
+  return {
+    id: `${user.id}_${monthId}`,
+    _missingDoc: true,
+    userId: user.id,
+    userName: user.name || "名前未設定",
+    userEmail: user.email || "",
+    officeId: user.officeId || getCurrentOfficeId(),
+    groupId: user.groupId || getCurrentGroupId(),
+    month: monthId,
+    days: {},
+    workDayCount: 0
+  };
+}
+
+async function openDailyScheduleEditFromList(data) {
+  const dateId = data.dateId || targetDate?.value || "";
+
+  if (!dateId || !data.userId) {
+    return;
+  }
+
+  const { year, month } = getYearAndMonthFromDateId(dateId);
+  const monthId = formatMonthId(year, month);
+  const user = buildDailyScheduleUserFromListData(data);
+  const cacheKey = `${user.id}_${monthId}`;
+  const monthlySchedule = data.monthlySchedule
+    || individualUserMonthlyScheduleCache[cacheKey]
+    || buildMissingDailyMonthlySchedule(user, monthId);
+
+  selectedUserScheduleId = user.id;
+  selectedUserScheduleData = user;
+  individualUserMonthlyScheduleCache[cacheKey] = monthlySchedule;
+  currentEditingUserMonthlySchedule = monthlySchedule;
+  shouldRefreshDailySchedulesAfterEdit = true;
+
+  await openUserScheduleEditModal(dateId);
+
+  if (userScheduleEditModal?.classList.contains("hidden")) {
+    shouldRefreshDailySchedulesAfterEdit = false;
+  }
 }
 
 function showEmptyTextIfNeeded() {
@@ -825,9 +1058,13 @@ async function loadDailySchedules() {
         status: status,
         timeSlot: dayData?.timeSlot || "",
         memo: dayData?.memo || "",
+        dateId: date,
+        monthlySchedule: monthlySchedule,
         userId: user.id,
         userName: user.name,
-        userEmail: user.email
+        userEmail: user.email,
+        officeId: user.officeId,
+        groupId: user.groupId
       };
 
       if (status === "通所") {
@@ -856,6 +1093,213 @@ async function loadDailySchedules() {
 
     message.style.color = "red";
     message.textContent = `読み込みに失敗しました：${error.code || error.message}`;
+  }
+}
+
+// ==============================
+// 支援員：今日の概況
+// ボタンを押した時だけ、既存の月間予定キャッシュと週一報告ステータス集約docを読む。
+// ==============================
+function getStaffDashboardUserLabel(user) {
+  return user.name || user.email || user.id || "名前未設定";
+}
+
+function buildStaffDashboardNamePreview(names) {
+  if (!names.length) {
+    return "なし";
+  }
+
+  const visibleNames = names.slice(0, 6).map((name) => escapeStaffWeeklyText(name)).join("、");
+  const hiddenCount = names.length - 6;
+  return hiddenCount > 0 ? `${visibleNames}、ほか${hiddenCount}人` : visibleNames;
+}
+
+function summarizeStaffDashboardDailySchedules(users, monthlySchedules, dateId) {
+  const scheduleMap = {};
+  const summary = {
+    coming: [],
+    home: [],
+    explicitOff: [],
+    unfilled: [],
+    other: []
+  };
+
+  monthlySchedules.forEach((monthlySchedule) => {
+    if (monthlySchedule.userId) {
+      scheduleMap[monthlySchedule.userId] = monthlySchedule;
+    }
+  });
+
+  users.forEach((user) => {
+    const monthlySchedule = scheduleMap[user.id] || null;
+    const dayData = monthlySchedule?.days?.[dateId] || null;
+    const status = dayData?.status || "";
+    const label = getStaffDashboardUserLabel(user);
+
+    if (status === "通所") {
+      summary.coming.push(label);
+    } else if (status === "在宅") {
+      summary.home.push(label);
+    } else if (status === "休み") {
+      summary.explicitOff.push(label);
+    } else if (!status) {
+      summary.unfilled.push(label);
+    } else {
+      summary.other.push(`${label}（${status}）`);
+    }
+  });
+
+  return summary;
+}
+
+function summarizeStaffDashboardWeeklyStatus(users, statusMap, weekStartId) {
+  const summary = {
+    submitted: [],
+    notSubmitted: [],
+    statusMissing: []
+  };
+
+  users.forEach((user) => {
+    const statusData = statusMap[user.id] || null;
+    const submittedWeeks = statusData?.submittedWeeks || {};
+    const label = getStaffDashboardUserLabel(user);
+
+    if (submittedWeeks[weekStartId] === true) {
+      summary.submitted.push(label);
+      return;
+    }
+
+    if (hasOwnField(submittedWeeks, weekStartId)) {
+      summary.notSubmitted.push(label);
+      return;
+    }
+
+    summary.statusMissing.push(label);
+  });
+
+  return summary;
+}
+
+function renderStaffDashboard({ dateId, users, dailySummary, weeklySummary, weeklyTargetLabel, weeklyStatusError }) {
+  if (!staffDashboardResult) {
+    return;
+  }
+
+  const weeklySubmittedCount = weeklySummary?.submitted.length || 0;
+  const weeklyNotConfirmedCount = weeklySummary
+    ? weeklySummary.notSubmitted.length + weeklySummary.statusMissing.length
+    : 0;
+  const weeklyStatusMissingCount = weeklySummary?.statusMissing.length || 0;
+
+  const weeklyCard = weeklyStatusError
+    ? `
+        <div class="operation-check-card staff-dashboard-warning">
+          <div class="operation-check-card-label">週一報告</div>
+          <div class="operation-check-card-value">確認不可</div>
+          <div class="operation-check-card-sub">${escapeStaffWeeklyText(weeklyStatusError)}</div>
+        </div>
+      `
+    : `
+        <div class="operation-check-card">
+          <div class="operation-check-card-label">週一報告 提出済み</div>
+          <div class="operation-check-card-value">${weeklySubmittedCount}人</div>
+          <div class="operation-check-card-sub">${escapeStaffWeeklyText(weeklyTargetLabel)}</div>
+        </div>
+        <div class="operation-check-card">
+          <div class="operation-check-card-label">週一報告 未提出・未確認</div>
+          <div class="operation-check-card-value">${weeklyNotConfirmedCount}人</div>
+          <div class="operation-check-card-sub">ステータス未整備 ${weeklyStatusMissingCount}人</div>
+        </div>
+      `;
+
+  staffDashboardResult.innerHTML = `
+    <div class="operation-check-grid staff-dashboard-grid">
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">対象日</div>
+        <div class="operation-check-card-value staff-dashboard-date">${escapeStaffWeeklyText(dateId)}</div>
+        <div class="operation-check-card-sub">利用者 ${users.length}人</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">通所</div>
+        <div class="operation-check-card-value">${dailySummary.coming.length}人</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">在宅</div>
+        <div class="operation-check-card-value">${dailySummary.home.length}人</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">休み入力</div>
+        <div class="operation-check-card-value">${dailySummary.explicitOff.length}人</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">予定未入力</div>
+        <div class="operation-check-card-value">${dailySummary.unfilled.length}人</div>
+        <div class="operation-check-card-sub">${buildStaffDashboardNamePreview(dailySummary.unfilled)}</div>
+      </div>
+      <div class="operation-check-card">
+        <div class="operation-check-card-label">その他</div>
+        <div class="operation-check-card-value">${dailySummary.other.length}人</div>
+        <div class="operation-check-card-sub">${buildStaffDashboardNamePreview(dailySummary.other)}</div>
+      </div>
+      ${weeklyCard}
+    </div>
+    <div class="staff-dashboard-note">
+      週一報告は提出ステータス基準です。
+    </div>
+  `;
+}
+
+async function loadStaffDashboard() {
+  if (!staffDashboardResult) {
+    return;
+  }
+
+  const dateId = getTodayDateId();
+
+  if (loadStaffDashboardButton) {
+    loadStaffDashboardButton.disabled = true;
+    loadStaffDashboardButton.textContent = "集計中...";
+  }
+
+  staffDashboardResult.innerHTML = `<div class="operation-check-loading">今日の概況を集計中...</div>`;
+
+  try {
+    const { year, month } = getYearAndMonthFromDateId(dateId);
+    const users = await loadActiveUsersForStaff();
+    const monthlySchedules = await loadMonthlySchedulesForStaff(year, month);
+    const dailySummary = summarizeStaffDashboardDailySchedules(users, monthlySchedules, dateId);
+    const weeklyStartDate = getStaffWeeklyLastCompletedWeekStartDate();
+    const weeklyStartId = formatDateId(weeklyStartDate);
+    const weeklyTargetLabel = getStaffWeeklyReportRangeLabel(weeklyStartDate);
+    let weeklySummary = null;
+    let weeklyStatusError = "";
+
+    try {
+      const statusMap = await loadWeeklyReportStatusMapForStaff(users);
+      weeklySummary = summarizeStaffDashboardWeeklyStatus(users, statusMap, weeklyStartId);
+    } catch (error) {
+      console.warn("支援員ダッシュボード：週一報告ステータスの読み込みに失敗しました。", error);
+      weeklyStatusError = error.code || error.message || "ステータスを確認できませんでした。";
+    }
+
+    renderStaffDashboard({
+      dateId,
+      users,
+      dailySummary,
+      weeklySummary,
+      weeklyTargetLabel,
+      weeklyStatusError
+    });
+
+    console.log("[Read節約] 支援員ダッシュボード：ボタン実行時のみ activeUsers / monthlySchedules / weeklyReportUserStatus を確認。週一報告本文は読みません。");
+  } catch (error) {
+    console.error("支援員ダッシュボード読み込みエラー:", error);
+    staffDashboardResult.innerHTML = `<div class="calendar-filter-empty">${escapeStaffWeeklyText(`概況の集計に失敗しました：${error.code || error.message}`)}</div>`;
+  } finally {
+    if (loadStaffDashboardButton) {
+      loadStaffDashboardButton.disabled = false;
+      loadStaffDashboardButton.textContent = "今日の概況を表示";
+    }
   }
 }
 
@@ -1042,7 +1486,7 @@ function renderUserSchedulePlaceholder(text = "利用者を選択すると、月
     userScheduleCalendarWeekHeader.classList.remove("hidden");
   }
 
-  userScheduleCalendar.innerHTML = `<div class="calendar-filter-empty">${text}</div>`;
+  userScheduleCalendar.innerHTML = `<div class="calendar-filter-empty">${escapeStaffWeeklyText(text)}</div>`;
 
   if (userScheduleMessage) {
     userScheduleMessage.textContent = "";
@@ -1164,7 +1608,7 @@ async function loadUserMonthlyScheduleView() {
 
   } catch (error) {
     console.error("利用者別月間予定の読み込みエラー:", error);
-    userScheduleCalendar.innerHTML = `<div class="calendar-filter-empty">月間予定の読み込みに失敗しました：${error.code || error.message}</div>`;
+    userScheduleCalendar.innerHTML = `<div class="calendar-filter-empty">${escapeStaffWeeklyText(`月間予定の読み込みに失敗しました：${error.code || error.message}`)}</div>`;
   }
 }
 
@@ -1452,6 +1896,874 @@ function renderUserMonthlyScheduleList(monthlySchedule, year, month) {
 
 
 
+
+// ============================== 
+// 支援員：週一報告 管理
+// 週ごとにキャッシュし、戻った週は再読み込みしない。
+// 提出済みの名前を押すと詳細表示・支援員返信ができる。
+// ==============================
+function parseStaffWeeklyDateId(dateId) {
+  const [year, month, day] = dateId.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function addStaffWeeklyDays(date, days) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getStaffWeeklyWeekStartDate(date) {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = weekStart.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + diff);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function getStaffWeeklyLastCompletedWeekStartDate() {
+  const today = new Date();
+  const thisWeekStart = getStaffWeeklyWeekStartDate(today);
+  return addStaffWeeklyDays(thisWeekStart, -7);
+}
+
+function getStaffWeeklyReportId(userId, weekStartDateId) {
+  return `${userId}_${weekStartDateId}`;
+}
+
+function getWeeklyReportStatusDocRef(userId) {
+  return doc(db, WEEKLY_REPORT_STATUS_COLLECTION, userId);
+}
+
+function hasOwnField(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
+function hasStaffFeedbackForReport(report) {
+  return Boolean(report?.staffFeedbackText || report?.staffFeedbackVersion);
+}
+
+async function loadWeeklyReportStatusMapForStaff(users) {
+  const targetUserIds = new Set(users.map((user) => user.id));
+  const statusQuery = query(
+    collection(db, WEEKLY_REPORT_STATUS_COLLECTION),
+    where("officeId", "==", getCurrentOfficeId())
+  );
+  const snapshot = await getDocs(statusQuery);
+  const statusMap = {};
+
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data() || {};
+    const userId = data.userId || docSnap.id;
+
+    if (targetUserIds.has(userId)) {
+      statusMap[userId] = data;
+    }
+  });
+
+  return statusMap;
+}
+
+function buildStaffWeeklyReportStub(user, statusData, weekStartId, weekEndId) {
+  const feedbackVersion = statusData?.feedbackVersions?.[weekStartId] || "";
+  const feedbackReadVersion = statusData?.feedbackReadVersions?.[weekStartId] || "";
+
+  return {
+    id: getStaffWeeklyReportId(user.id, weekStartId),
+    userId: user.id,
+    _user: user,
+    _statusOnly: true,
+    submitted: true,
+    weekStartDate: weekStartId,
+    weekEndDate: weekEndId,
+    userName: user.name || user.email || "名前未設定",
+    userEmail: user.email || "",
+    staffFeedbackVersion: feedbackVersion,
+    staffFeedbackReadVersion: feedbackReadVersion,
+    feedbackReadByUser: Boolean(feedbackVersion && feedbackReadVersion === feedbackVersion)
+  };
+}
+
+async function markWeeklyReportFeedbackInStatusCache(report, feedbackVersion) {
+  const userId = report?.userId;
+  const weekStartDate = report?.weekStartDate || loadedStaffWeeklyReportWeekStartId || "";
+
+  if (!userId || !weekStartDate || !feedbackVersion) {
+    return;
+  }
+
+  try {
+    await setDoc(getWeeklyReportStatusDocRef(userId), {
+      userId,
+      userName: report.userName || report._user?.name || "",
+      userEmail: report.userEmail || report._user?.email || "",
+      officeId: report.officeId || getCurrentOfficeId(),
+      groupId: report.groupId || getCurrentGroupId(),
+      schemaVersion: WEEKLY_REPORT_STATUS_SCHEMA_VERSION,
+      submittedWeeks: {
+        [weekStartDate]: true
+      },
+      feedbackVersions: {
+        [weekStartDate]: feedbackVersion
+      },
+      feedbackReadVersions: {
+        [weekStartDate]: ""
+      },
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    console.warn("週一報告ステータス集約docの更新に失敗しました。返信本文の保存は完了しています。", error);
+  }
+}
+
+function formatStaffWeeklyJapaneseDate(dateId) {
+  const date = parseStaffWeeklyDateId(dateId);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function getStaffWeeklyReportRangeLabel(weekStartDate) {
+  const startId = formatDateId(weekStartDate);
+  const endId = formatDateId(addStaffWeeklyDays(weekStartDate, 4));
+  return `${formatStaffWeeklyJapaneseDate(startId)}〜${formatStaffWeeklyJapaneseDate(endId)}`;
+}
+
+function escapeStaffWeeklyText(text) {
+  return String(text || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function shortenStaffWeeklyText(text, maxLength = 80) {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}…`;
+}
+
+function setStaffWeeklyReportMessage(text, color = "#333") {
+  if (!staffWeeklyReportMessage) {
+    return;
+  }
+  staffWeeklyReportMessage.style.color = color;
+  staffWeeklyReportMessage.textContent = text;
+}
+
+function setWeeklyReportFeedbackMessage(text, color = "#333") {
+  if (!weeklyReportFeedbackMessage) {
+    return;
+  }
+  weeklyReportFeedbackMessage.style.color = color;
+  weeklyReportFeedbackMessage.textContent = text;
+}
+
+function getStaffWeeklyCacheKey() {
+  if (!displayedStaffWeeklyReportWeekStartDate) {
+    displayedStaffWeeklyReportWeekStartDate = getStaffWeeklyLastCompletedWeekStartDate();
+  }
+  return formatDateId(displayedStaffWeeklyReportWeekStartDate);
+}
+
+function updateStaffWeeklyReportWeekHeader() {
+  if (!displayedStaffWeeklyReportWeekStartDate) {
+    displayedStaffWeeklyReportWeekStartDate = getStaffWeeklyLastCompletedWeekStartDate();
+  }
+
+  if (staffWeeklyReportWeekLabel) {
+    staffWeeklyReportWeekLabel.textContent = getStaffWeeklyReportRangeLabel(displayedStaffWeeklyReportWeekStartDate);
+  }
+
+  if (nextStaffWeeklyReportWeekButton) {
+    const lastWeekStart = getStaffWeeklyLastCompletedWeekStartDate();
+    nextStaffWeeklyReportWeekButton.disabled = displayedStaffWeeklyReportWeekStartDate >= lastWeekStart;
+  }
+}
+
+function hideStaffWeeklyReportDetail() {
+  selectedStaffWeeklyReportId = "";
+  if (weeklyReportDetailPanel) {
+    weeklyReportDetailPanel.classList.add("hidden");
+  }
+  if (weeklyReportFeedbackInput) {
+    weeklyReportFeedbackInput.value = "";
+  }
+  setWeeklyReportFeedbackMessage("");
+}
+
+function resetStaffWeeklyReportDisplay(message = "『この週の提出状況を表示』を押すと、提出済み・未提出を確認できます。") {
+  loadedStaffWeeklyReports = [];
+  loadedStaffWeeklyMissingUsers = [];
+  loadedStaffWeeklyReportWeekStartId = "";
+  hideStaffWeeklyReportDetail();
+
+  if (staffWeeklyReportSummary) {
+    staffWeeklyReportSummary.textContent = message;
+  }
+
+  if (submittedWeeklyReportList) {
+    submittedWeeklyReportList.innerHTML = "まだ読み込んでいません。";
+  }
+
+  if (missingWeeklyReportList) {
+    missingWeeklyReportList.innerHTML = "まだ読み込んでいません。";
+  }
+
+  if (weeklyReportsTextOutput) {
+    weeklyReportsTextOutput.value = "";
+  }
+
+  setStaffWeeklyReportMessage("");
+}
+
+function isStaffFeedbackUnreadByUser(report) {
+  if (!report || !report.staffFeedbackVersion) {
+    return false;
+  }
+
+  if (report.feedbackReadByUser === true) {
+    return false;
+  }
+
+  return Boolean(
+    report.staffFeedbackReadVersion !== report.staffFeedbackVersion
+  );
+}
+
+function getFeedbackStatusText(report) {
+  if (!hasStaffFeedbackForReport(report)) {
+    return "返信なし";
+  }
+  if (isStaffFeedbackUnreadByUser(report)) {
+    return "返信未確認";
+  }
+  return "返信確認済み";
+}
+
+function getLoadedStaffWeeklyReportById(reportId) {
+  return loadedStaffWeeklyReports.find((report) => report.id === reportId) || null;
+}
+
+function renderSubmittedWeeklyReports(reports) {
+  if (!submittedWeeklyReportList) {
+    return;
+  }
+
+  submittedWeeklyReportList.innerHTML = "";
+
+  if (reports.length === 0) {
+    submittedWeeklyReportList.innerHTML = `<div class="weekly-report-admin-empty">提出済みの週一報告はありません。</div>`;
+    return;
+  }
+
+  reports.forEach((report) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "weekly-report-admin-card submitted-weekly-report-card weekly-report-admin-name-button";
+    button.dataset.reportId = report.id;
+
+    if (selectedStaffWeeklyReportId === report.id) {
+      button.classList.add("active");
+    }
+
+    const title = document.createElement("div");
+    title.className = "weekly-report-admin-card-title";
+    title.textContent = report.userName || report._user?.name || report.userEmail || "名前未設定";
+
+    const meta = document.createElement("div");
+    meta.className = "weekly-report-admin-meta";
+    meta.textContent = report._statusOnly
+      ? "詳細未読込 ／ 名前を押すと本文を読み込みます"
+      : `自己採点：${report.selfScore || "未入力"} ／ 活動時間：${report.activityTime || "未入力"}`;
+
+    const feedback = document.createElement("div");
+    feedback.className = `weekly-report-feedback-status ${isStaffFeedbackUnreadByUser(report) ? "unread" : hasStaffFeedbackForReport(report) ? "read" : "none"}`;
+    feedback.textContent = getFeedbackStatusText(report);
+
+    const body = document.createElement("div");
+    body.className = "weekly-report-admin-preview";
+    body.textContent = report._statusOnly
+      ? "本文はまだ読み込んでいません。"
+      : shortenStaffWeeklyText(report.workActivityText || "作業・活動内容の記入なし", 100);
+
+    button.appendChild(title);
+    button.appendChild(meta);
+    button.appendChild(feedback);
+    button.appendChild(body);
+    button.addEventListener("click", () => {
+      openStaffWeeklyReportDetail(report.id);
+    });
+
+    submittedWeeklyReportList.appendChild(button);
+  });
+}
+
+function renderMissingWeeklyReports(users) {
+  if (!missingWeeklyReportList) {
+    return;
+  }
+
+  missingWeeklyReportList.innerHTML = "";
+
+  if (users.length === 0) {
+    missingWeeklyReportList.innerHTML = `<div class="weekly-report-admin-empty weekly-report-admin-ok">未提出の利用者はいません。</div>`;
+    return;
+  }
+
+  users.forEach((user) => {
+    const item = document.createElement("div");
+    item.className = "weekly-report-missing-user-item";
+    item.textContent = user.name || user.email || user.id || "名前未設定";
+    missingWeeklyReportList.appendChild(item);
+  });
+}
+
+function renderStaffWeeklyReportResult(fromCache = false) {
+  const submittedCount = loadedStaffWeeklyReports.length;
+  const missingCount = loadedStaffWeeklyMissingUsers.length;
+  const targetLabel = displayedStaffWeeklyReportWeekStartDate
+    ? getStaffWeeklyReportRangeLabel(displayedStaffWeeklyReportWeekStartDate)
+    : "対象週未設定";
+  const feedbackCount = loadedStaffWeeklyReports.filter(hasStaffFeedbackForReport).length;
+  const unreadFeedbackCount = loadedStaffWeeklyReports.filter(isStaffFeedbackUnreadByUser).length;
+
+  if (staffWeeklyReportSummary) {
+    staffWeeklyReportSummary.innerHTML = `
+      <div class="weekly-report-admin-summary-grid">
+        <div class="operation-check-card">
+          <div class="operation-check-card-label">対象週</div>
+          <div class="operation-check-card-value weekly-report-summary-week">${escapeStaffWeeklyText(targetLabel)}</div>
+        </div>
+        <div class="operation-check-card">
+          <div class="operation-check-card-label">提出済み</div>
+          <div class="operation-check-card-value">${submittedCount}人</div>
+        </div>
+        <div class="operation-check-card">
+          <div class="operation-check-card-label">未提出</div>
+          <div class="operation-check-card-value">${missingCount}人</div>
+        </div>
+        <div class="operation-check-card">
+          <div class="operation-check-card-label">返信</div>
+          <div class="operation-check-card-value">${feedbackCount}件</div>
+          <div class="operation-check-card-sub">未確認 ${unreadFeedbackCount}件 ${fromCache ? "／キャッシュ" : ""}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderSubmittedWeeklyReports(loadedStaffWeeklyReports);
+  renderMissingWeeklyReports(loadedStaffWeeklyMissingUsers);
+
+  if (selectedStaffWeeklyReportId) {
+    const selected = getLoadedStaffWeeklyReportById(selectedStaffWeeklyReportId);
+    if (selected) {
+      renderStaffWeeklyReportDetail(selected);
+    } else {
+      hideStaffWeeklyReportDetail();
+    }
+  }
+}
+
+function applyStaffWeeklyReportCache(weekStartId) {
+  const cache = staffWeeklyReportCache[weekStartId];
+  if (!cache) {
+    return false;
+  }
+
+  loadedStaffWeeklyReports = cache.submittedReports;
+  loadedStaffWeeklyMissingUsers = cache.missingUsers;
+  loadedStaffWeeklyReportWeekStartId = weekStartId;
+  renderStaffWeeklyReportResult(true);
+  setStaffWeeklyReportMessage("この週は読み込み済みのため、キャッシュから表示しました。", "green");
+  console.log(`[Read節約] 週一報告管理：${weekStartId} はキャッシュから表示。追加readなし。`);
+  return true;
+}
+
+async function loadStaffWeeklyReports() {
+  if (!displayedStaffWeeklyReportWeekStartDate) {
+    displayedStaffWeeklyReportWeekStartDate = getStaffWeeklyLastCompletedWeekStartDate();
+  }
+
+  const weekStartId = formatDateId(displayedStaffWeeklyReportWeekStartDate);
+  const weekEndId = formatDateId(addStaffWeeklyDays(displayedStaffWeeklyReportWeekStartDate, 4));
+
+  if (applyStaffWeeklyReportCache(weekStartId)) {
+    return;
+  }
+
+  if (loadStaffWeeklyReportsButton) {
+    loadStaffWeeklyReportsButton.disabled = true;
+    loadStaffWeeklyReportsButton.textContent = "読み込み中...";
+  }
+
+  if (staffWeeklyReportSummary) {
+    staffWeeklyReportSummary.textContent = "週一報告の提出状況を読み込み中...";
+  }
+
+  if (submittedWeeklyReportList) {
+    submittedWeeklyReportList.textContent = "読み込み中...";
+  }
+
+  if (missingWeeklyReportList) {
+    missingWeeklyReportList.textContent = "読み込み中...";
+  }
+
+  if (weeklyReportsTextOutput) {
+    weeklyReportsTextOutput.value = "";
+  }
+  hideStaffWeeklyReportDetail();
+
+  try {
+    const users = await loadActiveUsersForStaff();
+    let statusMap = {};
+    try {
+      statusMap = await loadWeeklyReportStatusMapForStaff(users);
+    } catch (statusError) {
+      console.warn("週一報告ステータスdocの読み込みに失敗したため、従来方式で確認します。", statusError);
+    }
+    const submittedReports = [];
+    const missingUsers = [];
+    let fallbackReportReads = 0;
+
+    for (const user of users) {
+      const statusData = statusMap[user.id] || null;
+      const submittedWeeks = statusData?.submittedWeeks || {};
+
+      if (submittedWeeks[weekStartId] === true) {
+        submittedReports.push(buildStaffWeeklyReportStub(user, statusData, weekStartId, weekEndId));
+        continue;
+      }
+
+      if (hasOwnField(submittedWeeks, weekStartId)) {
+        missingUsers.push(user);
+        continue;
+      }
+
+      const reportId = getStaffWeeklyReportId(user.id, weekStartId);
+      const reportRef = doc(db, "weeklyReports", reportId);
+      const reportSnap = await getDoc(reportRef);
+      fallbackReportReads++;
+
+      if (reportSnap.exists() && reportSnap.data()?.submitted === true) {
+        const data = reportSnap.data();
+        submittedReports.push({
+          id: reportSnap.id,
+          _user: user,
+          ...data,
+          weekStartDate: data.weekStartDate || weekStartId,
+          weekEndDate: data.weekEndDate || weekEndId,
+          userName: data.userName || user.name || user.email || "名前未設定",
+          userEmail: data.userEmail || user.email || ""
+        });
+      } else {
+        missingUsers.push(user);
+      }
+    }
+
+    submittedReports.sort((a, b) => (a.userName || "").localeCompare(b.userName || "", "ja"));
+    missingUsers.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+
+    loadedStaffWeeklyReports = submittedReports;
+    loadedStaffWeeklyMissingUsers = missingUsers;
+    loadedStaffWeeklyReportWeekStartId = weekStartId;
+    staffWeeklyReportCache[weekStartId] = { submittedReports, missingUsers };
+
+    renderStaffWeeklyReportResult(false);
+    setStaffWeeklyReportMessage(`提出状況を表示しました。提出済み${submittedReports.length}人、未提出${missingUsers.length}人。`, "green");
+    console.log(`[Read節約] 週一報告管理：weeklyReportUserStatusを優先して提出状況を確認。ステータス未整備の${fallbackReportReads}件だけweeklyReportsを確認しました。以後この週はキャッシュ表示。`);
+  } catch (error) {
+    console.error("週一報告管理 読み込みエラー:", error);
+    if (staffWeeklyReportSummary) {
+      staffWeeklyReportSummary.textContent = `週一報告の読み込みに失敗しました：${error.code || error.message}`;
+    }
+    if (submittedWeeklyReportList) {
+      submittedWeeklyReportList.innerHTML = "";
+    }
+    if (missingWeeklyReportList) {
+      missingWeeklyReportList.innerHTML = "";
+    }
+    setStaffWeeklyReportMessage(`読み込みに失敗しました：${error.code || error.message}`, "red");
+  } finally {
+    if (loadStaffWeeklyReportsButton) {
+      loadStaffWeeklyReportsButton.disabled = false;
+      loadStaffWeeklyReportsButton.textContent = "この週の提出状況を表示";
+    }
+  }
+}
+
+function hasMeaningfulNoActivityReason(report) {
+  const reason = String(report?.noActivityReason || "").trim();
+  return Boolean(reason && reason !== "1");
+}
+
+function buildReadableWeeklyReportItem(label, value, options = {}) {
+  const text = String(value || "").trim();
+  if (!text && options.hideIfEmpty) {
+    return "";
+  }
+
+  const displayValue = text || "未入力";
+  const inlineClass = options.inline ? " inline" : "";
+
+  return `
+    <div class="weekly-report-readable-item${inlineClass}">
+      <div class="weekly-report-readable-label">・${escapeStaffWeeklyText(label)}</div>
+      <div class="weekly-report-readable-value">${escapeStaffWeeklyText(displayValue)}</div>
+    </div>
+  `;
+}
+
+function buildWeeklyReportReadableHtml(report) {
+  const items = [];
+
+  items.push(buildReadableWeeklyReportItem("作業・活動", report.workActivityText));
+  items.push(buildReadableWeeklyReportItem("活動時間", report.activityTime, { inline: true }));
+
+  if (hasMeaningfulNoActivityReason(report)) {
+    items.push(buildReadableWeeklyReportItem("活動なし理由", report.noActivityReason));
+  }
+
+  items.push(buildReadableWeeklyReportItem("体調・生活リズム", report.healthStatus));
+  items.push(buildReadableWeeklyReportItem("生活リズム詳細", report.lifeRhythm));
+  items.push(buildReadableWeeklyReportItem("自己採点", report.selfScore ? `${report.selfScore}/5` : "", { inline: true }));
+  items.push(buildReadableWeeklyReportItem("困ったこと・しんどかったこと", report.troubleText));
+  items.push(buildReadableWeeklyReportItem("できたこと・がんばれたこと", report.goodText));
+  items.push(buildReadableWeeklyReportItem("今週意識したいこと", report.nextWeekText));
+  items.push(buildReadableWeeklyReportItem("その他", report.otherText, { hideIfEmpty: true }));
+
+  return `<div class="weekly-report-readable-card">${items.join("")}</div>`;
+}
+
+function buildStaffWeeklyReportDetailHtml(report) {
+  return buildWeeklyReportReadableHtml(report);
+}
+
+function replaceLoadedStaffWeeklyReport(updatedReport) {
+  loadedStaffWeeklyReports = loadedStaffWeeklyReports.map((item) => item.id === updatedReport.id ? updatedReport : item);
+
+  if (loadedStaffWeeklyReportWeekStartId && staffWeeklyReportCache[loadedStaffWeeklyReportWeekStartId]) {
+    staffWeeklyReportCache[loadedStaffWeeklyReportWeekStartId].submittedReports = loadedStaffWeeklyReports;
+  }
+}
+
+async function loadStaffWeeklyReportDetailById(reportId) {
+  const existingReport = getLoadedStaffWeeklyReportById(reportId);
+
+  if (!existingReport) {
+    return null;
+  }
+
+  if (!existingReport._statusOnly) {
+    return existingReport;
+  }
+
+  setStaffWeeklyReportMessage("週一報告本文を読み込み中...", "#333");
+
+  const reportSnap = await getDoc(doc(db, "weeklyReports", reportId));
+
+  if (!reportSnap.exists() || reportSnap.data()?.submitted !== true) {
+    setStaffWeeklyReportMessage("提出済みステータスはありますが、週一報告本文が見つかりませんでした。", "red");
+    return null;
+  }
+
+  const data = reportSnap.data();
+  const detailedReport = {
+    ...existingReport,
+    ...data,
+    id: reportSnap.id,
+    _statusOnly: false,
+    _user: existingReport._user,
+    weekStartDate: data.weekStartDate || existingReport.weekStartDate,
+    weekEndDate: data.weekEndDate || existingReport.weekEndDate,
+    userName: data.userName || existingReport.userName || existingReport._user?.name || "名前未設定",
+    userEmail: data.userEmail || existingReport.userEmail || existingReport._user?.email || ""
+  };
+
+  replaceLoadedStaffWeeklyReport(detailedReport);
+  console.log(`[Read節約] 週一報告詳細：${reportId} は名前を押した時だけ1 readしました。`);
+  return detailedReport;
+}
+
+function renderStaffWeeklyReportDetail(report) {
+  if (!weeklyReportDetailPanel || !weeklyReportDetailBody) {
+    return;
+  }
+
+  selectedStaffWeeklyReportId = report.id;
+  weeklyReportDetailPanel.classList.remove("hidden");
+
+  if (weeklyReportDetailTitle) {
+    weeklyReportDetailTitle.textContent = `${report.userName || report.userEmail || "利用者"}さんの週一報告`;
+  }
+
+  if (weeklyReportDetailMeta) {
+    weeklyReportDetailMeta.textContent = `対象週：${formatStaffWeeklyJapaneseDate(report.weekStartDate)}〜${formatStaffWeeklyJapaneseDate(report.weekEndDate)} ／ ${getFeedbackStatusText(report)}`;
+  }
+
+  weeklyReportDetailBody.innerHTML = buildStaffWeeklyReportDetailHtml(report);
+
+  if (weeklyReportFeedbackInput) {
+    weeklyReportFeedbackInput.value = report.staffFeedbackText || "";
+  }
+
+  setWeeklyReportFeedbackMessage("");
+  renderSubmittedWeeklyReports(loadedStaffWeeklyReports);
+}
+
+async function openStaffWeeklyReportDetail(reportId) {
+  const report = await loadStaffWeeklyReportDetailById(reportId);
+  if (!report) {
+    setStaffWeeklyReportMessage("選択した週一報告が見つかりません。", "red");
+    return;
+  }
+  renderStaffWeeklyReportDetail(report);
+  setStaffWeeklyReportMessage("週一報告本文を表示しました。", "green");
+
+  // 提出済み一覧の下に詳細欄が出るため、クリック後に自動で詳細までスクロールする。
+  requestAnimationFrame(() => {
+    weeklyReportDetailPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+async function saveWeeklyReportFeedback() {
+  if (!selectedStaffWeeklyReportId) {
+    setWeeklyReportFeedbackMessage("先に提出済み一覧から利用者名を選択してください。", "red");
+    return;
+  }
+
+  const report = getLoadedStaffWeeklyReportById(selectedStaffWeeklyReportId);
+  if (!report) {
+    setWeeklyReportFeedbackMessage("選択中の週一報告が見つかりません。", "red");
+    return;
+  }
+
+  const feedbackText = weeklyReportFeedbackInput?.value.trim() || "";
+  if (!feedbackText) {
+    setWeeklyReportFeedbackMessage("返信・フィードバックを入力してください。", "red");
+    return;
+  }
+
+  const feedbackVersion = `fb_${Date.now()}`;
+  const feedbackByName = currentStaffData?.name || currentUser?.email || "支援員";
+
+  try {
+    if (saveWeeklyReportFeedbackButton) {
+      saveWeeklyReportFeedbackButton.disabled = true;
+      saveWeeklyReportFeedbackButton.textContent = "保存中...";
+    }
+
+    await setDoc(doc(db, "weeklyReports", report.id), {
+      userId: report.userId,
+      staffFeedbackText: feedbackText,
+      staffFeedbackByUid: currentUser?.uid || "",
+      staffFeedbackByName: feedbackByName,
+      staffFeedbackAt: serverTimestamp(),
+      staffFeedbackVersion: feedbackVersion,
+      feedbackReadByUser: false,
+      locked: true,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    await markWeeklyReportFeedbackInStatusCache(report, feedbackVersion);
+
+    const updatedReport = {
+      ...report,
+      staffFeedbackText: feedbackText,
+      staffFeedbackByUid: currentUser?.uid || "",
+      staffFeedbackByName: feedbackByName,
+      staffFeedbackAt: new Date().toISOString(),
+      staffFeedbackVersion: feedbackVersion,
+      feedbackReadByUser: false,
+      staffFeedbackReadVersion: "",
+      locked: true
+    };
+
+    loadedStaffWeeklyReports = loadedStaffWeeklyReports.map((item) => item.id === report.id ? updatedReport : item);
+    if (loadedStaffWeeklyReportWeekStartId && staffWeeklyReportCache[loadedStaffWeeklyReportWeekStartId]) {
+      staffWeeklyReportCache[loadedStaffWeeklyReportWeekStartId].submittedReports = loadedStaffWeeklyReports;
+    }
+
+    renderStaffWeeklyReportResult(true);
+    renderStaffWeeklyReportDetail(updatedReport);
+    setWeeklyReportFeedbackMessage("返信を保存しました。利用者ページ上部に通知され、この報告は修正不可になります。", "green");
+  } catch (error) {
+    console.error("週一報告フィードバック保存エラー:", error);
+    setWeeklyReportFeedbackMessage(`保存に失敗しました：${error.code || error.message}`, "red");
+  } finally {
+    if (saveWeeklyReportFeedbackButton) {
+      saveWeeklyReportFeedbackButton.disabled = false;
+      saveWeeklyReportFeedbackButton.textContent = "返信を保存して利用者に表示";
+    }
+  }
+}
+
+function buildSingleWeeklyReportText(report) {
+  const feedbackText = report.staffFeedbackText
+    ? `\n\n支援員からの返信\n${report.staffFeedbackText}`
+    : "";
+  const noActivityReasonText = hasMeaningfulNoActivityReason(report)
+    ? report.noActivityReason
+    : "";
+
+  return [
+    "--------------------",
+    `氏名：${report.userName || report._user?.name || ""}`,
+    `記入日：${report.reportDate ? formatStaffWeeklyJapaneseDate(report.reportDate) : ""}`,
+    `対象週：${formatStaffWeeklyJapaneseDate(report.weekStartDate)}〜${formatStaffWeeklyJapaneseDate(report.weekEndDate)}`,
+    "",
+    "先週、どんな作業や活動をしましたか？",
+    report.workActivityText || "",
+    "",
+    "先週の作業・活動時間の目安",
+    report.activityTime || "",
+    "",
+    "活動なしと答えた方へ",
+    noActivityReasonText,
+    "",
+    "先週の体調や生活リズム",
+    report.healthStatus || "",
+    "",
+    "生活リズムについて詳しく",
+    report.lifeRhythm || "",
+    "",
+    "先週の自己採点",
+    report.selfScore ? String(report.selfScore) : "",
+    "",
+    "困ったこと・しんどかったこと",
+    report.troubleText || "",
+    "",
+    "できたこと・がんばれたこと",
+    report.goodText || "",
+    "",
+    "今週意識したいこと、取り組みたいこと",
+    report.nextWeekText || "",
+    "",
+    "その他伝えたいこと、質問など",
+    report.otherText || "",
+    feedbackText
+  ].join("\n");
+}
+
+async function ensureAllLoadedStaffWeeklyReportDetails() {
+  const statusOnlyReports = loadedStaffWeeklyReports.filter((report) => report._statusOnly);
+
+  if (statusOnlyReports.length === 0) {
+    return;
+  }
+
+  setStaffWeeklyReportMessage(`コピー用テキスト作成のため、本文${statusOnlyReports.length}件を読み込み中...`, "#333");
+
+  for (const report of statusOnlyReports) {
+    await loadStaffWeeklyReportDetailById(report.id);
+  }
+
+  renderSubmittedWeeklyReports(loadedStaffWeeklyReports);
+}
+
+async function buildAllWeeklyReportsText() {
+  if (!weeklyReportsTextOutput) {
+    return;
+  }
+
+  if (!loadedStaffWeeklyReportWeekStartId) {
+    weeklyReportsTextOutput.value = "先に『この週の提出状況を表示』を押してください。";
+    return;
+  }
+
+  if (buildWeeklyReportsTextButton) {
+    buildWeeklyReportsTextButton.disabled = true;
+    buildWeeklyReportsTextButton.textContent = "本文読み込み中...";
+  }
+
+  try {
+    await ensureAllLoadedStaffWeeklyReportDetails();
+
+    const targetLabel = getStaffWeeklyReportRangeLabel(parseStaffWeeklyDateId(loadedStaffWeeklyReportWeekStartId));
+    const missingNames = loadedStaffWeeklyMissingUsers.map((user) => user.name || user.email || user.id || "名前未設定");
+
+    const header = [
+      "【週一報告まとめ】",
+      `対象週：${targetLabel}`,
+      `提出済み：${loadedStaffWeeklyReports.length}人`,
+      `未提出：${loadedStaffWeeklyMissingUsers.length}人`,
+      "",
+      "【未提出】",
+      missingNames.length ? missingNames.join("、") : "なし",
+      ""
+    ].join("\n");
+
+    const body = loadedStaffWeeklyReports.length
+      ? loadedStaffWeeklyReports.map(buildSingleWeeklyReportText).join("\n\n")
+      : "提出済みの週一報告はありません。";
+
+    weeklyReportsTextOutput.value = `${header}\n${body}`;
+    setStaffWeeklyReportMessage("提出済みの週一報告をテキスト化しました。", "green");
+  } catch (error) {
+    console.error("週一報告テキスト化エラー:", error);
+    setStaffWeeklyReportMessage(`テキスト化に失敗しました：${error.code || error.message}`, "red");
+  } finally {
+    if (buildWeeklyReportsTextButton) {
+      buildWeeklyReportsTextButton.disabled = false;
+      buildWeeklyReportsTextButton.textContent = "提出済みをテキスト化";
+    }
+  }
+}
+
+async function copyWeeklyReportsTextToClipboard() {
+  if (!weeklyReportsTextOutput) {
+    return;
+  }
+
+  const text = weeklyReportsTextOutput.value;
+  if (!text) {
+    setStaffWeeklyReportMessage("コピーするテキストがありません。先にテキスト化してください。", "red");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    setStaffWeeklyReportMessage("コピーしました。", "green");
+  } catch (error) {
+    console.error("週一報告テキストコピーエラー:", error);
+    weeklyReportsTextOutput.focus();
+    weeklyReportsTextOutput.select();
+    setStaffWeeklyReportMessage("自動コピーに失敗しました。テキスト欄を選択して手動でコピーしてください。", "red");
+  }
+}
+
+function changeStaffWeeklyReportWeek(offsetWeeks) {
+  if (!displayedStaffWeeklyReportWeekStartDate) {
+    displayedStaffWeeklyReportWeekStartDate = getStaffWeeklyLastCompletedWeekStartDate();
+  }
+
+  const nextWeekStart = addStaffWeeklyDays(displayedStaffWeeklyReportWeekStartDate, offsetWeeks * 7);
+  const lastWeekStart = getStaffWeeklyLastCompletedWeekStartDate();
+
+  if (nextWeekStart > lastWeekStart) {
+    return;
+  }
+
+  displayedStaffWeeklyReportWeekStartDate = nextWeekStart;
+  updateStaffWeeklyReportWeekHeader();
+  const weekStartId = getStaffWeeklyCacheKey();
+  if (!applyStaffWeeklyReportCache(weekStartId)) {
+    resetStaffWeeklyReportDisplay("対象週を変更しました。未読込みの週です。『この週の提出状況を表示』を押してください。");
+  }
+}
+
+function initializeStaffWeeklyReportSection() {
+  if (!staffWeeklyReportWeekLabel) {
+    return;
+  }
+
+  displayedStaffWeeklyReportWeekStartDate = getStaffWeeklyLastCompletedWeekStartDate();
+  updateStaffWeeklyReportWeekHeader();
+  resetStaffWeeklyReportDisplay();
+}
+
 // ==============================
 // 支援員：運用チェック
 // ボタンを押した時だけ、選択月の利用者予定とアナウンス件数を確認する。
@@ -1549,10 +2861,10 @@ function countUnfilledWeekdays(monthlySchedule, year, month) {
 
 function renderNameList(items, emptyText) {
   if (!items.length) {
-    return `<div class="operation-check-muted">${emptyText}</div>`;
+    return `<div class="operation-check-muted">${escapeStaffWeeklyText(emptyText)}</div>`;
   }
 
-  return `<ul class="operation-check-name-list">${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+  return `<ul class="operation-check-name-list">${items.map((item) => `<li>${escapeStaffWeeklyText(item)}</li>`).join("")}</ul>`;
 }
 
 async function runOperationCheck() {
@@ -1609,7 +2921,7 @@ async function runOperationCheck() {
       <div class="operation-check-grid">
         <div class="operation-check-card">
           <div class="operation-check-card-label">対象月</div>
-          <div class="operation-check-card-value">${monthId}</div>
+          <div class="operation-check-card-value">${escapeStaffWeeklyText(monthId)}</div>
         </div>
         <div class="operation-check-card">
           <div class="operation-check-card-label">利用者数</div>
@@ -1649,7 +2961,7 @@ async function runOperationCheck() {
     console.log(`[Read節約] 運用チェック：${monthId} はボタン実行時のみ利用者別monthlySchedulesを確認。キャッシュ済み分は追加Readなし。`);
   } catch (error) {
     console.error("運用チェックエラー:", error);
-    operationCheckResult.innerHTML = `<div class="calendar-filter-empty">運用チェックに失敗しました：${error.code || error.message}</div>`;
+    operationCheckResult.innerHTML = `<div class="calendar-filter-empty">${escapeStaffWeeklyText(`運用チェックに失敗しました：${error.code || error.message}`)}</div>`;
   }
 }
 
@@ -1699,6 +3011,7 @@ function closeUserScheduleEditModal() {
   }
 
   userScheduleEditModal.classList.add("hidden");
+  shouldRefreshDailySchedulesAfterEdit = false;
   unlockPageScroll();
 }
 
@@ -1852,8 +3165,19 @@ async function saveUserScheduleFromStaffModal() {
     currentEditingUserMonthlySchedule = updatedMonthlySchedule;
     syncSingleMonthlyScheduleIntoStaffMonthlyCache(updatedMonthlySchedule);
 
+    const refreshDailySchedulesAfterSave = shouldRefreshDailySchedulesAfterEdit;
+    shouldRefreshDailySchedulesAfterEdit = false;
+
     closeUserScheduleEditModal();
-    await loadUserMonthlyScheduleView();
+
+    if (refreshDailySchedulesAfterSave) {
+      if (targetDate) {
+        targetDate.value = dateId;
+      }
+      await loadDailySchedules();
+    } else {
+      await loadUserMonthlyScheduleView();
+    }
 
     console.log(`[Read節約] 支援員が利用者予定を保存：追加Readなし、monthlySchedules 1 write。${updatedMonthlySchedule.id}`);
   } catch (error) {
@@ -2183,8 +3507,9 @@ async function loadAnnouncementCalendar() {
 }
 
 // ==============================
-// 支援員：教材・リンク集管理
+// 支援員：ワークショップ・教材・案件管理
 // system/workshopResources_{officeId} を、開いた時だけ1 readする。
+// schemaVersion 2：workshops / cases / guides を1ドキュメントにまとめる。
 // ==============================
 function getWorkshopResourcesDocId() {
   return `${WORKSHOP_RESOURCES_DOC_PREFIX}${getCurrentOfficeId()}`;
@@ -2200,45 +3525,956 @@ function normalizeWorkshopId(text) {
   return `${base || "workshop"}_${Date.now().toString(36)}`;
 }
 
+function normalizeCaseNo(caseNo) {
+  return String(caseNo || "")
+    .replace(/案件/g, "")
+    .replace(/no\.?/ig, "")
+    .replace(/[：:]/g, "")
+    .trim();
+}
+
 function generateSmallId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function parseWorkshopLinks(text) {
+function parsePipeLines(text, mapper) {
   return (text || "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => {
-      const parts = line.split("|").map((part) => part.trim());
-      return {
-        id: generateSmallId("link"),
-        title: parts[0] || "リンク",
-        url: parts[1] || "",
-        note: parts[2] || "",
-        active: true
-      };
-    })
-    .filter((item) => item.title || item.url);
+    .map((line) => line.split("|").map((part) => part.trim()))
+    .map(mapper)
+    .filter(Boolean);
+}
+
+function parseWorkshopLinks(text) {
+  return parsePipeLines(text, (parts) => ({
+    id: generateSmallId("link"),
+    title: parts[0] || "リンク",
+    url: parts[1] || "",
+    note: parts[2] || "",
+    active: true
+  })).filter((item) => item.title || item.url);
 }
 
 function parseWorkshopDeadlines(text) {
-  return (text || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const parts = line.split("|").map((part) => part.trim());
+  return parsePipeLines(text, (parts) => ({
+    id: generateSmallId("deadline"),
+    title: parts[0] || "提出物",
+    dueDate: parts[1] || "",
+    dueTime: parts[2] || "",
+    note: parts[3] || "",
+    active: true
+  })).filter((item) => item.title || item.dueDate || item.note);
+}
+
+function parseWorkshopCases(text, workshopId) {
+  return parsePipeLines(text, (parts) => {
+    const caseNo = normalizeCaseNo(parts[0] || "");
+    const title = parts[1] || parts[0] || "案件";
+    const status = parts[2] || "";
+    const dueDate = parts[3] || "";
+    const summary = parts[4] || "";
+    const type = parts[5] || "";
+    const deliverableText = parts[6] || "";
+
+    if (!caseNo && !title && !summary && !deliverableText) {
+      return null;
+    }
+
+    return {
+      id: generateSmallId("case"),
+      workshopId: workshopId,
+      caseNo: caseNo,
+      title: title,
+      status: status,
+      dueDate: dueDate,
+      summary: summary,
+      type: type,
+      deliverableText: deliverableText,
+      active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  });
+}
+
+function createBlankWorkshopCase() {
+  return {
+    id: "",
+    caseNo: "",
+    title: "",
+    status: "制作中",
+    dueDate: "",
+    summary: "",
+    type: "",
+    deliverableText: "",
+    active: true
+  };
+}
+
+function createTextInput(value, placeholder, className = "") {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value || "";
+  input.placeholder = placeholder || "";
+  if (className) {
+    input.className = className;
+  }
+  return input;
+}
+
+function createDateInput(value, className = "") {
+  const input = document.createElement("input");
+  input.type = "date";
+  input.value = value || "";
+  if (className) {
+    input.className = className;
+  }
+
+  input.addEventListener("click", () => {
+    openNativeDatePicker(input);
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    openNativeDatePicker(input);
+  });
+
+  return input;
+}
+
+function createTextArea(value, placeholder, className = "") {
+  const textarea = document.createElement("textarea");
+  textarea.value = value || "";
+  textarea.placeholder = placeholder || "";
+  if (className) {
+    textarea.className = className;
+  }
+  return textarea;
+}
+
+function createCaseCardField(labelText, fieldElement) {
+  const label = document.createElement("label");
+  label.className = "workshop-case-card-field";
+
+  const caption = document.createElement("span");
+  caption.textContent = labelText;
+  label.appendChild(caption);
+  label.appendChild(fieldElement);
+
+  return label;
+}
+
+function isCompletedCaseStatus(status) {
+  return /納品済|完了|終了/.test(String(status || ""));
+}
+
+function normalizeCaseForCard(caseItem = {}) {
+  return {
+    id: caseItem.id || "",
+    caseNo: normalizeCaseNo(caseItem.caseNo || ""),
+    title: caseItem.title || "",
+    status: caseItem.status || "制作中",
+    dueDate: caseItem.dueDate || "",
+    summary: caseItem.summary || caseItem.description || "",
+    type: caseItem.type || "",
+    deliverableText: caseItem.deliverableText || "",
+    requirements: Array.isArray(caseItem.requirements) ? caseItem.requirements : [],
+    checklist: Array.isArray(caseItem.checklist) ? caseItem.checklist : [],
+    active: caseItem.active !== false,
+    createdAt: caseItem.createdAt || ""
+  };
+}
+
+function parseCaseCardDatasetList(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function buildWorkshopCaseCard(caseItem = {}) {
+  const normalized = normalizeCaseForCard(caseItem);
+  const card = document.createElement("article");
+  card.className = "workshop-case-edit-card";
+  card.dataset.caseId = normalized.id || generateSmallId("case_draft");
+  card.dataset.createdAt = normalized.createdAt || "";
+  card.dataset.requirements = JSON.stringify(normalized.requirements || []);
+  card.dataset.checklist = JSON.stringify(normalized.checklist || []);
+
+  const header = document.createElement("div");
+  header.className = "workshop-case-edit-card-header";
+
+  const title = document.createElement("h5");
+  title.textContent = normalized.caseNo ? `案件No.${normalized.caseNo}` : "新しい案件";
+  header.appendChild(title);
+
+  const actionRow = document.createElement("div");
+  actionRow.className = "workshop-case-edit-actions";
+
+  const activeLabel = document.createElement("label");
+  activeLabel.className = "workshop-case-active-toggle";
+
+  const activeInput = document.createElement("input");
+  activeInput.type = "checkbox";
+  activeInput.className = "case-card-active";
+  activeInput.checked = normalized.active;
+  activeLabel.appendChild(activeInput);
+  activeLabel.appendChild(document.createTextNode("利用者に表示する"));
+  actionRow.appendChild(activeLabel);
+
+  const completeButton = document.createElement("button");
+  completeButton.type = "button";
+  completeButton.className = "small-button";
+  completeButton.textContent = "完了して非表示";
+  actionRow.appendChild(completeButton);
+
+  const removeButton = document.createElement("button");
+  removeButton.type = "button";
+  removeButton.className = "small-button danger-button";
+  removeButton.textContent = "削除";
+  removeButton.addEventListener("click", () => {
+    card.remove();
+    syncWorkshopCaseTextareaFromCards();
+    renderWorkshopCaseCardsEmptyState();
+  });
+  actionRow.appendChild(removeButton);
+  header.appendChild(actionRow);
+
+  const grid = document.createElement("div");
+  grid.className = "workshop-case-card-grid";
+
+  const caseNoInput = createTextInput(normalized.caseNo, "例：005", "case-card-case-no");
+  const titleInput = createTextInput(normalized.title, "例：EPIC DAY ポスター", "case-card-title");
+  const statusInput = createTextInput(normalized.status, "例：制作中 / 修正中 / 納品済み", "case-card-status");
+  const dueDateInput = createDateInput(normalized.dueDate, "case-card-due-date");
+  const typeInput = createTextInput(normalized.type, "例：ポスター / 名刺 / 動画", "case-card-type");
+  const summaryInput = createTextArea(normalized.summary, "利用者に見せる案件概要。価格・原価・電話番号などの内部情報は入れない。", "case-card-summary");
+  const deliverableInput = createTextArea(normalized.deliverableText, "例：A1サイズ / Illustrator形式 / PDF提出など", "case-card-deliverable");
+
+  const syncInactiveStyle = () => {
+    card.classList.toggle("inactive-case", !activeInput.checked);
+  };
+
+  grid.appendChild(createCaseCardField("案件No", caseNoInput));
+  grid.appendChild(createCaseCardField("案件名", titleInput));
+  grid.appendChild(createCaseCardField("状態", statusInput));
+  grid.appendChild(createCaseCardField("納期", dueDateInput));
+  grid.appendChild(createCaseCardField("種別", typeInput));
+
+  const summaryField = createCaseCardField("概要", summaryInput);
+  summaryField.classList.add("wide");
+  grid.appendChild(summaryField);
+
+  const deliverableField = createCaseCardField("制作物・納品形式", deliverableInput);
+  deliverableField.classList.add("wide");
+  grid.appendChild(deliverableField);
+
+  completeButton.addEventListener("click", () => {
+    statusInput.value = "納品済み";
+    activeInput.checked = false;
+    title.textContent = caseNoInput.value.trim() ? `案件No.${normalizeCaseNo(caseNoInput.value)}` : "新しい案件";
+    syncInactiveStyle();
+    syncWorkshopCaseTextareaFromCards();
+  });
+
+  activeInput.addEventListener("change", () => {
+    syncInactiveStyle();
+    syncWorkshopCaseTextareaFromCards();
+  });
+
+  [caseNoInput, titleInput, statusInput, dueDateInput, typeInput, summaryInput, deliverableInput].forEach((input) => {
+    input.addEventListener("input", () => {
+      title.textContent = caseNoInput.value.trim() ? `案件No.${normalizeCaseNo(caseNoInput.value)}` : "新しい案件";
+      syncWorkshopCaseTextareaFromCards();
+    });
+  });
+
+  card.appendChild(header);
+  card.appendChild(grid);
+  syncInactiveStyle();
+  return card;
+}
+
+function renderWorkshopCaseCardsEmptyState() {
+  if (!workshopCaseCardList) {
+    return;
+  }
+
+  if (workshopCaseCardList.querySelector(".workshop-case-edit-card")) {
+    return;
+  }
+
+  workshopCaseCardList.innerHTML = `<div class="workshop-case-card-empty">案件を追加すると、ここにカードで表示されます。</div>`;
+}
+
+function renderWorkshopCaseCards(cases = []) {
+  if (!workshopCaseCardList) {
+    return;
+  }
+
+  workshopCaseCardList.innerHTML = "";
+  (cases || []).filter(Boolean).forEach((caseItem) => {
+    workshopCaseCardList.appendChild(buildWorkshopCaseCard(caseItem));
+  });
+
+  renderWorkshopCaseCardsEmptyState();
+  syncWorkshopCaseTextareaFromCards();
+}
+
+function collectWorkshopCaseCards(workshopId) {
+  if (!workshopCaseCardList) {
+    return workshopResourceCasesText ? parseWorkshopCases(workshopResourceCasesText.value, workshopId) : [];
+  }
+
+  return Array.from(workshopCaseCardList.querySelectorAll(".workshop-case-edit-card"))
+    .map((card) => {
+      const caseNo = normalizeCaseNo(card.querySelector(".case-card-case-no")?.value || "");
+      const title = (card.querySelector(".case-card-title")?.value || "").trim();
+      const status = (card.querySelector(".case-card-status")?.value || "").trim();
+      const dueDate = (card.querySelector(".case-card-due-date")?.value || "").trim();
+      const type = (card.querySelector(".case-card-type")?.value || "").trim();
+      const summary = (card.querySelector(".case-card-summary")?.value || "").trim();
+      const deliverableText = (card.querySelector(".case-card-deliverable")?.value || "").trim();
+      const active = card.querySelector(".case-card-active")?.checked !== false;
+
+      if (!caseNo && !title && !summary && !deliverableText) {
+        return null;
+      }
+
       return {
-        id: generateSmallId("deadline"),
-        title: parts[0] || "提出物",
-        dueDate: parts[1] || "",
-        dueTime: parts[2] || "",
-        note: parts[3] || "",
-        active: true
+        id: card.dataset.caseId || generateSmallId("case"),
+        workshopId,
+        caseNo,
+        title: title || (caseNo ? `案件No.${caseNo}` : "案件"),
+        status,
+        dueDate,
+        summary,
+        type,
+        deliverableText,
+        requirements: parseCaseCardDatasetList(card.dataset.requirements),
+        checklist: parseCaseCardDatasetList(card.dataset.checklist),
+        active,
+        createdAt: card.dataset.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
     })
-    .filter((item) => item.title || item.dueDate || item.note);
+    .filter(Boolean);
+}
+
+function syncWorkshopCaseTextareaFromCards() {
+  if (!workshopResourceCasesText || !workshopCaseCardList) {
+    return;
+  }
+
+  const cases = collectWorkshopCaseCards("");
+  workshopResourceCasesText.value = cases
+    .map((caseItem) => [
+      caseItem.caseNo || "",
+      caseItem.title || "",
+      caseItem.status || "",
+      caseItem.dueDate || "",
+      caseItem.summary || "",
+      caseItem.type || "",
+      caseItem.deliverableText || ""
+    ].join(" | ").trim())
+    .join("\n");
+}
+
+function addWorkshopCaseCard(caseItem = {}) {
+  if (!workshopCaseCardList) {
+    return;
+  }
+
+  const empty = workshopCaseCardList.querySelector(".workshop-case-card-empty");
+  if (empty) {
+    empty.remove();
+  }
+
+  const card = buildWorkshopCaseCard({ ...createBlankWorkshopCase(), ...caseItem });
+  workshopCaseCardList.appendChild(card);
+  syncWorkshopCaseTextareaFromCards();
+  card.querySelector(".case-card-case-no")?.focus();
+}
+
+function refreshWorkshopCaseCardsFromTextarea() {
+  if (!workshopResourceCasesText || !workshopCaseCardList) {
+    return;
+  }
+
+  renderWorkshopCaseCards(parseWorkshopCases(workshopResourceCasesText.value, ""));
+}
+
+function getWorkshopFormCasesForPreview() {
+  return collectWorkshopCaseCards(editingWorkshopResourceId?.value || "preview_workshop");
+}
+
+function getWorkshopFormLinksForPreview() {
+  return parseWorkshopLinks(workshopResourceLinksText?.value || "");
+}
+
+function buildWorkshopPreviewHtml(previewData) {
+  const title = previewData.title || "ワークショップ名未入力";
+  const scheduleText = previewData.scheduleText || "";
+  const description = previewData.description || "";
+  const cases = (previewData.cases || []).filter((caseItem) => caseItem.active !== false);
+  const links = (previewData.links || []).filter((link) => link.active !== false && (link.title || link.url));
+  const deadlines = (previewData.deadlines || []).filter((deadline) => {
+    return deadline.active !== false && (deadline.title || deadline.dueDate || deadline.note);
+  }).sort((a, b) => (a.dueDate || "9999-99-99").localeCompare(b.dueDate || "9999-99-99"));
+
+  const caseCards = cases.length
+    ? cases.map((caseItem) => `
+        <article class="workshop-case-card">
+          <h5 class="workshop-case-title">${escapeStaffWeeklyText(caseItem.caseNo ? `案件No.${caseItem.caseNo} ${caseItem.title || ""}` : caseItem.title || "無題の案件")}</h5>
+          <div class="workshop-case-meta">
+            ${caseItem.status ? `<span class="workshop-status-badge">${escapeStaffWeeklyText(caseItem.status)}</span>` : ""}
+            ${caseItem.type ? `<span class="workshop-summary-chip">${escapeStaffWeeklyText(caseItem.type)}</span>` : ""}
+            ${caseItem.dueDate ? `<span class="workshop-summary-chip">納期 ${escapeStaffWeeklyText(caseItem.dueDate)}</span>` : ""}
+          </div>
+          ${caseItem.summary ? `<div class="workshop-case-summary">${escapeStaffWeeklyText(caseItem.summary)}</div>` : ""}
+          ${caseItem.deliverableText ? `<div class="workshop-case-summary">${escapeStaffWeeklyText(caseItem.deliverableText)}</div>` : ""}
+        </article>
+      `).join("")
+    : `<div class="workshop-empty-section">登録されている案件はありません。</div>`;
+
+  const linkItems = links.length
+    ? links.map((link) => `
+        <div class="workshop-resource-link-item">
+          ${link.url
+            ? `<a href="${escapeStaffWeeklyText(link.url)}" target="_blank" rel="noopener noreferrer">${escapeStaffWeeklyText(link.title || link.url)}</a>`
+            : `<strong>${escapeStaffWeeklyText(link.title || "リンク")}</strong>`}
+          ${link.note ? `<div class="workshop-resource-note">${escapeStaffWeeklyText(link.note)}</div>` : ""}
+        </div>
+      `).join("")
+    : `<div class="workshop-empty-section">登録されている教材・リンクはありません。</div>`;
+
+  const deadlineItems = deadlines.length
+    ? deadlines.map((deadline) => `
+        <div class="workshop-deadline-item">
+          <div class="workshop-deadline-title">${escapeStaffWeeklyText(deadline.title || "提出物")}</div>
+          <div class="workshop-deadline-date">${escapeStaffWeeklyText(`${deadline.dueDate || "日付未設定"}${deadline.dueTime ? ` ${deadline.dueTime}` : ""}`)}</div>
+          ${deadline.note ? `<div class="workshop-resource-note">${escapeStaffWeeklyText(deadline.note)}</div>` : ""}
+        </div>
+      `).join("")
+    : `<div class="workshop-empty-section">納期が設定された案件はありません。</div>`;
+
+  return `
+    <article class="workshop-resource-card workshop-detail-card">
+      <div class="workshop-detail-header">
+        <h3 class="workshop-resource-title">${escapeStaffWeeklyText(title)}</h3>
+        <div class="workshop-summary-chip-row">
+          <span class="workshop-summary-chip">案件 ${cases.length}件</span>
+          <span class="workshop-summary-chip">教材 ${links.length}件</span>
+          <span class="workshop-summary-chip">期限 ${deadlines.length}件</span>
+        </div>
+      </div>
+      ${scheduleText ? `<div class="workshop-resource-schedule">${escapeStaffWeeklyText(scheduleText)}</div>` : ""}
+      ${description ? `<div class="workshop-resource-description">${escapeStaffWeeklyText(description)}</div>` : ""}
+      <section class="workshop-resource-section">
+        <h4>進行中の案件</h4>
+        ${caseCards}
+      </section>
+      <section class="workshop-resource-section workshop-deadline-section">
+        <h4>提出期限一覧</h4>
+        ${deadlineItems}
+      </section>
+      <section class="workshop-resource-section">
+        <h4>教材・リンク</h4>
+        ${linkItems}
+      </section>
+    </article>
+  `;
+}
+
+function getCaseDeadlinePreviewItems(cases = []) {
+  return cases
+    .filter((caseItem) => caseItem.active !== false && caseItem.dueDate && !isCompletedCaseStatus(caseItem.status))
+    .map((caseItem) => ({
+      id: `case_deadline_${caseItem.id || caseItem.caseNo || caseItem.title || ""}`,
+      title: `${caseItem.caseNo ? `案件No.${caseItem.caseNo} ` : ""}${caseItem.title || "無題の案件"}`,
+      dueDate: caseItem.dueDate,
+      dueTime: "",
+      note: "",
+      active: true
+    }));
+}
+
+function getWorkshopFormPreviewData() {
+  const cases = getWorkshopFormCasesForPreview().filter((caseItem) => caseItem.active !== false);
+
+  return {
+    title: (workshopResourceTitle?.value || "").trim() || "ワークショップ名未入力",
+    scheduleText: (workshopResourceScheduleText?.value || "").trim(),
+    description: (workshopResourceDescription?.value || "").trim(),
+    cases,
+    links: getWorkshopFormLinksForPreview(),
+    deadlines: getCaseDeadlinePreviewItems(cases)
+  };
+}
+
+function getStoredWorkshopPreviewData(workshop) {
+  const cases = getActiveCasesForWorkshop(workshop.id);
+  const activeDeadlines = (workshop.deadlines || []).filter((deadline) => deadline.active !== false);
+
+  return {
+    title: workshop.title || "無題のワークショップ",
+    scheduleText: workshop.scheduleText || "",
+    description: workshop.description || workshop.summary || "",
+    cases,
+    links: (workshop.links || []).filter((link) => link.active !== false),
+    deadlines: [...getCaseDeadlinePreviewItems(cases), ...activeDeadlines]
+  };
+}
+
+function hasWorkshopFormDraft() {
+  if (editingWorkshopResourceId?.value) {
+    return true;
+  }
+
+  return Boolean(
+    (workshopResourceTitle?.value || "").trim() ||
+    (workshopResourceScheduleText?.value || "").trim() ||
+    (workshopResourceDescription?.value || "").trim() ||
+    (workshopResourceLinksText?.value || "").trim() ||
+    (workshopResourceCasesText?.value || "").trim()
+  );
+}
+
+function renderWorkshopFormPreview() {
+  if (!workshopPreviewArea) {
+    return;
+  }
+
+  workshopPreviewArea.innerHTML = buildWorkshopPreviewHtml(getWorkshopFormPreviewData());
+}
+
+function renderStoredWorkshopPreview(workshopId) {
+  if (!workshopPreviewArea) {
+    return;
+  }
+
+  const workshop = (workshopResourcesCache.workshops || []).find((item) => item.id === workshopId);
+  if (!workshop) {
+    renderWorkshopPreviewPicker();
+    return;
+  }
+
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.className = "sub-button workshop-back-button";
+  backButton.textContent = "＜ プレビュー一覧へ戻る";
+  backButton.addEventListener("click", renderWorkshopPreviewPicker);
+
+  workshopPreviewArea.innerHTML = "";
+  workshopPreviewArea.appendChild(backButton);
+  workshopPreviewArea.insertAdjacentHTML("beforeend", buildWorkshopPreviewHtml(getStoredWorkshopPreviewData(workshop)));
+}
+
+function createWorkshopPreviewChoiceCard(workshop) {
+  const card = document.createElement("article");
+  card.className = "workshop-admin-card";
+
+  const title = document.createElement("div");
+  title.className = "workshop-admin-card-title";
+  title.textContent = workshop.title || "無題のワークショップ";
+
+  const cases = getActiveCasesForWorkshop(workshop.id);
+  const links = (workshop.links || []).filter((item) => item.active !== false);
+  const deadlines = [...getCaseDeadlinePreviewItems(cases), ...(workshop.deadlines || []).filter((item) => item.active !== false)];
+
+  const meta = document.createElement("div");
+  meta.className = "workshop-admin-card-meta";
+  meta.textContent = `案件${cases.length}件 ／ リンク${links.length}件 ／ 提出期限${deadlines.length}件`;
+
+  const body = document.createElement("div");
+  body.className = "workshop-admin-card-body";
+  body.textContent = workshop.scheduleText || workshop.description || "説明なし";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small-button";
+  button.textContent = "この内容をプレビュー";
+  button.addEventListener("click", () => renderStoredWorkshopPreview(workshop.id));
+
+  const buttons = document.createElement("div");
+  buttons.className = "announcement-edit-buttons";
+  buttons.appendChild(button);
+
+  card.appendChild(title);
+  card.appendChild(meta);
+  card.appendChild(body);
+  card.appendChild(buttons);
+  return card;
+}
+
+function getSortedWorkshopsForAdmin() {
+  return [...(workshopResourcesCache.workshops || [])]
+    .filter((workshop) => showInactiveWorkshops || workshop.active !== false)
+    .sort((a, b) => {
+      const orderA = typeof a.order === "number" ? a.order : 9999;
+      const orderB = typeof b.order === "number" ? b.order : 9999;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return (a.title || "").localeCompare(b.title || "", "ja");
+    });
+}
+
+function renderWorkshopPreviewPicker() {
+  if (!workshopPreviewArea) {
+    return;
+  }
+
+  const hiddenCount = (workshopResourcesCache.workshops || []).filter((workshop) => workshop.active === false).length;
+  if (hiddenCount === 0) {
+    showInactiveWorkshops = false;
+  }
+  const workshops = getSortedWorkshopsForAdmin();
+  workshopPreviewArea.innerHTML = "";
+
+  if (hiddenCount > 0) {
+    const tools = document.createElement("div");
+    tools.className = "workshop-admin-list-tools";
+
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.className = "sub-button";
+    toggleButton.textContent = showInactiveWorkshops
+      ? "非表示のワークショップを隠す"
+      : `非表示のワークショップを表示（${hiddenCount}件）`;
+    toggleButton.addEventListener("click", () => {
+      showInactiveWorkshops = !showInactiveWorkshops;
+      renderWorkshopResourceAdminList();
+      renderWorkshopPreviewPicker();
+    });
+
+    tools.appendChild(toggleButton);
+    workshopPreviewArea.appendChild(tools);
+  }
+
+  if (workshops.length === 0) {
+    workshopPreviewArea.insertAdjacentHTML("beforeend", `<div class="calendar-filter-empty">プレビューできるワークショップがありません。</div>`);
+    return;
+  }
+
+  const intro = document.createElement("div");
+  intro.className = "workshop-preview-picker-guide";
+  intro.textContent = "プレビューしたいワークショップを選んでください。";
+  workshopPreviewArea.appendChild(intro);
+
+  workshops.forEach((workshop) => {
+    workshopPreviewArea.appendChild(createWorkshopPreviewChoiceCard(workshop));
+  });
+}
+
+function renderWorkshopPreview() {
+  if (hasWorkshopFormDraft()) {
+    renderWorkshopFormPreview();
+    return;
+  }
+
+  renderWorkshopPreviewPicker();
+}
+
+function updateWorkshopFormVisibility() {
+  const isPreview = workshopPreviewPanel && !workshopPreviewPanel.classList.contains("hidden");
+
+  if (workshopFormPanel) {
+    workshopFormPanel.classList.toggle("hidden", Boolean(isPreview) || !workshopFormOpen);
+  }
+
+  if (showWorkshopFormButton) {
+    showWorkshopFormButton.textContent = workshopFormOpen ? "追加フォームを閉じる" : "ワークショップを追加";
+  }
+}
+
+function setWorkshopFormOpen(isOpen) {
+  workshopFormOpen = Boolean(isOpen);
+  updateWorkshopFormVisibility();
+}
+
+function setWorkshopAdminMode(mode) {
+  const isPreview = mode === "preview";
+
+  if (workshopEditModeButton) {
+    workshopEditModeButton.classList.toggle("active", !isPreview);
+  }
+
+  if (workshopPreviewModeButton) {
+    workshopPreviewModeButton.classList.toggle("active", isPreview);
+  }
+
+  if (workshopEditPanel) {
+    workshopEditPanel.classList.toggle("hidden", isPreview);
+  }
+
+  if (workshopPreviewPanel) {
+    workshopPreviewPanel.classList.toggle("hidden", !isPreview);
+  }
+
+  updateWorkshopFormVisibility();
+
+  if (isPreview) {
+    renderWorkshopPreview();
+  }
+}
+
+
+// STEP29_CASE_DRAFT_20260621_V59：案件情報の貼り付けから、利用者向けの案件下書きを作成する。
+// 価格・原価・電話番号などの内部情報は、下書きには反映しない。
+function toHalfWidthText(text) {
+  return String(text || "").replace(/[０-９Ａ-Ｚａ-ｚ]/g, (char) => {
+    return String.fromCharCode(char.charCodeAt(0) - 0xFEE0);
+  });
+}
+
+function normalizeCaseDraftDate(rawDate) {
+  const text = toHalfWidthText(rawDate || "").trim();
+  const isoMatch = text.match(/(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
+
+  if (isoMatch) {
+    return `${isoMatch[1]}-${String(Number(isoMatch[2])).padStart(2, "0")}-${String(Number(isoMatch[3])).padStart(2, "0")}`;
+  }
+
+  const shortMatch = text.match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})\s*日?/);
+
+  if (shortMatch) {
+    const year = new Date().getFullYear();
+    return `${year}-${String(Number(shortMatch[1])).padStart(2, "0")}-${String(Number(shortMatch[2])).padStart(2, "0")}`;
+  }
+
+  return "";
+}
+
+function extractLatestCaseDraftDate(block) {
+  const normalized = toHalfWidthText(block || "");
+  const candidates = [];
+  const pattern = /(20\d{2}[-/.年]\d{1,2}[-/.月]\d{1,2}|\d{1,2}\s*[\/月]\s*\d{1,2}\s*日?)/g;
+  let match;
+
+  while ((match = pattern.exec(normalized)) !== null) {
+    const dateId = normalizeCaseDraftDate(match[1]);
+    if (dateId) {
+      candidates.push(dateId);
+    }
+  }
+
+  candidates.sort();
+  return candidates[candidates.length - 1] || "";
+}
+
+function extractCaseDraftType(block) {
+  const text = String(block || "");
+
+  if (/名刺/.test(text)) {
+    return "名刺";
+  }
+  if (/ロゴ/.test(text)) {
+    return "ロゴ";
+  }
+  if (/求人|チラシ|ちらし|折込|折り込み/.test(text)) {
+    return "チラシ";
+  }
+  if (/ポスター/.test(text)) {
+    return "ポスター";
+  }
+  if (/動画|映像/.test(text)) {
+    return "動画";
+  }
+
+  return "デザイン";
+}
+
+function extractCaseDraftStatus(block) {
+  const text = String(block || "");
+
+  if (/納品済|完了|終了/.test(text)) {
+    return "納品済み";
+  }
+  if (/修正依頼|再度|不採用|やり直し|修正/.test(text)) {
+    return "修正中";
+  }
+  if (/フィードバック|確認/.test(text)) {
+    return "確認中";
+  }
+  if (/募集/.test(text)) {
+    return "募集中";
+  }
+
+  return "制作中";
+}
+
+function extractSectionBody(block, heading) {
+  const text = String(block || "").replace(/\r\n/g, "\n");
+  const pattern = new RegExp(`■\\s*${heading}\\s*\\n([\\s\\S]*?)(?=\\n■\\s*|$)`);
+  const match = text.match(pattern);
+  return match ? match[1].trim() : "";
+}
+
+function cleanupCaseDraftSummary(text) {
+  return String(text || "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/価格[\s\S]*$/g, "")
+    .replace(/デザイン制作費[\s\S]*$/g, "")
+    .replace(/印刷代[\s\S]*$/g, "")
+    .replace(/原価[\s\S]*$/g, "")
+    .replace(/電話[:：]?.*/g, "")
+    .replace(/[\t　]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function shortenCaseDraftSummary(text, maxLength = 90) {
+  const normalized = cleanupCaseDraftSummary(text).replace(/\s+/g, " ");
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized;
+}
+
+function extractCaseDraftClientName(block) {
+  const text = String(block || "");
+  const shopName = text.match(/店名[：:]\s*([^\n\r]+)/);
+  if (shopName) {
+    return shopName[1].trim();
+  }
+
+  const companyName = text.match(/(株式会社[^\s\n、。]+|[A-Z0-9][A-Z0-9\s\-_.&]+|[\u30A0-\u30FF\u3040-\u309F\u4E00-\u9FFF]+フーズ)/);
+  if (companyName) {
+    return companyName[1].trim();
+  }
+
+  return "";
+}
+
+function extractCaseDraftTitle(block, caseNo) {
+  const type = extractCaseDraftType(block);
+  const text = String(block || "");
+  const clientName = extractCaseDraftClientName(text);
+
+  if (clientName) {
+    return `${clientName} ${type}`.trim();
+  }
+
+  const sameLine = toHalfWidthText(text).match(new RegExp(`案件\\s*No\\.?\\s*${caseNo}\\s*([^\\n\\r]*)`, "i"));
+  if (sameLine && sameLine[1].trim()) {
+    return shortenCaseDraftSummary(sameLine[1], 28) || `案件No.${caseNo}`;
+  }
+
+  const firstMeaningfulLine = text
+    .split(/\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !/^案件\s*No/i.test(toHalfWidthText(line)) && !/^■/.test(line));
+
+  if (firstMeaningfulLine) {
+    return shortenCaseDraftSummary(firstMeaningfulLine, 28);
+  }
+
+  return `案件No.${caseNo}`;
+}
+
+function extractCaseDraftSummary(block) {
+  const content = extractSectionBody(block, "内容");
+  if (content) {
+    return shortenCaseDraftSummary(content);
+  }
+
+  const request = extractSectionBody(block, "修正依頼");
+  if (request) {
+    return shortenCaseDraftSummary(request);
+  }
+
+  return shortenCaseDraftSummary(block);
+}
+
+function splitCaseDraftBlocks(rawText) {
+  const normalized = String(rawText || "").replace(/\r\n/g, "\n");
+  const caseHeaderPattern = /(案件\s*No\.?\s*[0-9０-９]+)/gi;
+  const matches = [...normalized.matchAll(caseHeaderPattern)];
+
+  if (matches.length === 0) {
+    return normalized.trim() ? [{ caseNo: "", block: normalized.trim() }] : [];
+  }
+
+  return matches.map((match, index) => {
+    const start = match.index;
+    const end = index + 1 < matches.length ? matches[index + 1].index : normalized.length;
+    const caseNo = normalizeCaseNo(match[1]);
+    return {
+      caseNo,
+      block: normalized.slice(start, end).trim()
+    };
+  });
+}
+
+function buildCaseDraftLinesFromRawText(rawText) {
+  const blocks = splitCaseDraftBlocks(rawText);
+  const lines = [];
+
+  blocks.forEach(({ caseNo, block }, index) => {
+    const normalizedNo = normalizeCaseNo(caseNo) || String(index + 1).padStart(3, "0");
+    const title = extractCaseDraftTitle(block, normalizedNo);
+    const status = extractCaseDraftStatus(block);
+    const dueDate = extractLatestCaseDraftDate(block);
+    const summary = extractCaseDraftSummary(block);
+    const type = extractCaseDraftType(block);
+
+    if (!title && !summary) {
+      return;
+    }
+
+    lines.push(`${normalizedNo} | ${title} | ${status} | ${dueDate} | ${summary} | ${type}`);
+  });
+
+  return lines;
+}
+
+function renderCaseDraftPreview(lines) {
+  if (!workshopCaseDraftPreview) {
+    return;
+  }
+
+  if (!lines.length) {
+    workshopCaseDraftPreview.textContent = "案件Noを含む文章、または案件説明文を貼り付けてください。";
+    workshopCaseDraftPreview.classList.add("empty");
+    return;
+  }
+
+  workshopCaseDraftPreview.classList.remove("empty");
+  workshopCaseDraftPreview.innerHTML = lines
+    .map((line) => `<div class="workshop-case-draft-line">${escapeStaffWeeklyText(line)}</div>`)
+    .join("");
+}
+
+function appendCaseDraftLinesToTextarea(lines) {
+  if (!workshopResourceCasesText || !lines.length) {
+    return;
+  }
+
+  const currentLines = workshopResourceCasesText.value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const existingLineSet = new Set(currentLines);
+  const addLines = lines.filter((line) => !existingLineSet.has(line));
+
+  if (addLines.length === 0) {
+    return;
+  }
+
+  if (workshopCaseCardList) {
+    parseWorkshopCases(addLines.join("\n"), editingWorkshopResourceId?.value || "")
+      .forEach((caseItem) => addWorkshopCaseCard(caseItem));
+    return;
+  }
+
+  workshopResourceCasesText.value = [...currentLines, ...addLines].join("\n");
+  refreshWorkshopCaseCardsFromTextarea();
 }
 
 function formatWorkshopLinksForTextarea(links) {
@@ -2255,6 +4491,30 @@ function formatWorkshopDeadlinesForTextarea(deadlines) {
     .join("\n");
 }
 
+function formatWorkshopCasesForTextarea(cases) {
+  return (cases || [])
+    .filter((item) => item.active !== false)
+    .map((item) => `${item.caseNo || ""} | ${item.title || ""} | ${item.status || ""} | ${item.dueDate || ""} | ${item.summary || ""} | ${item.type || ""} | ${item.deliverableText || ""}`.trim())
+    .join("\n");
+}
+
+function getCasesForWorkshop(workshopId) {
+  return (workshopResourcesCache.cases || [])
+    .filter((caseItem) => caseItem && caseItem.workshopId === workshopId)
+    .sort((a, b) => {
+      const noA = String(a.caseNo || "9999").padStart(4, "0");
+      const noB = String(b.caseNo || "9999").padStart(4, "0");
+      if (noA !== noB) {
+        return noA.localeCompare(noB, "ja");
+      }
+      return (a.dueDate || "9999-99-99").localeCompare(b.dueDate || "9999-99-99");
+    });
+}
+
+function getActiveCasesForWorkshop(workshopId) {
+  return getCasesForWorkshop(workshopId).filter((caseItem) => caseItem.active !== false);
+}
+
 function resetWorkshopResourceForm() {
   if (!workshopResourceFormTitle) {
     return;
@@ -2267,7 +4527,46 @@ function resetWorkshopResourceForm() {
   workshopResourceScheduleText.value = "";
   workshopResourceDescription.value = "";
   workshopResourceLinksText.value = "";
-  workshopResourceDeadlinesText.value = "";
+
+  if (workshopResourceDeadlinesText) {
+    workshopResourceDeadlinesText.value = "";
+  }
+
+  if (workshopResourceCasesText) {
+    workshopResourceCasesText.value = "";
+  }
+
+  renderWorkshopCaseCards([]);
+}
+
+async function deleteWorkshopResource(workshop) {
+  const title = workshop.title || "無題のワークショップ";
+  const caseCount = getCasesForWorkshop(workshop.id).length;
+  const ok = confirm(`「${title}」を削除します。\n\nこのワークショップ、教材リンク、提出期限、関連する案件${caseCount}件を管理データから削除します。\nこの操作は元に戻せません。削除してよろしいですか？`);
+  if (!ok) {
+    return;
+  }
+
+  workshopResourcesCache.workshops = (workshopResourcesCache.workshops || []).filter((item) => item.id !== workshop.id);
+  workshopResourcesCache.cases = (workshopResourcesCache.cases || []).filter((caseItem) => caseItem.workshopId !== workshop.id);
+  workshopResourcesCache.guides = (workshopResourcesCache.guides || []).filter((guide) => guide.workshopId !== workshop.id);
+
+  if (editingWorkshopResourceId?.value === workshop.id) {
+    resetWorkshopResourceForm();
+    setWorkshopFormOpen(false);
+  }
+
+  await persistWorkshopResources();
+  renderWorkshopResourceAdminList();
+
+  if (workshopPreviewPanel && !workshopPreviewPanel.classList.contains("hidden")) {
+    renderWorkshopPreview();
+  }
+
+  if (workshopResourceMessage) {
+    workshopResourceMessage.style.color = "green";
+    workshopResourceMessage.textContent = `「${title}」を削除しました。`;
+  }
 }
 
 function renderWorkshopResourceAdminList() {
@@ -2275,11 +4574,25 @@ function renderWorkshopResourceAdminList() {
     return;
   }
 
-  const workshops = [...(workshopResourcesCache.workshops || [])];
+  const hiddenCount = (workshopResourcesCache.workshops || []).filter((workshop) => workshop.active === false).length;
+  if (hiddenCount === 0) {
+    showInactiveWorkshops = false;
+  }
+  const workshops = getSortedWorkshopsForAdmin();
+
+  if (toggleHiddenWorkshopsButton) {
+    toggleHiddenWorkshopsButton.disabled = hiddenCount === 0;
+    toggleHiddenWorkshopsButton.textContent = showInactiveWorkshops
+      ? "非表示のワークショップを隠す"
+      : `非表示のワークショップを表示${hiddenCount ? `（${hiddenCount}件）` : ""}`;
+  }
+
   workshopResourceList.innerHTML = "";
 
   if (workshops.length === 0) {
-    workshopResourceList.innerHTML = `<div class="calendar-filter-empty">まだワークショップが登録されていません。</div>`;
+    workshopResourceList.innerHTML = hiddenCount > 0
+      ? `<div class="calendar-filter-empty">表示中のワークショップはありません。非表示のワークショップを表示すると確認できます。</div>`
+      : `<div class="calendar-filter-empty">まだワークショップが登録されていません。</div>`;
     return;
   }
 
@@ -2298,7 +4611,8 @@ function renderWorkshopResourceAdminList() {
     meta.className = "workshop-admin-card-meta";
     const linkCount = (workshop.links || []).filter((item) => item.active !== false).length;
     const deadlineCount = (workshop.deadlines || []).filter((item) => item.active !== false).length;
-    meta.textContent = `${workshop.active === false ? "非表示" : "表示中"} ／ リンク${linkCount}件 ／ 提出期限${deadlineCount}件`;
+    const caseCount = getActiveCasesForWorkshop(workshop.id).length;
+    meta.textContent = `${workshop.active === false ? "非表示" : "表示中"} ／ 案件${caseCount}件 ／ リンク${linkCount}件 ／ 提出期限${deadlineCount}件`;
 
     const body = document.createElement("div");
     body.className = "workshop-admin-card-body";
@@ -2312,6 +4626,8 @@ function renderWorkshopResourceAdminList() {
     editButton.className = "small-button";
     editButton.textContent = "編集";
     editButton.addEventListener("click", () => {
+      setWorkshopAdminMode("edit");
+      setWorkshopFormOpen(true);
       workshopResourceFormTitle.textContent = "編集中";
       editingWorkshopResourceId.value = workshop.id;
       workshopResourceActive.checked = workshop.active !== false;
@@ -2319,7 +4635,17 @@ function renderWorkshopResourceAdminList() {
       workshopResourceScheduleText.value = workshop.scheduleText || "";
       workshopResourceDescription.value = workshop.description || "";
       workshopResourceLinksText.value = formatWorkshopLinksForTextarea(workshop.links || []);
-      workshopResourceDeadlinesText.value = formatWorkshopDeadlinesForTextarea(workshop.deadlines || []);
+
+      if (workshopResourceDeadlinesText) {
+        workshopResourceDeadlinesText.value = formatWorkshopDeadlinesForTextarea(workshop.deadlines || []);
+      }
+
+      if (workshopResourceCasesText) {
+        const cases = getCasesForWorkshop(workshop.id);
+        workshopResourceCasesText.value = formatWorkshopCasesForTextarea(cases);
+        renderWorkshopCaseCards(cases);
+      }
+
       workshopResourceTitle.focus();
     });
 
@@ -2343,10 +4669,22 @@ function renderWorkshopResourceAdminList() {
 
       await persistWorkshopResources();
       renderWorkshopResourceAdminList();
+      if (workshopPreviewPanel && !workshopPreviewPanel.classList.contains("hidden")) {
+        renderWorkshopPreview();
+      }
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "small-button danger-button";
+    deleteButton.textContent = "削除";
+    deleteButton.addEventListener("click", async () => {
+      await deleteWorkshopResource(workshop);
     });
 
     buttons.appendChild(editButton);
     buttons.appendChild(hideButton);
+    buttons.appendChild(deleteButton);
 
     card.appendChild(title);
     card.appendChild(meta);
@@ -2368,45 +4706,95 @@ async function loadWorkshopResourcesForStaff() {
   if (docSnap.exists()) {
     const data = docSnap.data();
     workshopResourcesCache = {
+      schemaVersion: data.schemaVersion || 2,
       officeId: data.officeId || getCurrentOfficeId(),
       groupId: data.groupId || getCurrentGroupId(),
-      workshops: Array.isArray(data.workshops) ? data.workshops : []
+      workshops: Array.isArray(data.workshops) ? data.workshops : [],
+      cases: Array.isArray(data.cases) ? data.cases : [],
+      guides: Array.isArray(data.guides) ? data.guides : []
     };
   } else {
     workshopResourcesCache = {
+      schemaVersion: 2,
       officeId: getCurrentOfficeId(),
       groupId: getCurrentGroupId(),
-      workshops: []
+      workshops: [],
+      cases: [],
+      guides: []
     };
   }
 
   workshopResourcesLoaded = true;
   renderWorkshopResourceAdminList();
-  console.log(`[Read節約] 教材・リンク集管理：${getWorkshopResourcesDocId()} を開いた時だけ1 readしました。`);
+  console.log(`[Read節約] ワークショップ・教材管理：${getWorkshopResourcesDocId()} を開いた時だけ1 readしました。案件も同じドキュメント内で取得します。`);
 }
 
-async function persistWorkshopResources() {
-  const docRef = doc(db, "system", getWorkshopResourcesDocId());
-  const cleanedWorkshops = (workshopResourcesCache.workshops || []).map((workshop) => ({
+function cleanWorkshop(workshop) {
+  return {
     id: workshop.id,
     title: workshop.title || "",
     active: workshop.active !== false,
     description: workshop.description || "",
+    summary: workshop.summary || "",
     scheduleText: workshop.scheduleText || "",
+    order: typeof workshop.order === "number" ? workshop.order : 9999,
     links: Array.isArray(workshop.links) ? workshop.links : [],
     deadlines: Array.isArray(workshop.deadlines) ? workshop.deadlines : [],
     createdAt: workshop.createdAt || new Date().toISOString(),
     updatedAt: workshop.updatedAt || new Date().toISOString()
+  };
+}
+
+function cleanCase(caseItem) {
+  return {
+    id: caseItem.id || generateSmallId("case"),
+    workshopId: caseItem.workshopId || "",
+    caseNo: normalizeCaseNo(caseItem.caseNo || ""),
+    title: caseItem.title || "",
+    type: caseItem.type || "",
+    status: caseItem.status || "",
+    dueDate: caseItem.dueDate || "",
+    summary: caseItem.summary || caseItem.description || "",
+    deliverableText: caseItem.deliverableText || "",
+    requirements: Array.isArray(caseItem.requirements) ? caseItem.requirements : [],
+    checklist: Array.isArray(caseItem.checklist) ? caseItem.checklist : [],
+    active: caseItem.active !== false,
+    createdAt: caseItem.createdAt || new Date().toISOString(),
+    updatedAt: caseItem.updatedAt || new Date().toISOString()
+  };
+}
+
+async function persistWorkshopResources() {
+  const docRef = doc(db, "system", getWorkshopResourcesDocId());
+  const cleanedWorkshops = (workshopResourcesCache.workshops || []).map(cleanWorkshop);
+  const cleanedCases = (workshopResourcesCache.cases || []).map(cleanCase);
+  const cleanedGuides = (workshopResourcesCache.guides || []).map((guide) => ({
+    id: guide.id || generateSmallId("guide"),
+    workshopId: guide.workshopId || "",
+    title: guide.title || "",
+    body: guide.body || guide.note || "",
+    active: guide.active !== false,
+    createdAt: guide.createdAt || new Date().toISOString(),
+    updatedAt: guide.updatedAt || new Date().toISOString()
   }));
 
   await setDoc(docRef, {
+    schemaVersion: 2,
     officeId: getCurrentOfficeId(),
     groupId: getCurrentGroupId(),
     workshops: cleanedWorkshops,
+    cases: cleanedCases,
+    guides: cleanedGuides,
     updatedAt: serverTimestamp()
   });
 
-  workshopResourcesCache.workshops = cleanedWorkshops;
+  workshopResourcesCache = {
+    ...workshopResourcesCache,
+    schemaVersion: 2,
+    workshops: cleanedWorkshops,
+    cases: cleanedCases,
+    guides: cleanedGuides
+  };
 }
 
 async function saveWorkshopResourceFromForm() {
@@ -2423,15 +4811,21 @@ async function saveWorkshopResourceFromForm() {
 
   const now = new Date().toISOString();
   const editingId = editingWorkshopResourceId.value;
+  const targetWorkshopId = editingId || normalizeWorkshopId(title);
+  const existingWorkshop = (workshopResourcesCache.workshops || []).find((workshop) => workshop.id === editingId);
   const nextWorkshop = {
-    id: editingId || normalizeWorkshopId(title),
+    id: targetWorkshopId,
     title: title,
     active: workshopResourceActive.checked,
     description: (workshopResourceDescription.value || "").trim(),
+    summary: existingWorkshop?.summary || "",
     scheduleText: (workshopResourceScheduleText.value || "").trim(),
+    order: typeof existingWorkshop?.order === "number" ? existingWorkshop.order : 9999,
     links: parseWorkshopLinks(workshopResourceLinksText.value),
-    deadlines: parseWorkshopDeadlines(workshopResourceDeadlinesText.value),
-    createdAt: now,
+    deadlines: workshopResourceDeadlinesText
+      ? parseWorkshopDeadlines(workshopResourceDeadlinesText.value)
+      : Array.isArray(existingWorkshop?.deadlines) ? existingWorkshop.deadlines : [],
+    createdAt: existingWorkshop?.createdAt || now,
     updatedAt: now
   };
 
@@ -2440,22 +4834,29 @@ async function saveWorkshopResourceFromForm() {
       if (workshop.id !== editingId) {
         return workshop;
       }
-      return {
-        ...nextWorkshop,
-        createdAt: workshop.createdAt || now
-      };
+      return nextWorkshop;
     });
   } else {
     workshopResourcesCache.workshops = [...(workshopResourcesCache.workshops || []), nextWorkshop];
   }
 
+  const otherCases = (workshopResourcesCache.cases || []).filter((caseItem) => caseItem.workshopId !== targetWorkshopId);
+  const nextCases = workshopCaseCardList
+    ? collectWorkshopCaseCards(targetWorkshopId)
+    : workshopResourceCasesText
+      ? parseWorkshopCases(workshopResourceCasesText.value, targetWorkshopId)
+      : getCasesForWorkshop(targetWorkshopId);
+
+  workshopResourcesCache.cases = [...otherCases, ...nextCases];
+
   await persistWorkshopResources();
   resetWorkshopResourceForm();
+  setWorkshopFormOpen(false);
   renderWorkshopResourceAdminList();
 
   if (workshopResourceMessage) {
     workshopResourceMessage.style.color = "green";
-    workshopResourceMessage.textContent = "教材・リンク集を保存しました。";
+    workshopResourceMessage.textContent = "ワークショップ・案件情報を保存しました。";
   }
 }
 
@@ -2497,6 +4898,7 @@ onAuthStateChanged(auth, async (user) => {
     setDisplayedUserScheduleMonth(todayForAnnouncement.getFullYear(), todayForAnnouncement.getMonth());
 
     showDailyScheduleNotLoadedText();
+    initializeStaffWeeklyReportSection();
     initializeUserMonthlyScheduleSection();
     loadAnnouncementCalendar();
 
@@ -2508,6 +4910,64 @@ onAuthStateChanged(auth, async (user) => {
 loadButton.addEventListener("click", () => {
   loadDailySchedules();
 });
+
+if (targetDate) {
+  targetDate.addEventListener("click", () => {
+    openNativeDatePicker(targetDate);
+  });
+
+  targetDate.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    openNativeDatePicker(targetDate);
+  });
+}
+
+if (loadStaffDashboardButton) {
+  loadStaffDashboardButton.addEventListener("click", () => {
+    loadStaffDashboard();
+  });
+}
+
+
+if (prevStaffWeeklyReportWeekButton) {
+  prevStaffWeeklyReportWeekButton.addEventListener("click", () => {
+    changeStaffWeeklyReportWeek(-1);
+  });
+}
+
+if (nextStaffWeeklyReportWeekButton) {
+  nextStaffWeeklyReportWeekButton.addEventListener("click", () => {
+    changeStaffWeeklyReportWeek(1);
+  });
+}
+
+if (loadStaffWeeklyReportsButton) {
+  loadStaffWeeklyReportsButton.addEventListener("click", () => {
+    loadStaffWeeklyReports();
+  });
+}
+
+if (buildWeeklyReportsTextButton) {
+  buildWeeklyReportsTextButton.addEventListener("click", () => {
+    buildAllWeeklyReportsText();
+  });
+}
+
+if (copyWeeklyReportsTextButton) {
+  copyWeeklyReportsTextButton.addEventListener("click", () => {
+    copyWeeklyReportsTextToClipboard();
+  });
+}
+
+if (saveWeeklyReportFeedbackButton) {
+  saveWeeklyReportFeedbackButton.addEventListener("click", () => {
+    saveWeeklyReportFeedback();
+  });
+}
 
 
 if (loadWorkshopResourcesButton) {
@@ -2521,10 +4981,14 @@ if (loadWorkshopResourcesButton) {
       }
 
       await loadWorkshopResourcesForStaff();
+      renderWorkshopCaseCards([]);
+      resetWorkshopResourceForm();
+      setWorkshopFormOpen(false);
+      setWorkshopAdminMode("edit");
 
       if (workshopResourceMessage) {
         workshopResourceMessage.style.color = "green";
-        workshopResourceMessage.textContent = "教材・リンク集を読み込みました。";
+        workshopResourceMessage.textContent = "ワークショップ・案件管理を読み込みました。";
       }
     } catch (error) {
       console.error("教材・リンク集読み込みエラー:", error);
@@ -2534,8 +4998,74 @@ if (loadWorkshopResourcesButton) {
       }
     } finally {
       loadWorkshopResourcesButton.disabled = false;
-      loadWorkshopResourcesButton.textContent = "教材・リンク管理を開く";
+      loadWorkshopResourcesButton.textContent = "ワークショップ・案件管理を開く";
     }
+  });
+}
+
+if (workshopEditModeButton) {
+  workshopEditModeButton.addEventListener("click", () => {
+    setWorkshopAdminMode("edit");
+  });
+}
+
+if (workshopPreviewModeButton) {
+  workshopPreviewModeButton.addEventListener("click", () => {
+    setWorkshopAdminMode("preview");
+  });
+}
+
+if (showWorkshopFormButton) {
+  showWorkshopFormButton.addEventListener("click", () => {
+    if (workshopFormOpen) {
+      resetWorkshopResourceForm();
+      setWorkshopFormOpen(false);
+      return;
+    }
+
+    resetWorkshopResourceForm();
+    setWorkshopAdminMode("edit");
+    setWorkshopFormOpen(true);
+    workshopResourceTitle?.focus();
+  });
+}
+
+if (toggleHiddenWorkshopsButton) {
+  toggleHiddenWorkshopsButton.addEventListener("click", () => {
+    showInactiveWorkshops = !showInactiveWorkshops;
+    renderWorkshopResourceAdminList();
+    if (workshopPreviewPanel && !workshopPreviewPanel.classList.contains("hidden") && !hasWorkshopFormDraft()) {
+      renderWorkshopPreviewPicker();
+    }
+  });
+}
+
+if (buildWorkshopCaseDraftButton) {
+  buildWorkshopCaseDraftButton.addEventListener("click", () => {
+    const rawText = workshopCaseRawText?.value || "";
+    const lines = buildCaseDraftLinesFromRawText(rawText);
+    renderCaseDraftPreview(lines);
+
+    if (!lines.length) {
+      if (workshopResourceMessage) {
+        workshopResourceMessage.style.color = "red";
+        workshopResourceMessage.textContent = "案件情報の下書きを作成できませんでした。案件Noや内容を含む文章を貼り付けてください。";
+      }
+      return;
+    }
+
+    appendCaseDraftLinesToTextarea(lines);
+
+    if (workshopResourceMessage) {
+      workshopResourceMessage.style.color = "green";
+      workshopResourceMessage.textContent = `案件情報の下書きを${lines.length}件作成しました。内容を確認してから保存してください。`;
+    }
+  });
+}
+
+if (addWorkshopCaseCardButton) {
+  addWorkshopCaseCardButton.addEventListener("click", () => {
+    addWorkshopCaseCard();
   });
 }
 
@@ -2558,6 +5088,8 @@ if (saveWorkshopResourceButton) {
 if (resetWorkshopResourceFormButton) {
   resetWorkshopResourceFormButton.addEventListener("click", () => {
     resetWorkshopResourceForm();
+    setWorkshopFormOpen(true);
+    setWorkshopAdminMode("edit");
   });
 }
 
@@ -2866,3 +5398,6 @@ announcementModal.addEventListener("click", (event) => {
     closeAnnouncementModal();
   }
 });
+
+
+initializeStaffTabs();

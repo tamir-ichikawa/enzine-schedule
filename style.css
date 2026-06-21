@@ -9,8 +9,8 @@
 body {
   margin: 0;
   font-family: sans-serif;
-  background: #f4f6f8;
-  color: #333;
+  background: #fbf9f5;
+  color: #3f3a32;
   font-size: 16px;
 }
 
@@ -82,13 +82,13 @@ button {
   padding: 12px;
   border: none;
   border-radius: 8px;
-  background: #2f80ed;
+  background: #6f8f72;
   color: white;
   cursor: pointer;
 }
 
 button:hover {
-  background: #1c6dd0;
+  background: #5f7f62;
 }
 
 .sub-button {
@@ -185,7 +185,7 @@ button:hover {
 
 .calendar-week-header div {
   padding: 8px 0;
-  background: #eef2f7;
+  background: #f4efe7;
   border-radius: 6px;
 }
 
@@ -210,11 +210,11 @@ button:hover {
 
 .calendar-day:not(.empty):active {
   transform: scale(0.98);
-  background: #eef5ff;
+  background: #edf5ec;
 }
 
 .calendar-day.today {
-  border: 2px solid #2f80ed;
+  border: 2px solid #8aae7b;
 }
 
 .calendar-day.selected-day {
@@ -244,7 +244,7 @@ button:hover {
 }
 
 .status-home {
-  color: #2f80ed;
+  color: #5c4b86;
 }
 
 .status-off {
@@ -500,9 +500,9 @@ body.modal-open {
 }
 
 .choice-button.active {
-  background: #2f80ed;
+  background: #6f8f72;
   color: #fff;
-  border-color: #1f63bd;
+  border-color: #5f7f62;
 }
 
 .choice-button.status-coming.active {
@@ -511,8 +511,9 @@ body.modal-open {
 }
 
 .choice-button.status-home.active {
-  background: #2f80ed;
-  border-color: #1f63bd;
+  background: #f3effb;
+  border-color: #c9bde4;
+  color: #5c4b86;
 }
 
 .choice-button.status-off.active {
@@ -951,8 +952,8 @@ body.modal-open {
   margin-top: 18px;
   margin-bottom: 20px;
   padding: 16px;
-  background: #eef7ff;
-  border: 1px solid #b8d9f5;
+  background: #fffaf2;
+  border: 1px solid #e7ded1;
   border-radius: 14px;
 }
 
@@ -971,7 +972,7 @@ body.modal-open {
   display: inline-block;
   padding: 6px 12px;
   border-radius: 999px;
-  background: #2f80ed;
+  background: #6f8f72;
   color: #fff;
 }
 
@@ -986,7 +987,8 @@ body.modal-open {
 }
 
 .today-schedule-home {
-  background: #2f80ed;
+  background: #f3effb;
+  color: #5c4b86;
 }
 
 .today-schedule-off {
@@ -1104,9 +1106,9 @@ body.modal-open {
 }
 
 .view-toggle-button.active {
-  background: #2f80ed;
+  background: #6f8f72;
   color: #fff;
-  border-color: #1f63bd;
+  border-color: #5f7f62;
 }
 
 .monthly-calendar.monthly-calendar-list {
@@ -1124,8 +1126,8 @@ body.modal-open {
 }
 
 .calendar-list-day.today {
-  border: 2px solid #2f80ed;
-  background: #eef7ff;
+  border: 2px solid #8aae7b;
+  background: #edf5ec;
 }
 
 .calendar-list-day.selected-day {
@@ -1162,8 +1164,8 @@ body.modal-open {
 }
 
 .calendar-list-status.status-home {
-  background: #e9f2ff;
-  color: #2f80ed;
+  background: #f3effb;
+  color: #5c4b86;
 }
 
 .calendar-list-status.status-off {
@@ -1371,8 +1373,8 @@ body.modal-open {
 /* 利用者ページ：利用日 + アナウンス */
 .calendar-day.day-use-with-announcement,
 .calendar-list-day.day-use-with-announcement {
-  background: #eef6ff;
-  border-color: #8fc2f2;
+  background: #f6fbf4;
+  border-color: #dbe9d4;
 }
 
 /* 利用者ページ：利用日はないが、アナウンスあり */
@@ -1399,15 +1401,15 @@ body.modal-open {
 /* 支援員ページ：全体向け + 支援員のみ、両方あり */
 .calendar-day.day-mixed-announcement,
 .staff-announcement-list-day.day-mixed-announcement {
-  background: #eef6ff;
-  border-color: #8fc2f2;
+  background: #f3effb;
+  border-color: #c9bde4;
 }
 
 /* 今日・選択中は色分けより分かりやすく枠を優先 */
 .calendar-day.today,
 .calendar-list-day.today,
 .staff-announcement-list-day.today {
-  box-shadow: inset 0 0 0 2px #2f80ed;
+  box-shadow: inset 0 0 0 2px #8aae7b;
 }
 
 /* 支援員：アナウンス管理リスト表示 */
@@ -1612,8 +1614,8 @@ body.modal-open {
 
 .staff-user-schedule-day.schedule-home,
 .staff-user-schedule-list-day.schedule-home {
-  background: #eef6ff;
-  border-color: #8fc2f2;
+  background: #f3effb;
+  border-color: #c9bde4;
 }
 
 .staff-user-schedule-day.schedule-off,
@@ -1690,7 +1692,7 @@ body.modal-open {
 }
 
 .staff-user-schedule-list-status.schedule-home {
-  color: #2f80ed;
+  color: #5c4b86;
 }
 
 .staff-user-schedule-list-status.schedule-off {
@@ -1788,13 +1790,13 @@ body.modal-open {
 }
 
 .staff-user-name-button:hover {
-  background: #eef5ff;
+  background: #edf5ec;
 }
 
 .staff-user-name-button.active {
-  background: #2f80ed;
+  background: #6f8f72;
   color: #fff;
-  border-color: #1f63bd;
+  border-color: #5f7f62;
 }
 
 .staff-user-button-empty {
@@ -2060,6 +2062,64 @@ body.modal-open {
 }
 
 /* ==============================
+   STEP24_STAFF_DASHBOARD_20260620_V53：支援員 今日の概況
+   ============================== */
+
+.staff-dashboard-action-row {
+  display: flex;
+  justify-content: flex-start;
+  margin: 6px 0 12px;
+}
+
+.staff-dashboard-action-row button {
+  width: auto;
+  min-width: 180px;
+}
+
+.staff-dashboard-result {
+  background: #faf5ec;
+  border-color: #e4d8c7;
+  color: #51483e;
+}
+
+.staff-dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+}
+
+.staff-dashboard-date {
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.operation-check-card.staff-dashboard-warning {
+  background: #fff7f3;
+  border-color: #e5cabe;
+  color: #7a4a40;
+}
+
+.staff-dashboard-note {
+  margin-top: 12px;
+  color: #7f7467;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+@media (max-width: 600px) {
+  .staff-dashboard-action-row button {
+    width: 100%;
+  }
+
+  .staff-dashboard-date {
+    font-size: 20px;
+  }
+
+  .staff-dashboard-note {
+    font-size: 15px;
+  }
+}
+
+/* ==============================
    Step 14：週間表示・未入力休み表示・スマホ上部コンパクト化
    ============================== */
 
@@ -2222,7 +2282,7 @@ body.modal-open {
   min-height: 46px;
   padding: 12px;
   border-radius: 10px;
-  background: #2f80ed;
+  background: #6f8f72;
   color: #fff;
   text-align: center;
   text-decoration: none;
@@ -2308,7 +2368,7 @@ body.modal-open {
   margin-bottom: 8px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: #eef7ff;
+  background: #edf5ec;
   font-weight: bold;
 }
 
@@ -2331,7 +2391,7 @@ body.modal-open {
 }
 
 .workshop-resource-link-item a {
-  color: #1c6dd0;
+  color: #5f7f62;
   font-weight: bold;
   word-break: break-all;
 }
@@ -2411,4 +2471,2977 @@ body.modal-open {
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   margin-top: 12px;
+}
+
+/* ==============================
+   Step 16：週一報告
+   ============================== */
+
+.weekly-report-entry-box {
+  background: #fbf8ff;
+  border-color: #ded3ff;
+}
+
+.weekly-report-page-button {
+  background: #7c3aed;
+}
+
+.weekly-report-page-button:hover {
+  background: #6726d9;
+}
+
+.weekly-report-status-box,
+.weekly-report-form-box,
+.weekly-report-copy-box {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #dfe7f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.weekly-report-status-box {
+  background: #fbf8ff;
+  border-color: #ded3ff;
+}
+
+.weekly-report-week-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.weekly-report-week-nav button {
+  min-height: 42px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.weekly-report-status-text {
+  padding: 10px;
+  border-radius: 10px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-submitted {
+  background: #eef8f0;
+  border-color: #9ed3ad;
+  color: #1f7a3f;
+}
+
+.weekly-report-unsubmitted {
+  background: #fff8e8;
+  border-color: #f1cf88;
+  color: #7a5200;
+}
+
+.weekly-report-error {
+  background: #fff0f0;
+  border-color: #e4a2a2;
+  color: #c0392b;
+}
+
+.weekly-report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.weekly-report-form h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.weekly-report-help-text {
+  margin: 0 0 10px;
+  color: #666;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.weekly-score-buttons {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.weekly-report-copy-box textarea {
+  width: 100%;
+  min-height: 260px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+#weeklyReportMessage {
+  color: red;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-status-box,
+  .weekly-report-form-box,
+  .weekly-report-copy-box {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .weekly-report-week-nav {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .weekly-report-week-nav button {
+    min-height: 54px;
+    font-size: 18px;
+  }
+
+  .weekly-report-status-text {
+    font-size: 18px;
+    padding: 12px;
+  }
+
+  .weekly-report-form {
+    gap: 20px;
+  }
+
+  .weekly-report-form h3 {
+    font-size: 21px;
+  }
+
+  .weekly-report-help-text {
+    font-size: 17px;
+  }
+
+  .weekly-score-buttons {
+    gap: 8px;
+  }
+
+  .weekly-score-buttons .choice-button {
+    min-height: 58px;
+    font-size: 20px;
+  }
+
+  .weekly-report-copy-box textarea {
+    min-height: 320px;
+  }
+
+  #weeklyReportMessage {
+    font-size: 18px;
+  }
+}
+
+
+/* ==============================
+   週一報告：利用者ページ上部アラート
+   ============================== */
+
+.weekly-report-reminder-box {
+  margin-top: 18px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+}
+
+.weekly-report-reminder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.weekly-report-reminder-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.weekly-report-reminder-count {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.weekly-report-reminder-text {
+  margin: 8px 0 12px;
+  color: #7c2d12;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.weekly-report-reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.weekly-report-reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  color: #333;
+  text-decoration: none;
+}
+
+.weekly-report-reminder-item:hover {
+  background: #fffaf5;
+}
+
+.weekly-report-reminder-item-title {
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-reminder-item-action {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #6f8f72;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-reminder-box {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .weekly-report-reminder-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .weekly-report-reminder-header h2 {
+    font-size: 24px;
+  }
+
+  .weekly-report-reminder-count,
+  .weekly-report-reminder-item-action {
+    font-size: 16px;
+  }
+
+  .weekly-report-reminder-text,
+  .weekly-report-reminder-item-title {
+    font-size: 18px;
+  }
+
+  .weekly-report-reminder-item {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px;
+  }
+}
+
+
+/* ==============================
+   Step 2 fixed v30：週一報告 未記入アラート
+   ============================== */
+.weekly-report-reminder-box {
+  margin-top: 18px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 14px;
+}
+
+.weekly-report-reminder-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.weekly-report-reminder-header h2 {
+  margin: 0 0 6px;
+  color: #9a3412;
+}
+
+.weekly-report-reminder-header p {
+  margin: 0;
+  color: #7c2d12;
+  text-align: left;
+  line-height: 1.6;
+}
+
+.weekly-report-reminder-count {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.weekly-report-reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.weekly-report-reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #fed7aa;
+  color: #333;
+  text-decoration: none;
+}
+
+.weekly-report-reminder-item-title {
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-reminder-item-action {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #6f8f72;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.weekly-report-home-status {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  color: #555;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-home-status-ok {
+  background: #eef8f0;
+  border-color: #9ed3ad;
+  color: #1f7a3f;
+}
+
+.weekly-report-home-status-alert {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.weekly-report-home-status-error {
+  background: #fff0f0;
+  border-color: #e4a2a2;
+  color: #c0392b;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-reminder-box {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .weekly-report-reminder-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .weekly-report-reminder-header h2 {
+    font-size: 24px;
+  }
+
+  .weekly-report-reminder-header p,
+  .weekly-report-home-status {
+    font-size: 17px;
+  }
+
+  .weekly-report-reminder-item {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px;
+  }
+
+  .weekly-report-reminder-item-action {
+    font-size: 16px;
+  }
+}
+
+
+/* ==============================
+   STEP3_FIXED_20260620_V31：支援員 週一報告管理
+   ============================== */
+.weekly-report-admin-box {
+  background: #ffffff;
+}
+
+.weekly-report-admin-summary-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 10px;
+}
+
+.weekly-report-summary-week {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.weekly-report-admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.weekly-report-admin-list-box {
+  padding: 14px;
+  border: 1px solid #e1e5ea;
+  border-radius: 14px;
+  background: #f7f9fb;
+}
+
+.weekly-report-admin-list-box h3 {
+  margin: 0 0 10px;
+}
+
+.weekly-report-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.weekly-report-admin-card,
+.weekly-report-missing-user-item,
+.weekly-report-admin-empty {
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e1e5ea;
+}
+
+.weekly-report-admin-card h4 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.weekly-report-admin-meta {
+  color: #555;
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.weekly-report-admin-preview {
+  margin-top: 6px;
+  color: #444;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.submitted-weekly-report-card {
+  border-left: 5px solid #1f7a3f;
+}
+
+.weekly-report-missing-user-item {
+  border-left: 5px solid #c0392b;
+  font-weight: bold;
+}
+
+.weekly-report-admin-ok {
+  border-color: #9ed3ad;
+  color: #1f7a3f;
+  font-weight: bold;
+}
+
+.staff-weekly-report-copy-box {
+  margin-top: 18px;
+}
+
+.weekly-report-copy-button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+#weeklyReportsTextOutput {
+  width: 100%;
+  min-height: 280px;
+  line-height: 1.6;
+  font-family: sans-serif;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-admin-summary-grid,
+  .weekly-report-admin-grid,
+  .weekly-report-copy-button-row {
+    grid-template-columns: 1fr;
+  }
+
+  .weekly-report-admin-list-box {
+    padding: 12px;
+  }
+
+  .weekly-report-admin-card h4 {
+    font-size: 19px;
+  }
+
+  .weekly-report-admin-meta,
+  .weekly-report-admin-preview,
+  .weekly-report-missing-user-item,
+  .weekly-report-admin-empty {
+    font-size: 17px;
+  }
+
+  #weeklyReportsTextOutput {
+    min-height: 360px;
+    font-size: 17px;
+  }
+}
+
+
+/* ==============================
+   STEP4_FIXED_20260620_V32：ページタブUI
+   ============================== */
+
+.page-tab-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px;
+  padding: 10px;
+  background: #f7f9fb;
+  border: 1px solid #e1e5ea;
+  border-radius: 14px;
+}
+
+.page-tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid #d9e0e8;
+  border-radius: 999px;
+  background: #fff;
+  color: #333;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.page-tab-button:hover {
+  background: #edf5ec;
+}
+
+.page-tab-button.active {
+  background: #6f8f72;
+  border-color: #5f7f62;
+  color: #fff;
+}
+
+.staff-page-tab-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(247, 249, 251, 0.96);
+  backdrop-filter: blur(8px);
+}
+
+.staff-tab-panel:not(.active) {
+  display: none !important;
+}
+
+.staff-tab-panel.active {
+  animation: staff-tab-panel-fade 0.12s ease-out;
+}
+
+@keyframes staff-tab-panel-fade {
+  from {
+    opacity: 0.65;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .page-tab-nav {
+    gap: 8px;
+    margin: 14px 0 18px;
+    padding: 10px;
+  }
+
+  .page-tab-button {
+    flex: 1 1 calc(50% - 8px);
+    min-height: 50px;
+    padding: 10px 8px;
+    font-size: 17px;
+    border-radius: 14px;
+  }
+
+  .user-page-tab-nav .page-tab-button {
+    flex-basis: calc(33.333% - 8px);
+  }
+}
+
+
+/* ==============================
+   STEP5_WEBUI_20260620_V33：Webアプリ風ヘッダー・固定タブ
+   参考：Material DesignのTop app bar / Tabsの考え方に合わせた常時見えるナビゲーション。
+   ============================== */
+
+:root {
+  --enzine-blue: #6f8f72;
+  --enzine-blue-dark: #5f7f62;
+  --enzine-ink: #172033;
+  --enzine-muted: #667085;
+  --enzine-border: #e4eaf2;
+  --enzine-card: #ffffff;
+  --enzine-bg: #f5f7fb;
+  --app-topbar-height: 74px;
+}
+
+body.app-shell-body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(246, 190, 151, 0.16), transparent 30%),
+    linear-gradient(180deg, #fffaf3 0%, var(--enzine-bg) 42%, #eef4ed 100%);
+  color: var(--enzine-ink);
+}
+
+.login-container.user-page.app-main-shell {
+  width: min(1120px, 100%);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 18px 56px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: var(--app-topbar-height);
+  margin: 0 -18px;
+  padding: 12px 18px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid var(--enzine-border);
+  box-shadow: 0 8px 26px rgba(23, 32, 51, 0.07);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.app-brand-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #172033 0%, #6f8f72 100%);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  box-shadow: 0 8px 18px rgba(111, 143, 114, 0.25);
+}
+
+.app-brand-text {
+  min-width: 0;
+}
+
+.app-brand-title {
+  color: var(--enzine-ink);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.app-user-meta {
+  margin: 3px 0 0;
+  max-width: 420px;
+  color: var(--enzine-muted);
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-current-section {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #edf5ec;
+  border: 1px solid #cadbc5;
+  color: var(--enzine-blue-dark);
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.app-main-shell .page-tab-nav {
+  position: sticky;
+  top: var(--app-topbar-height);
+  z-index: 110;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin: 0 -18px 22px;
+  padding: 10px 18px;
+  overflow-x: auto;
+  background: rgba(248, 250, 252, 0.96);
+  border: 0;
+  border-bottom: 1px solid var(--enzine-border);
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 8px 20px rgba(23, 32, 51, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  scrollbar-width: thin;
+}
+
+.app-main-shell .page-tab-button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 15px;
+  border-color: #d7e0ec;
+  background: rgba(255, 255, 255, 0.96);
+  color: #344054;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.app-main-shell .page-tab-button:hover {
+  transform: translateY(-1px);
+  background: #edf5ec;
+}
+
+.app-main-shell .page-tab-button.active {
+  background: var(--enzine-blue);
+  border-color: var(--enzine-blue-dark);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(111, 143, 114, 0.22);
+}
+
+.app-main-shell .monthly-calendar-box,
+.app-main-shell .quick-link-box,
+.app-main-shell .weekly-report-status-box,
+.app-main-shell .weekly-report-form-box,
+.app-main-shell .staff-list-box,
+.app-main-shell .login-box,
+.app-main-shell .operation-check-box,
+.app-main-shell .workshop-resource-box,
+.app-main-shell .workshop-resource-admin-box,
+.app-main-shell .weekly-report-admin-box {
+  margin-top: 18px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--enzine-border);
+  border-radius: 20px;
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+}
+
+.app-main-shell .today-schedule-box,
+.app-main-shell .today-announcement-box,
+.app-main-shell .weekly-report-reminder-box {
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+}
+
+.app-main-shell h2 {
+  color: var(--enzine-ink);
+  letter-spacing: 0.01em;
+}
+
+.app-main-shell .calendar-guide {
+  text-align: left;
+}
+
+.app-main-shell .logout-bottom {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.staff-main-shell .staff-tab-panel:not(.active) {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --app-topbar-height: 78px;
+  }
+
+  .login-container.user-page.app-main-shell {
+    width: 100%;
+    margin: 0;
+    padding: 0 12px 40px;
+  }
+
+  .app-topbar {
+    margin: 0 -12px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .app-brand-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    font-size: 24px;
+  }
+
+  .app-brand-title {
+    font-size: 18px;
+  }
+
+  .app-user-meta {
+    max-width: 48vw;
+    font-size: 12px;
+  }
+
+  .app-current-section {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .app-main-shell .page-tab-nav {
+    top: var(--app-topbar-height);
+    margin: 0 -12px 18px;
+    padding: 9px 12px 11px;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .app-main-shell .page-tab-button,
+  .app-main-shell .user-page-tab-nav .page-tab-button {
+    flex: 0 0 auto;
+    min-width: max-content;
+    min-height: 48px;
+    padding: 10px 14px;
+    font-size: 16px;
+    border-radius: 999px;
+  }
+
+  .app-main-shell .monthly-calendar-box,
+  .app-main-shell .quick-link-box,
+  .app-main-shell .weekly-report-status-box,
+  .app-main-shell .weekly-report-form-box,
+  .app-main-shell .staff-list-box,
+  .app-main-shell .login-box,
+  .app-main-shell .operation-check-box,
+  .app-main-shell .workshop-resource-box,
+  .app-main-shell .workshop-resource-admin-box,
+  .app-main-shell .weekly-report-admin-box {
+    padding: 15px;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-brand-title {
+    font-size: 16px;
+  }
+
+  .app-user-meta {
+    max-width: 42vw;
+  }
+
+  .app-current-section {
+    padding-inline: 8px;
+  }
+}
+
+
+/* ==============================
+   STEP6_READABILITY_FIX_20260620_V35：返信通知・コンパクトWebUI
+   ============================== */
+/* STEP7_WEEKLY_REPORT_STABILITY_20260620_V36 */
+/* STEP8_LOGIN_UNIFY_20260620_V37 */
+/* STEP10_LOGO_IMAGE_20260620_V39 */
+/* STEP11_USER_CALENDAR_READABILITY_20260620_V40 */
+/* STEP12_CALENDAR_STYLE_TUNE_20260620_V41 */
+/* STEP13_SOFT_UI_POLISH_20260620_V42 */
+/* STEP14_CSS_CLEANUP_20260620_V43 */
+/* STEP15_WARM_SOFT_PALETTE_20260620_V44 */
+/* STEP17_COLOR_TOKEN_CLEANUP_20260620_V46 */
+/* STEP18_ANNOUNCEMENT_STATUS_CACHE_20260620_V47 */
+/* STEP20_USER_INPUT_ASSISTS_20260620_V49 */
+/* STEP21_SAVE_AND_NEXT_WEEKDAY_20260620_V50 */
+/* STEP22_CLEAR_USER_SCHEDULE_20260620_V51 */
+:root {
+  --app-content-width: 1040px;
+  --app-inner-width: 980px;
+  --enzine-soft-button: #f1f5fb;
+  --enzine-soft-button-hover: #e7eef8;
+}
+
+.login-container.user-page.app-main-shell {
+  width: min(100%, calc(var(--app-content-width) + 36px));
+  max-width: calc(var(--app-content-width) + 36px);
+}
+
+.login-container.login-page.app-main-shell {
+  width: min(100%, 480px);
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 44px 18px 56px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.login-page-header {
+  margin-bottom: 18px;
+}
+
+.login-page-brand {
+  justify-content: center;
+}
+
+.login-page-brand .app-brand-text {
+  flex: 0 1 auto;
+}
+
+.login-page-brand .app-brand-title {
+  margin: 0;
+  text-align: left;
+}
+
+.login-page .login-box {
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--enzine-border);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(23, 32, 51, 0.08);
+}
+
+.login-heading-row {
+  margin-bottom: 0;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-page #loginButton:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.login-message {
+  min-height: 20px;
+  margin: 0;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.app-main-shell > section,
+.app-main-shell > .daily-overview-grid {
+  width: 100%;
+  max-width: var(--app-content-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-topbar {
+  min-height: 66px;
+}
+
+.app-brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-size: 23px;
+}
+
+/* 画像ロゴを使う場合は、imgに app-brand-logo-img を付ける。推奨画像は96x96px以上、表示は38x38px。 */
+.app-brand-logo-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 0;
+  object-fit: contain;
+  display: block;
+}
+
+.app-topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.app-settings-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.app-settings-menu > summary {
+  list-style: none;
+}
+
+.app-settings-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid #d7e0ec;
+  background: #fff;
+  color: #344054;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  user-select: none;
+}
+
+.app-settings-button:hover {
+  background: #f2f7ff;
+}
+
+.app-settings-panel {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  z-index: 400;
+  width: 240px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--enzine-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(23, 32, 51, 0.16);
+}
+
+.app-settings-panel-title {
+  margin-bottom: 8px;
+  font-weight: 900;
+  color: var(--enzine-ink);
+}
+
+.app-settings-logout-button {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #5f6f89;
+  font-size: 14px;
+}
+
+.app-settings-note {
+  margin-top: 8px;
+  color: var(--enzine-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.app-main-shell .page-tab-nav {
+  margin-bottom: 16px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  justify-content: center;
+}
+
+.app-main-shell .page-tab-button,
+.app-main-shell .user-page-tab-nav .page-tab-button {
+  min-height: 38px;
+  padding: 7px 13px;
+  font-size: 14px;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.section-heading-row h2,
+.section-heading-row h3 {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.section-heading-row .calendar-guide {
+  margin: 0;
+  flex: 1 1 auto;
+  text-align: right;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.compact-section-heading-row .calendar-guide {
+  max-width: 280px;
+}
+
+.daily-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(320px, 1.1fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-top: 16px;
+}
+
+.app-main-shell .today-schedule-box,
+.app-main-shell .today-announcement-box {
+  margin: 0;
+  padding: 14px;
+  border-radius: 18px;
+  min-height: 0;
+}
+
+.today-schedule-text {
+  font-size: 16px;
+}
+
+.today-schedule-main {
+  padding: 5px 11px;
+}
+
+.today-announcements,
+.modal-announcements,
+.announcement-edit-list {
+  gap: 7px;
+}
+
+.announcement-card,
+.modal-announcement-card,
+.announcement-edit-item {
+  padding: 8px;
+  border-radius: 9px;
+}
+
+.app-main-shell .monthly-calendar-box,
+.app-main-shell .quick-link-box,
+.app-main-shell .weekly-report-status-box,
+.app-main-shell .weekly-report-form-box,
+.app-main-shell .staff-list-box,
+.app-main-shell .login-box,
+.app-main-shell .operation-check-box,
+.app-main-shell .workshop-resource-box,
+.app-main-shell .workshop-resource-admin-box,
+.app-main-shell .weekly-report-admin-box,
+.weekly-report-feedback-box,
+.weekly-report-readonly-box {
+  margin-top: 14px;
+  padding: 15px;
+  border-radius: 18px;
+}
+
+.app-main-shell .calendar-guide {
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.app-main-shell .calendar-month-nav,
+.app-main-shell .weekly-report-week-nav {
+  grid-template-columns: auto minmax(160px, auto) auto;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-main-shell .calendar-month-nav button,
+.app-main-shell .weekly-report-week-nav button,
+.app-main-shell .sub-button {
+  width: auto;
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: var(--enzine-soft-button);
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+  border: 1px solid #d7e0ec;
+}
+
+.app-main-shell .calendar-month-nav button:hover,
+.app-main-shell .weekly-report-week-nav button:hover,
+.app-main-shell .sub-button:hover {
+  background: var(--enzine-soft-button-hover);
+}
+
+.app-main-shell .calendar-month-nav button:disabled,
+.app-main-shell .weekly-report-week-nav button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-main-shell .calendar-month-label,
+.app-main-shell .calendar-week-label {
+  min-width: 150px;
+  font-size: 15px;
+}
+
+.app-main-shell .logout-bottom {
+  display: none;
+}
+
+.weekly-report-admin-name-button {
+  width: 100%;
+  min-height: 0;
+  padding: 12px;
+  background: #fff;
+  color: var(--enzine-ink);
+  text-align: left;
+  border: 1px solid var(--enzine-border);
+  border-radius: 14px;
+}
+
+.weekly-report-admin-name-button:hover,
+.weekly-report-admin-name-button.active {
+  background: #edf5ec;
+  border-color: #b7cdb2;
+  color: var(--enzine-ink);
+}
+
+.weekly-report-admin-card-title {
+  margin-bottom: 5px;
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.weekly-report-feedback-status {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 6px;
+  margin-bottom: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.weekly-report-feedback-status.none {
+  background: #f3f4f6;
+  color: #64748b;
+}
+
+.weekly-report-feedback-status.unread {
+  background: #fff4d6;
+  color: #9a5a00;
+}
+
+.weekly-report-feedback-status.read {
+  background: #e8f7ee;
+  color: #1f7a3f;
+}
+
+.weekly-report-detail-panel,
+.weekly-report-feedback-box,
+.weekly-report-readonly-box {
+  margin-top: 14px;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid var(--enzine-border);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.06);
+}
+
+.weekly-report-detail-body,
+.weekly-report-readonly-text,
+.weekly-report-feedback-text {
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+
+.weekly-report-detail-body {
+  display: grid;
+  gap: 8px;
+}
+
+.weekly-report-detail-row {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.weekly-report-detail-label {
+  color: var(--enzine-muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.weekly-report-detail-value {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.weekly-report-feedback-editor {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eef2f7;
+}
+
+.weekly-report-feedback-editor textarea {
+  min-height: 120px;
+}
+
+.weekly-report-feedback-box {
+  background: #fff8e8;
+  border-color: #f1cf88;
+}
+
+.weekly-report-readonly-box {
+  background: #f8fafc;
+}
+
+.weekly-report-reminder-item-feedback {
+  background: #fff8e8;
+  border-color: #f1cf88;
+}
+
+.weekly-report-reminder-item-pending {
+  background: #fff;
+}
+
+@media (min-width: 900px) {
+  .weekly-report-admin-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.6fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .app-topbar {
+    min-height: 64px;
+  }
+
+  .app-brand-icon,
+  .app-brand-logo-img {
+    width: 34px;
+    height: 34px;
+  }
+
+  .app-brand-icon {
+    border-radius: 10px;
+  }
+
+  .app-brand-logo-img {
+    border-radius: 0;
+  }
+
+  .app-current-section {
+    display: none;
+  }
+
+  .app-main-shell .page-tab-nav {
+    justify-content: flex-start;
+  }
+
+  .daily-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-heading-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .section-heading-row .calendar-guide {
+    text-align: left;
+    font-size: 14px;
+  }
+
+  .app-main-shell .calendar-month-nav,
+  .app-main-shell .weekly-report-week-nav {
+    grid-template-columns: auto minmax(120px, 1fr) auto;
+  }
+
+  .weekly-report-detail-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .app-settings-panel {
+    right: -4px;
+    width: 220px;
+  }
+}
+
+
+/* =========================================================
+   STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
+   ========================================================= */
+
+/* 週一報告の提出済み一覧は、ボタン扱いでもカードとして読みやすくする */
+.weekly-report-admin-list,
+.weekly-report-admin-list-box,
+.weekly-report-admin-list-box h3 {
+  text-align: left;
+}
+
+.weekly-report-admin-name-button,
+.weekly-report-admin-name-button:visited,
+.weekly-report-admin-name-button:hover,
+.weekly-report-admin-name-button:focus,
+.weekly-report-admin-name-button.active {
+  display: block;
+  width: 100%;
+  color: #172033 !important;
+  text-align: left !important;
+  background: #ffffff !important;
+  border: 1px solid #d8e2ef !important;
+  box-shadow: 0 6px 18px rgba(23, 32, 51, 0.06);
+}
+
+.weekly-report-admin-name-button:hover,
+.weekly-report-admin-name-button.active {
+  background: #edf5ec !important;
+  border-color: #b7cdb2 !important;
+}
+
+.weekly-report-admin-name-button * {
+  color: inherit;
+  text-align: left;
+}
+
+.weekly-report-admin-card-title {
+  color: #172033 !important;
+}
+
+.weekly-report-admin-meta,
+.weekly-report-admin-preview {
+  color: #475569 !important;
+  text-align: left;
+}
+
+.weekly-report-feedback-status {
+  color: #172033;
+}
+
+.weekly-report-feedback-status.none {
+  background: #eef2f7 !important;
+  color: #475569 !important;
+}
+
+.weekly-report-feedback-status.unread {
+  background: #fff0bf !important;
+  color: #7a4a00 !important;
+}
+
+.weekly-report-feedback-status.read {
+  background: #dff5e8 !important;
+  color: #155f2f !important;
+}
+
+/* 詳細表示：支援員側・利用者側で共通の読みやすい表示 */
+.weekly-report-readable-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.weekly-report-readable-item {
+  padding: 0 0 12px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.weekly-report-readable-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.weekly-report-readable-item.inline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.weekly-report-readable-label {
+  color: #172033;
+  font-weight: 900;
+  line-height: 1.6;
+}
+
+.weekly-report-readable-value {
+  margin-top: 4px;
+  padding-left: 1.1em;
+  color: #25324a;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.weekly-report-readable-item.inline .weekly-report-readable-value {
+  margin-top: 0;
+  padding-left: 0;
+  font-weight: 700;
+}
+
+.weekly-report-detail-body,
+.weekly-report-readonly-text {
+  white-space: normal;
+  text-align: left;
+}
+
+.weekly-report-detail-panel {
+  scroll-margin-top: 150px;
+}
+
+.weekly-report-feedback-editor textarea {
+  background: #ffffff;
+  color: #172033;
+}
+
+.weekly-report-admin-grid {
+  align-items: start;
+}
+
+@media (max-width: 600px) {
+  .weekly-report-admin-name-button {
+    padding: 13px;
+    border-radius: 14px;
+  }
+
+  .weekly-report-admin-card-title {
+    font-size: 18px;
+  }
+
+  .weekly-report-admin-meta,
+  .weekly-report-admin-preview {
+    font-size: 15px;
+  }
+
+  .weekly-report-readable-item.inline {
+    display: block;
+  }
+
+  .weekly-report-readable-item.inline .weekly-report-readable-value {
+    margin-top: 4px;
+    padding-left: 1.1em;
+  }
+}
+
+/* =========================================================
+   STEP11_USER_CALENDAR_READABILITY_20260620_V40：利用者カレンダー表示調整
+   ========================================================= */
+.calendar-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 24px;
+  margin: 2px 0 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #d8e2ef;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.calendar-status.status-coming,
+.calendar-list-status.status-coming,
+.today-schedule-coming {
+  background: #e6f6ed;
+  border-color: #a6dfba;
+  color: #17653a;
+}
+
+.calendar-status.status-home,
+.calendar-list-status.status-home,
+.today-schedule-home {
+  background: #f3effb;
+  border-color: #c9bde4;
+  color: #5c4b86;
+}
+
+.calendar-status.status-off,
+.calendar-list-status.status-off,
+.today-schedule-off {
+  background: #fff0f0;
+  border-color: #f2b8b8;
+  color: #a93636;
+}
+
+.today-schedule-unset {
+  background: #f1f5f9;
+  border-color: #d8e2ef;
+  color: #64748b;
+}
+
+.calendar-time-slot {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.today-schedule-box .section-heading-row {
+  align-items: center;
+}
+
+.today-schedule-box .section-heading-row h2 {
+  margin: 0;
+}
+
+.today-schedule-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.today-schedule-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.today-schedule-sub {
+  margin-left: 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.app-main-shell .calendar-month-nav {
+  grid-template-columns: minmax(74px, auto) minmax(96px, 1fr) minmax(74px, auto);
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-main-shell .calendar-month-nav button,
+.app-main-shell .weekly-report-week-nav button,
+.app-main-shell .sub-button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .app-main-shell .calendar-month-nav,
+  .app-main-shell .weekly-report-week-nav {
+    grid-template-columns: minmax(68px, auto) minmax(86px, 1fr) minmax(68px, auto);
+    gap: 6px;
+    max-width: 100%;
+  }
+
+  .app-main-shell .calendar-month-nav button,
+  .app-main-shell .weekly-report-week-nav button,
+  .app-main-shell .sub-button {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 12px;
+    border-radius: 999px;
+  }
+
+  .app-main-shell .calendar-month-label,
+  .app-main-shell .calendar-week-label {
+    min-width: 0;
+    font-size: 14px;
+  }
+
+  .calendar-status {
+    min-height: 21px;
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  .calendar-time-slot {
+    padding: 1px 5px;
+    font-size: 10px;
+  }
+
+  .today-schedule-box .section-heading-row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .today-schedule-text {
+    font-size: 14px;
+  }
+
+  .today-schedule-main {
+    min-height: 28px;
+    padding: 4px 9px;
+    font-size: 13px;
+  }
+
+  .today-schedule-sub {
+    font-size: 12px;
+  }
+}
+
+/* =========================================================
+   STEP13_SOFT_UI_POLISH_20260620_V42：低コントラスト面とボタン質感
+   ========================================================= */
+:root {
+  --enzine-surface: #fbf9f5;
+  --enzine-surface-raised: #f6f3ed;
+  --enzine-surface-card: #fffdf8;
+  --enzine-surface-card-strong: #faf5ec;
+  --enzine-line-soft: #e7ded1;
+  --enzine-shadow-soft: 0 10px 24px rgba(84, 72, 58, 0.08);
+  --enzine-shadow-subtle: 0 1px 3px rgba(84, 72, 58, 0.10);
+  --enzine-action: #6f8f72;
+  --enzine-action-hover: #5f7f62;
+  --enzine-action-soft: #edf5ec;
+  --enzine-action-soft-hover: #e1ecdf;
+}
+
+body.app-shell-body {
+  background:
+    radial-gradient(circle at top left, rgba(246, 190, 151, 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgba(126, 166, 132, 0.13), transparent 28%),
+    linear-gradient(180deg, #fffaf3 0%, #f7f3ea 48%, #eef4ed 100%);
+}
+
+.app-topbar,
+.app-main-shell .page-tab-nav {
+  background: rgba(255, 252, 247, 0.95);
+  border-color: var(--enzine-line-soft);
+}
+
+.app-main-shell .monthly-calendar-box,
+.app-main-shell .quick-link-box,
+.app-main-shell .weekly-report-status-box,
+.app-main-shell .weekly-report-form-box,
+.app-main-shell .staff-list-box,
+.app-main-shell .login-box,
+.app-main-shell .operation-check-box,
+.app-main-shell .workshop-resource-box,
+.app-main-shell .workshop-resource-admin-box,
+.app-main-shell .weekly-report-admin-box,
+.weekly-report-feedback-box,
+.weekly-report-readonly-box,
+.login-page .login-box,
+.modal-box {
+  background: rgba(255, 253, 248, 0.97);
+  border-color: var(--enzine-line-soft);
+  box-shadow: var(--enzine-shadow-soft);
+}
+
+.app-main-shell .today-schedule-box,
+.app-main-shell .today-announcement-box,
+.app-main-shell .weekly-report-reminder-box {
+  background: rgba(255, 253, 248, 0.97);
+  border: 1px solid var(--enzine-line-soft);
+  box-shadow: var(--enzine-shadow-subtle);
+}
+
+.calendar-day:not(.empty),
+.calendar-list-day,
+.announcement-card,
+.modal-announcement-card,
+.announcement-edit-item,
+.workshop-resource-card,
+.workshop-resource-admin-card,
+.weekly-report-admin-name-button,
+.weekly-report-readable-card,
+.operation-check-card {
+  background: var(--enzine-surface-card);
+  border-color: var(--enzine-line-soft);
+  box-shadow: var(--enzine-shadow-subtle);
+}
+
+.calendar-day:not(.empty):hover,
+.calendar-list-day:hover,
+.weekly-report-admin-name-button:hover,
+.workshop-resource-card:hover {
+  background: var(--enzine-surface-card-strong);
+}
+
+.calendar-day.day-use,
+.calendar-list-day.day-use,
+.calendar-day.day-use-with-announcement,
+.calendar-list-day.day-use-with-announcement {
+  background: #f6fbf4;
+  border-color: #dbe9d4;
+  border-left-color: #6f9b70;
+}
+
+.calendar-day.day-announcement-only,
+.calendar-list-day.day-announcement-only {
+  background: #fff8ed;
+  border-color: #eadbc3;
+  border-left-color: #c38b4f;
+}
+
+.calendar-day.day-off,
+.calendar-list-day.day-off {
+  background: #fff4f1;
+  border-color: #ead1ca;
+  border-left-color: #b9796c;
+}
+
+.calendar-announcement-title,
+.calendar-list-announcement {
+  background: #fffaf2;
+  border-color: #eadfcf;
+  box-shadow: none;
+}
+
+.category-workshop {
+  border-left-color: #7d8f5f;
+  color: #4f5f35;
+}
+
+.category-deadline {
+  border-left-color: #b9796c;
+  color: #7a4a40;
+}
+
+.category-important {
+  border-left-color: #c38b4f;
+  color: #75522a;
+}
+
+.category-notice {
+  border-left-color: #8a7dae;
+  color: #4d4568;
+}
+
+button,
+.resource-page-button,
+.page-tab-button,
+.view-toggle-button,
+.choice-button,
+.small-button {
+  border: 1px solid transparent;
+  box-shadow: var(--enzine-shadow-subtle);
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease;
+}
+
+button:hover,
+.resource-page-button:hover,
+.page-tab-button:hover,
+.view-toggle-button:hover,
+.choice-button:hover,
+.small-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(30, 41, 59, 0.10);
+}
+
+.app-main-shell .calendar-month-nav button,
+.app-main-shell .weekly-report-week-nav button,
+.app-main-shell .sub-button,
+.view-toggle-button,
+.app-settings-button {
+  background: var(--enzine-action-soft);
+  border-color: #cadbc5;
+  color: #405c3d;
+}
+
+.app-main-shell .calendar-month-nav button:hover,
+.app-main-shell .weekly-report-week-nav button:hover,
+.app-main-shell .sub-button:hover,
+.view-toggle-button:hover,
+.app-settings-button:hover {
+  background: var(--enzine-action-soft-hover);
+  border-color: #b7cdb2;
+  color: #344f32;
+}
+
+button,
+.resource-page-button,
+.weekly-report-page-button,
+.app-settings-logout-button {
+  background: var(--enzine-action);
+  border-color: var(--enzine-action);
+  color: #ffffff;
+}
+
+button:hover,
+.resource-page-button:hover,
+.weekly-report-page-button:hover,
+.app-settings-logout-button:hover {
+  background: var(--enzine-action-hover);
+  border-color: var(--enzine-action-hover);
+}
+
+.page-tab-button,
+.app-main-shell .page-tab-button,
+.app-main-shell .user-page-tab-nav .page-tab-button {
+  background: #fffaf2;
+  border-color: #e4d8c7;
+  color: #5b5145;
+}
+
+.page-tab-button.active,
+.app-main-shell .page-tab-button.active {
+  background: #6f8f72;
+  border-color: #5f7f62;
+  color: #ffffff;
+}
+
+input,
+select,
+textarea {
+  background: #fffdf8;
+  border-color: #dccfbd;
+  color: var(--enzine-ink);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid rgba(111, 143, 114, 0.22);
+  border-color: #8aae7b;
+}
+
+.calendar-filter-box {
+  background: #faf5ec;
+  border-color: var(--enzine-line-soft);
+}
+
+.calendar-filter-label {
+  background: #fffdf8;
+  border-color: #e1d4c4;
+}
+
+.today-schedule-unset,
+.calendar-status {
+  background: #f4efe7;
+  border-color: #ded2c1;
+}
+
+.choice-button.active {
+  background: #6f8f72;
+  border-color: #5f7f62;
+  color: #ffffff;
+}
+
+.choice-button.status-coming.active {
+  background: #edf7e8;
+  border-color: #a8cf99;
+  color: #3f6f36;
+}
+
+.choice-button.status-home.active {
+  background: #f3effb;
+  border-color: #c9bde4;
+  color: #5c4b86;
+}
+
+.choice-button.status-off.active {
+  background: #fff1ed;
+  border-color: #ddb8ad;
+  color: #8d5448;
+}
+
+.danger-button,
+.danger-button:hover {
+  background: #a56759;
+  border-color: #a56759;
+  color: #ffffff;
+}
+
+.weekly-report-admin-name-button,
+.weekly-report-admin-name-button:visited,
+.weekly-report-admin-name-button:hover,
+.weekly-report-admin-name-button:focus,
+.weekly-report-admin-name-button.active {
+  background: var(--enzine-surface-card) !important;
+  border-color: var(--enzine-line-soft) !important;
+  box-shadow: var(--enzine-shadow-subtle);
+}
+
+.weekly-report-admin-name-button:hover,
+.weekly-report-admin-name-button.active {
+  background: var(--enzine-surface-card-strong) !important;
+}
+
+/* =========================================================
+   STEP15_WARM_SOFT_PALETTE_20260620_V44：明るく柔らかい配色へ統一
+   ========================================================= */
+.calendar-view-toggle,
+.calendar-view-toggle-three {
+  background: #f8f1e7;
+  border: 1px solid #e6dac8;
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.view-toggle-button,
+.view-toggle-button.active,
+.app-main-shell .calendar-month-nav button,
+.app-main-shell .weekly-report-week-nav button {
+  background: #fffaf2;
+  border-color: #dfd1bd;
+  color: #5c5144;
+}
+
+.view-toggle-button:hover,
+.view-toggle-button.active,
+.app-main-shell .calendar-month-nav button:hover,
+.app-main-shell .weekly-report-week-nav button:hover {
+  background: #edf5ec;
+  border-color: #b7cdb2;
+  color: #405c3d;
+}
+
+.view-toggle-button.active {
+  box-shadow: inset 0 0 0 1px rgba(111, 143, 114, 0.26), 0 4px 10px rgba(84, 72, 58, 0.08);
+}
+
+.app-main-shell .calendar-month-label,
+.app-main-shell .calendar-week-label {
+  background: #faf5ec;
+  border-color: #e4d8c7;
+  color: #4e473d;
+}
+
+.calendar-day.today,
+.calendar-list-day.today,
+.staff-announcement-list-day.today {
+  box-shadow: inset 0 0 0 2px #8aae7b, var(--enzine-shadow-subtle);
+}
+
+.calendar-list-day {
+  background: #fffdf8;
+  border-color: #e7ded1;
+  border-left: 4px solid transparent;
+}
+
+.calendar-list-day:hover {
+  background: #faf5ec;
+}
+
+.calendar-list-header {
+  align-items: flex-start;
+}
+
+.calendar-list-date {
+  color: #3f3a32;
+}
+
+.calendar-list-status,
+.calendar-status {
+  background: #f4efe7;
+  border-color: #ded2c1;
+  color: #5f5549;
+}
+
+.calendar-status.status-coming,
+.calendar-list-status.status-coming,
+.today-schedule-coming {
+  background: #edf7e8;
+  border-color: #a8cf99;
+  color: #3f6f36;
+}
+
+.calendar-status.status-home,
+.calendar-list-status.status-home,
+.today-schedule-home {
+  background: #f3effb;
+  border-color: #c9bde4;
+  color: #5c4b86;
+}
+
+.calendar-status.status-off,
+.calendar-list-status.status-off,
+.today-schedule-off {
+  background: #fff1ed;
+  border-color: #ddb8ad;
+  color: #8d5448;
+}
+
+.calendar-list-schedule,
+.calendar-list-announcements {
+  color: #51483e;
+}
+
+.calendar-list-section-title {
+  color: #6f8f72;
+}
+
+.calendar-list-muted {
+  color: #8a8072;
+}
+
+.calendar-announcement-title,
+.calendar-list-announcement {
+  background: #fffaf2;
+  border-color: #eadfcf;
+  color: #4f463b;
+}
+
+.calendar-list-announcement {
+  border-left-width: 4px;
+}
+
+.calendar-list-announcement-time {
+  color: #7f7467;
+}
+
+.calendar-filter-empty {
+  background: #faf5ec;
+  border-color: #d8cbbb;
+  color: #867a6b;
+}
+
+.page-tab-button.active,
+.app-main-shell .page-tab-button.active,
+.choice-button.active {
+  background: #6f8f72;
+  border-color: #5f7f62;
+  color: #ffffff;
+}
+
+.calendar-week-header div {
+  background: #f4efe7;
+  color: #665d51;
+}
+
+.calendar-day:not(.empty):active {
+  background: #edf5ec;
+}
+
+.calendar-day.today,
+.calendar-list-day.today,
+.staff-announcement-list-day.today {
+  border-color: #8aae7b;
+}
+
+.calendar-day.selected-day,
+.calendar-list-day.selected-day,
+.staff-announcement-list-day.selected-day {
+  border-color: #d19a5b;
+  box-shadow: inset 0 0 0 2px rgba(209, 154, 91, 0.32), var(--enzine-shadow-subtle);
+}
+
+.today-schedule-box {
+  background: #fffaf2;
+  border-color: #e7ded1;
+}
+
+.today-schedule-main {
+  background: #6f8f72;
+  border-color: #5f7f62;
+}
+
+.status-home {
+  color: #5c4b86;
+}
+
+.status-coming {
+  color: #3f6f36;
+}
+
+.status-off {
+  color: #8d5448;
+}
+
+/* =========================================================
+   STEP18_ANNOUNCEMENT_STATUS_CACHE_20260620_V47：月間カレンダーのアナウンス視認性
+   ========================================================= */
+.calendar-announcement-title {
+  background: #f5e7d5;
+  border: 1px solid #dcc3a6;
+  color: #5f4934;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42), 0 1px 2px rgba(84, 72, 58, 0.08);
+}
+
+.calendar-announcement-title.category-notice {
+  background: #f3effb;
+  border-color: #c9bde4;
+  color: #4d4568;
+}
+
+.calendar-announcement-title.category-workshop {
+  background: #edf5ec;
+  border-color: #b7cdb2;
+  color: #405c3d;
+}
+
+.calendar-announcement-title.category-deadline {
+  background: #fff1ed;
+  border-color: #ddb8ad;
+  color: #7a4a40;
+}
+
+.calendar-announcement-title.category-important {
+  background: #fff4dc;
+  border-color: #dfc27b;
+  color: #72521e;
+}
+
+.calendar-day.day-announcement-only .calendar-announcement-title,
+.calendar-day.day-use-with-announcement .calendar-announcement-title {
+  outline: 1px solid rgba(84, 72, 58, 0.04);
+}
+
+/* =========================================================
+   STEP20_USER_INPUT_ASSISTS_20260620_V49：入力補助ボタン
+   ========================================================= */
+.assist-button-row,
+.modal-assist-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -6px 0 8px;
+}
+
+.modal-assist-row {
+  margin: 0 0 10px;
+}
+
+.assist-chip-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 34px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: #fffaf2;
+  border: 1px solid #dfd1bd;
+  color: #5c5144;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.assist-chip-button:hover {
+  background: #edf5ec;
+  border-color: #b7cdb2;
+  color: #405c3d;
+}
+
+.assist-chip-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.clear-user-schedule-button {
+  background: #fff7f3;
+  border-color: #e5cabe;
+  color: #7a4a40;
+}
+
+.clear-user-schedule-button:hover {
+  background: #fff1ed;
+  border-color: #ddb8ad;
+  color: #7a4a40;
+}
+
+.save-and-next-button {
+  background: #edf5ec;
+  border: 1px solid #b7cdb2;
+  color: #405c3d;
+}
+
+.save-and-next-button:hover {
+  background: #e1ecdf;
+  border-color: #a8c3a2;
+  color: #344f32;
+}
+
+@media (max-width: 600px) {
+  .assist-chip-button {
+    min-height: 38px;
+    padding: 7px 12px;
+    font-size: 14px;
+  }
+}
+
+/* =========================================================
+   STEP25_STAFF_DATE_PICKER_20260620_V54：日付入力の操作性と配色
+   ========================================================= */
+.app-main-shell input[type="date"],
+.app-main-shell input[type="month"] {
+  color-scheme: light;
+  cursor: pointer;
+  background: linear-gradient(180deg, #fffdf8 0%, #faf5ec 100%);
+  border-color: #d8cbbb;
+  color: #4e473d;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74), 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.app-main-shell input[type="date"]:hover,
+.app-main-shell input[type="month"]:hover {
+  background: #fffaf2;
+  border-color: #b7cdb2;
+}
+
+.app-main-shell input[type="date"]:focus,
+.app-main-shell input[type="month"]:focus {
+  border-color: #8aae7b;
+  outline: 3px solid rgba(111, 143, 114, 0.18);
+}
+
+.app-main-shell input[type="date"]::-webkit-calendar-picker-indicator,
+.app-main-shell input[type="month"]::-webkit-calendar-picker-indicator {
+  padding: 5px;
+  border-radius: 999px;
+  background-color: #edf5ec;
+  cursor: pointer;
+  opacity: 0.86;
+}
+
+.app-main-shell input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.app-main-shell input[type="month"]::-webkit-calendar-picker-indicator:hover {
+  background-color: #e1ecdf;
+  opacity: 1;
+}
+
+.staff-date-field input[type="date"] {
+  width: min(100%, 260px);
+}
+
+/* =========================================================
+   STEP26_DAILY_LIST_DIRECT_EDIT_20260620_V55：日別一覧から直接編集
+   ========================================================= */
+.status-group ul {
+  padding-left: 0;
+  list-style: none;
+}
+
+.daily-user-list-item {
+  margin-bottom: 8px;
+}
+
+.app-main-shell .daily-user-edit-button {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  background: #fffaf2;
+  border: 1px solid #dfd1bd;
+  border-radius: 10px;
+  color: #4e473d;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.app-main-shell .daily-user-edit-button:hover,
+.app-main-shell .daily-user-edit-button:focus {
+  background: #edf5ec;
+  border-color: #b7cdb2;
+  color: #405c3d;
+}
+
+.daily-user-edit-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.daily-user-edit-time,
+.daily-user-edit-action {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.daily-user-edit-time {
+  background: #f4efe7;
+  color: #665d51;
+}
+
+.daily-user-edit-action {
+  background: #edf5ec;
+  border: 1px solid #b7cdb2;
+  color: #405c3d;
+}
+
+@media (max-width: 600px) {
+  .app-main-shell .daily-user-edit-button {
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+
+  .daily-user-edit-time,
+  .daily-user-edit-action {
+    font-size: 13px;
+  }
+}
+
+/* =========================================================
+   STEP27_DAILY_LIST_COMPACT_LAYOUT_20260621_V56：本日の一覧を横並び・内容寄せ
+   ========================================================= */
+.app-main-shell .staff-list-box[data-staff-panel="daily"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] > .section-heading-row {
+  grid-column: 1 / -1;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group {
+  min-width: 0;
+  margin-top: 0;
+  padding: 12px;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group h3 {
+  margin-bottom: 10px;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group ul {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  overflow: visible;
+}
+
+.app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group li {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.app-main-shell .daily-user-edit-button {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 100%;
+}
+
+.daily-user-edit-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.daily-user-edit-time,
+.daily-user-edit-action {
+  white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .app-main-shell .staff-list-box[data-staff-panel="daily"] {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .app-main-shell .staff-list-box[data-staff-panel="daily"] {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ==============================
+   STEP28：ワークショップ一覧→詳細表示 / 案件カード
+   ============================== */
+
+.workshop-list-guide {
+  padding: 10px 12px;
+  border: 1px solid #dfe7f0;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #4f5f6f;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.workshop-list-card.is-clickable {
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.08s ease;
+}
+
+.workshop-list-card.is-clickable:active {
+  transform: scale(0.99);
+}
+
+.workshop-summary-chip-row,
+.workshop-case-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.workshop-summary-chip,
+.workshop-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.workshop-status-badge {
+  background: #fff3d6;
+  color: #9a5a00;
+}
+
+.workshop-resource-card-action {
+  margin-top: 12px;
+  color: #5f7f62;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: right;
+}
+
+.workshop-back-button {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.workshop-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workshop-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workshop-empty-section {
+  padding: 10px;
+  border: 1px dashed #cfd8e3;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.workshop-case-card,
+.workshop-guide-item {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #e3e8ef;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.workshop-case-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.workshop-case-summary {
+  margin-top: 8px;
+  color: #444;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.workshop-case-subsection {
+  margin-top: 10px;
+}
+
+.workshop-case-subtitle,
+.workshop-guide-title {
+  margin-bottom: 4px;
+  color: #3f3a32;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.workshop-case-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  color: #444;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .workshop-list-guide,
+  .workshop-empty-section,
+  .workshop-case-summary,
+  .workshop-case-subtitle,
+  .workshop-guide-title,
+  .workshop-case-list,
+  .workshop-resource-card-action {
+    font-size: 17px;
+  }
+
+  .workshop-summary-chip,
+  .workshop-status-badge {
+    min-height: 32px;
+    padding: 6px 10px;
+    font-size: 15px;
+  }
+
+  .workshop-case-card,
+  .workshop-guide-item {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .workshop-case-title {
+    font-size: 19px;
+  }
+}
+
+/* ==============================
+   STEP29：案件情報貼り付け→下書き作成
+   ============================== */
+
+.workshop-case-draft-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dfe7f0;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.workshop-case-draft-box h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.workshop-case-draft-guide {
+  margin: 0;
+  text-align: left;
+}
+
+.workshop-case-draft-preview {
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid #d7e2ee;
+  border-radius: 10px;
+  background: #fff;
+  color: #3f3a32;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.workshop-case-draft-preview.empty {
+  color: #777;
+}
+
+.workshop-case-draft-line {
+  padding: 7px 0;
+  border-bottom: 1px solid #eef2f7;
+  word-break: break-word;
+}
+
+.workshop-case-draft-line:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 600px) {
+  .workshop-case-draft-box {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .workshop-case-draft-box h4 {
+    font-size: 20px;
+  }
+
+  .workshop-case-draft-preview {
+    font-size: 16px;
+  }
+}
+
+/* ==============================
+   STEP30：支援員 案件カード型エディタ
+   ============================== */
+.workshop-case-card-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e4d8c7;
+  border-radius: 14px;
+  background: #fffaf2;
+}
+
+.workshop-case-card-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workshop-case-card-editor-header h4 {
+  margin: 0;
+  color: #3f3a32;
+  font-size: 16px;
+}
+
+.workshop-case-card-editor-header button {
+  flex: 0 0 auto;
+}
+
+.workshop-case-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.workshop-case-card-empty {
+  padding: 12px;
+  border: 1px dashed #d8cbbb;
+  border-radius: 12px;
+  background: #fffdf8;
+  color: #7f7467;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.workshop-case-edit-card {
+  padding: 12px;
+  border: 1px solid #dfd1bd;
+  border-radius: 12px;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.workshop-case-edit-card.inactive-case {
+  border-style: dashed;
+  background: #f7f3ed;
+  opacity: 0.78;
+}
+
+.workshop-case-edit-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.workshop-case-edit-card-header h5 {
+  margin: 0;
+  color: #3f3a32;
+  font-size: 15px;
+}
+
+.workshop-case-edit-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workshop-case-active-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #4e473d;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.workshop-case-active-toggle input {
+  width: auto;
+  margin: 0;
+}
+
+.workshop-case-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workshop-case-card-field {
+  min-width: 0;
+  gap: 6px;
+  color: #4e473d;
+  font-size: 13px;
+}
+
+.workshop-case-card-field.wide {
+  grid-column: 1 / -1;
+}
+
+.workshop-case-card-field textarea {
+  min-height: 96px;
+}
+
+@media (max-width: 600px) {
+  .workshop-case-card-editor {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .workshop-case-card-editor-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workshop-case-card-editor-header h4 {
+    font-size: 20px;
+  }
+
+  .workshop-case-edit-card-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workshop-case-edit-actions {
+    justify-content: flex-start;
+  }
+
+  .workshop-case-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workshop-case-card-field {
+    font-size: 17px;
+  }
+}
+
+/* ==============================
+   STEP31：ワークショップ管理 編集 / プレビュー
+   ============================== */
+.workshop-admin-list-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.workshop-admin-mode-toggle {
+  margin: 0;
+}
+
+.workshop-admin-panel {
+  min-width: 0;
+}
+
+.workshop-preview-area {
+  padding: 14px;
+  border: 1px solid #e4d8c7;
+  border-radius: 14px;
+  background: #fffaf2;
+}
+
+.workshop-preview-area .workshop-resource-card {
+  background: #fffdf8;
+}
+
+.workshop-resource-form-box.hidden {
+  display: none;
+}
+
+.workshop-preview-picker-guide {
+  padding: 10px 12px;
+  border: 1px solid #b9d8c4;
+  border-radius: 12px;
+  background: #eef8f1;
+  color: #2f6140;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .workshop-admin-list-tools {
+    align-items: stretch;
+    flex-direction: column;
+    justify-content: stretch;
+  }
+
+  .workshop-admin-list-tools button {
+    width: 100%;
+  }
+
+  .workshop-preview-area {
+    padding: 12px;
+    border-radius: 16px;
+  }
 }
