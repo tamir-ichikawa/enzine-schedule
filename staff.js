@@ -1,3 +1,4 @@
+// STEP38_DAILY_TIME_SLOT_SORT_20260621_V68：日別予定一覧を午前・午後・終日の順で表示
 // STEP34_WORKSHOP_FORM_TOGGLE_PREVIEW_GUIDE_20260621_V64：追加フォームをボタン開閉化・プレビュー案内色分け
 // STEP33_WORKSHOP_PREVIEW_DELETE_FILTER_20260621_V63：通常プレビュー選択・削除・非表示一覧切替
 // STEP32_WORKSHOP_CASE_COMPLETE_HIDE_20260621_V62：完了案件を支援員側から非表示にできるよう対応
@@ -34,6 +35,11 @@ const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
+const DAILY_TIME_SLOT_ORDER = {
+  "午前": 1,
+  "午後": 2,
+  "終日": 3
+};
 
 // STEP5_WEBUI_20260620_V33：支援員ページ タブ切り替え・現在位置表示
 const STAFF_TAB_STORAGE_KEY = "enzineStaffActiveTab";
@@ -547,6 +553,30 @@ function clearLists() {
   otherList.innerHTML = "";
 }
 
+function getDailyTimeSlotSortValue(timeSlot) {
+  return Object.prototype.hasOwnProperty.call(DAILY_TIME_SLOT_ORDER, timeSlot)
+    ? DAILY_TIME_SLOT_ORDER[timeSlot]
+    : 99;
+}
+
+function compareDailyScheduleListData(a, b) {
+  const timeSlotDiff = getDailyTimeSlotSortValue(a.timeSlot || "") - getDailyTimeSlotSortValue(b.timeSlot || "");
+
+  if (timeSlotDiff !== 0) {
+    return timeSlotDiff;
+  }
+
+  return (a.userSortIndex || 0) - (b.userSortIndex || 0);
+}
+
+function renderDailyUserList(listElement, listDataItems) {
+  [...listDataItems]
+    .sort(compareDailyScheduleListData)
+    .forEach((listData) => {
+      addUserToList(listElement, listData);
+    });
+}
+
 function addUserToList(listElement, data) {
   const li = document.createElement("li");
   li.className = "daily-user-list-item";
@@ -1041,6 +1071,12 @@ async function loadDailySchedules() {
     const users = await loadActiveUsersForStaff();
     const monthlySchedules = await loadMonthlySchedulesForStaff(year, month);
     const scheduleMap = {};
+    const dailyLists = {
+      coming: [],
+      home: [],
+      off: [],
+      other: []
+    };
 
     monthlySchedules.forEach((monthlySchedule) => {
       if (monthlySchedule.userId) {
@@ -1048,7 +1084,7 @@ async function loadDailySchedules() {
       }
     });
 
-    users.forEach((user) => {
+    users.forEach((user, userIndex) => {
       const monthlySchedule = scheduleMap[user.id] || null;
       const dayData = monthlySchedule?.days?.[date] || null;
       const status = dayData?.status || "休み";
@@ -1064,19 +1100,25 @@ async function loadDailySchedules() {
         userName: user.name,
         userEmail: user.email,
         officeId: user.officeId,
-        groupId: user.groupId
+        groupId: user.groupId,
+        userSortIndex: userIndex
       };
 
       if (status === "通所") {
-        addUserToList(comingList, listData);
+        dailyLists.coming.push(listData);
       } else if (status === "在宅") {
-        addUserToList(homeList, listData);
+        dailyLists.home.push(listData);
       } else if (status === "休み") {
-        addUserToList(offList, listData);
+        dailyLists.off.push(listData);
       } else {
-        addUserToList(otherList, listData);
+        dailyLists.other.push(listData);
       }
     });
+
+    renderDailyUserList(comingList, dailyLists.coming);
+    renderDailyUserList(homeList, dailyLists.home);
+    renderDailyUserList(offList, dailyLists.off);
+    renderDailyUserList(otherList, dailyLists.other);
 
     showEmptyTextIfNeeded();
 
