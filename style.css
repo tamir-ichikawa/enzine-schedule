@@ -4943,7 +4943,7 @@ textarea:focus {
    ========================================================= */
 .app-main-shell .staff-list-box[data-staff-panel="daily"] {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
   align-items: start;
 }
@@ -4967,6 +4967,7 @@ textarea:focus {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+  overflow: visible;
 }
 
 .app-main-shell .staff-list-box[data-staff-panel="daily"] .status-group li {
@@ -4976,19 +4977,30 @@ textarea:focus {
 
 .app-main-shell .daily-user-edit-button {
   display: inline-flex;
+  flex-wrap: nowrap;
   justify-content: flex-start;
-  width: auto;
+  width: 100%;
   max-width: 100%;
 }
 
 .daily-user-edit-name {
-  flex: 0 1 auto;
-  max-width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .daily-user-edit-time,
 .daily-user-edit-action {
   white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .app-main-shell .staff-list-box[data-staff-panel="daily"] {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
