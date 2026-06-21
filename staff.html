@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=67">
+  <link rel="stylesheet" href="style.css?v=69">
 </head>
 <body class="app-shell-body">
   <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
@@ -29,6 +29,8 @@
   <!-- STEP36_DAILY_USER_FULL_NAME_NOWRAP_20260621_V66 -->
   <!-- STEP37_DAILY_USER_NOWRAP_NO_SCROLL_20260621_V67 -->
   <!-- STEP38_DAILY_TIME_SLOT_SORT_20260621_V68 -->
+  <!-- STEP39_DAILY_TIME_SLOT_COLORS_20260621_V69 -->
+  <!-- STEP40_DAILY_LIST_REMOVE_EDIT_LABEL_20260621_V70 -->
   <main class="login-container user-page app-main-shell staff-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -86,7 +88,7 @@
     </section>
 
     <section class="staff-list-box staff-tab-panel active" data-staff-panel="daily">
-      <div class="section-heading-row"><h2>本日の一覧</h2><p class="calendar-guide">一覧表示後に更新されます。</p></div>
+      <div class="section-heading-row"><h2>本日の一覧</h2><p class="calendar-guide">利用者名をクリックすると編集できます。</p></div>
 
       <div class="status-group">
         <h3>通所</h3>
@@ -551,6 +553,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=68"></script>
+  <script type="module" src="staff.js?v=70"></script>
 </body>
 </html>
