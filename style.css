@@ -4917,6 +4917,26 @@ textarea:focus {
 
 .daily-user-edit-time {
   background: #f4efe7;
+  border: 1px solid #ded2c1;
+  color: #665d51;
+}
+
+/* STEP39_DAILY_TIME_SLOT_COLORS_20260621_V69：本日の一覧の時間帯チップを淡色で色分け */
+.daily-user-edit-time[data-time-slot="午前"] {
+  background: #edf5ec;
+  border-color: #b7cdb2;
+  color: #405c3d;
+}
+
+.daily-user-edit-time[data-time-slot="午後"] {
+  background: #fff4dc;
+  border-color: #dfc27b;
+  color: #72521e;
+}
+
+.daily-user-edit-time[data-time-slot="終日"] {
+  background: #f4efe7;
+  border-color: #ded2c1;
   color: #665d51;
 }
 

@@ -1,3 +1,5 @@
+// STEP40_DAILY_LIST_REMOVE_EDIT_LABEL_20260621_V70：本日の一覧の編集チップを外して名前クリック案内へ
+// STEP39_DAILY_TIME_SLOT_COLORS_20260621_V69：本日の一覧の時間帯チップを淡色で色分け
 // STEP38_DAILY_TIME_SLOT_SORT_20260621_V68：日別予定一覧を午前・午後・終日の順で表示
 // STEP34_WORKSHOP_FORM_TOGGLE_PREVIEW_GUIDE_20260621_V64：追加フォームをボタン開閉化・プレビュー案内色分け
 // STEP33_WORKSHOP_PREVIEW_DELETE_FILTER_20260621_V63：通常プレビュー選択・削除・非表示一覧切替
@@ -598,14 +600,10 @@ function addUserToList(listElement, data) {
   if (timeSlot) {
     const timeSlotText = document.createElement("span");
     timeSlotText.className = "daily-user-edit-time";
+    timeSlotText.dataset.timeSlot = timeSlot;
     timeSlotText.textContent = timeSlot;
     editButton.appendChild(timeSlotText);
   }
-
-  const actionText = document.createElement("span");
-  actionText.className = "daily-user-edit-action";
-  actionText.textContent = "編集";
-  editButton.appendChild(actionText);
 
   editButton.addEventListener("click", () => {
     openDailyScheduleEditFromList(data);
