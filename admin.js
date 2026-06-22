@@ -1,3 +1,4 @@
+// STEP47_BILLING_SAFETY_TEST_LABEL_20260622_V77：手動テスト中であることを明示
 // STEP46_BILLING_SAFETY_MANUAL_CONTROLS_20260622_V76：課金安全状態をAdmin画面から表示テストできるよう追加
 // STEP45_BILLING_SAFETY_MONITOR_20260622_V75：課金安全状態をAdmin画面に表示
 // STEP44_ADMIN_TOP_SWITCHER_20260622_V74：管理者用ページ切り替えをヘッダーに常時表示
@@ -240,17 +241,24 @@ function renderBillingSafetyStatus(data, options = {}) {
 
   const safetyData = data || {};
   const isLocked = safetyData.locked === true;
+  const reason = safetyData.reason || safetyData.message || "";
+  const isManualTest = reason.includes("manual_warning_test")
+    || reason.includes("manual_locked_display_test");
   const level = isLocked
     ? "locked"
     : safetyData.warning === true || safetyData.level === "warning"
       ? "warning"
       : "normal";
-  const title = isLocked
+  const title = isManualTest
+    ? "課金安全チェック：テスト中"
+    : isLocked
     ? "課金安全ロックが有効です"
     : level === "warning"
       ? "課金安全チェック：注意"
       : "課金安全チェック：通常";
-  const body = isLocked
+  const body = isManualTest
+    ? "管理者による表示テスト中です。現時点では既存機能は停止していません。実際の課金停止や利用制限ではありません。"
+    : isLocked
     ? "将来の安全停止用フラグが locked=true です。現時点の実装では表示のみで、既存機能は停止していません。"
     : level === "warning"
       ? "注意状態が記録されています。BillingやFirestore使用量を確認してください。"
@@ -258,7 +266,6 @@ function renderBillingSafetyStatus(data, options = {}) {
         ? "system/billingSafety は未作成です。安全停止は未発動として扱っています。"
         : "安全停止は未発動です。";
   const updatedText = formatAdminTimestamp(safetyData.updatedAt || safetyData.lockedAt || safetyData.createdAt);
-  const reason = safetyData.reason || safetyData.message || "";
 
   billingSafetyStatus.className = `admin-billing-safety-status ${level}`;
   billingSafetyStatus.innerHTML = "";
@@ -266,6 +273,13 @@ function renderBillingSafetyStatus(data, options = {}) {
   const titleEl = document.createElement("div");
   titleEl.className = "admin-billing-safety-title";
   titleEl.textContent = title;
+
+  if (isManualTest) {
+    const testBadge = document.createElement("span");
+    testBadge.className = "admin-billing-safety-test-badge";
+    testBadge.textContent = "テスト中";
+    titleEl.appendChild(testBadge);
+  }
 
   const bodyEl = document.createElement("div");
   bodyEl.className = "admin-billing-safety-body";
