@@ -5475,6 +5475,7 @@ textarea:focus {
    STEP47_BILLING_SAFETY_TEST_LABEL_20260622_V77：手動テスト中表示
    STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：利用者・支援員へのテスト中表示
    STEP49_ADMIN_AUTH_CREATE_USER_20260622_V79：AdminからAuthユーザー作成
+   STEP50_ADMIN_CONFIRM_INACTIVE_FILTER_SETTINGS_20260622_V80：重要操作確認・停止者フィルター
    ========================================================= */
 .admin-main-shell .admin-summary-box,
 .admin-main-shell .admin-billing-safety-box,
@@ -5750,7 +5751,7 @@ textarea:focus {
 }
 
 .admin-role-filter-toggle {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: 12px;
   border-radius: 12px;
 }

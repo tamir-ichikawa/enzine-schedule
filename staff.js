@@ -1,3 +1,5 @@
+// STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告は登録週の翌週から対象
+// STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
 // STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：支援員ページにも課金安全テスト中表示を追加
 // STEP44_ADMIN_TOP_SWITCHER_20260622_V74：管理者用の常時表示ページ切り替えを支援員ページにも表示
 // STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72：管理者だけ支援員ページからAdminへ戻れる導線を表示
@@ -25,6 +27,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
+import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：週一報告の既読互換と表示漏れ修正
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
@@ -39,6 +42,7 @@ const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
+const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
 const DAILY_TIME_SLOT_ORDER = {
@@ -129,6 +133,8 @@ const message = document.getElementById("message");
 const billingSafetyNotice = document.getElementById("billingSafetyNotice");
 const loadStaffDashboardButton = document.getElementById("loadStaffDashboardButton");
 const staffDashboardResult = document.getElementById("staffDashboardResult");
+
+setupSettingsMenuClose();
 
 const comingList = document.getElementById("comingList");
 const homeList = document.getElementById("homeList");
@@ -337,6 +343,11 @@ function formatDateId(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function parseDateId(dateId) {
+  const [yyyy, mm, dd] = dateId.split("-").map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
 function formatMonthId(year, month) {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
@@ -388,6 +399,30 @@ function getWeekStartDate(date) {
   weekStart.setDate(weekStart.getDate() + diff);
   weekStart.setHours(0, 0, 0, 0);
   return weekStart;
+}
+
+function parseOptionalDateId(dateId) {
+  if (typeof dateId !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateId)) {
+    return null;
+  }
+
+  return parseDateId(dateId);
+}
+
+function getWeeklyReportGlobalStartWeekId() {
+  return formatDateId(getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK)));
+}
+
+function getWeeklyReportStartWeekIdFromUserRecord(user) {
+  const globalStartWeekId = getWeeklyReportGlobalStartWeekId();
+  const explicitStartWeekDate = parseOptionalDateId(user?.weeklyReportStartWeek);
+
+  if (explicitStartWeekDate) {
+    const explicitStartWeekId = formatDateId(getWeekStartDate(explicitStartWeekDate));
+    return explicitStartWeekId > globalStartWeekId ? explicitStartWeekId : globalStartWeekId;
+  }
+
+  return globalStartWeekId;
 }
 
 function weekIntersectsMonth(weekStartDate, year, month) {
@@ -1382,12 +1417,13 @@ async function loadStaffDashboard() {
     const weeklyStartDate = getStaffWeeklyLastCompletedWeekStartDate();
     const weeklyStartId = formatDateId(weeklyStartDate);
     const weeklyTargetLabel = getStaffWeeklyReportRangeLabel(weeklyStartDate);
+    const weeklyUsers = filterStaffWeeklyReportEligibleUsers(users, weeklyStartId);
     let weeklySummary = null;
     let weeklyStatusError = "";
 
     try {
-      const statusMap = await loadWeeklyReportStatusMapForStaff(users);
-      weeklySummary = summarizeStaffDashboardWeeklyStatus(users, statusMap, weeklyStartId);
+      const statusMap = await loadWeeklyReportStatusMapForStaff(weeklyUsers);
+      weeklySummary = summarizeStaffDashboardWeeklyStatus(weeklyUsers, statusMap, weeklyStartId);
     } catch (error) {
       console.warn("支援員ダッシュボード：週一報告ステータスの読み込みに失敗しました。", error);
       weeklyStatusError = error.code || error.message || "ステータスを確認できませんでした。";
@@ -1452,7 +1488,8 @@ function normalizeActiveUserRecord(rawUser, fallbackOfficeId, fallbackGroupId) {
     email: rawUser.email || "",
     officeId: rawUser.officeId || fallbackOfficeId,
     groupId: rawUser.groupId || fallbackGroupId,
-    active: rawUser.active !== false
+    active: rawUser.active !== false,
+    weeklyReportStartWeek: getWeeklyReportStartWeekIdFromUserRecord(rawUser)
   };
 }
 
@@ -2052,11 +2089,24 @@ function hasOwnField(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
 }
 
+function isStaffWeeklyReportUserEligible(user, weekStartId) {
+  const startWeekId = user?.weeklyReportStartWeek || getWeeklyReportGlobalStartWeekId();
+  return weekStartId >= startWeekId;
+}
+
+function filterStaffWeeklyReportEligibleUsers(users, weekStartId) {
+  return users.filter((user) => isStaffWeeklyReportUserEligible(user, weekStartId));
+}
+
 function hasStaffFeedbackForReport(report) {
   return Boolean(report?.staffFeedbackText || report?.staffFeedbackVersion);
 }
 
 async function loadWeeklyReportStatusMapForStaff(users) {
+  if (!users.length) {
+    return {};
+  }
+
   const targetUserIds = new Set(users.map((user) => user.id));
   const statusQuery = query(
     collection(db, WEEKLY_REPORT_STATUS_COLLECTION),
@@ -2429,7 +2479,9 @@ async function loadStaffWeeklyReports() {
   hideStaffWeeklyReportDetail();
 
   try {
-    const users = await loadActiveUsersForStaff();
+    const allUsers = await loadActiveUsersForStaff();
+    const users = filterStaffWeeklyReportEligibleUsers(allUsers, weekStartId);
+    const excludedUserCount = allUsers.length - users.length;
     let statusMap = {};
     try {
       statusMap = await loadWeeklyReportStatusMapForStaff(users);
@@ -2484,7 +2536,10 @@ async function loadStaffWeeklyReports() {
     staffWeeklyReportCache[weekStartId] = { submittedReports, missingUsers };
 
     renderStaffWeeklyReportResult(false);
-    setStaffWeeklyReportMessage(`提出状況を表示しました。提出済み${submittedReports.length}人、未提出${missingUsers.length}人。`, "green");
+    setStaffWeeklyReportMessage(
+      `提出状況を表示しました。提出済み${submittedReports.length}人、未提出${missingUsers.length}人${excludedUserCount ? `、登録週前の対象外${excludedUserCount}人` : ""}。`,
+      "green"
+    );
     console.log(`[Read節約] 週一報告管理：weeklyReportUserStatusを優先して提出状況を確認。ステータス未整備の${fallbackReportReads}件だけweeklyReportsを確認しました。以後この週はキャッシュ表示。`);
   } catch (error) {
     console.error("週一報告管理 読み込みエラー:", error);

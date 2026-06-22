@@ -11,6 +11,8 @@ const FieldValue = admin.firestore.FieldValue;
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
+const WEEKLY_REPORT_START_WEEK = "2026-06-15";
+const JST_OFFSET_MINUTES = 9 * 60;
 const VALID_ROLES = new Set(["user", "staff", "admin"]);
 
 function cleanText(value, fallback = "", maxLength = 120) {
@@ -57,6 +59,99 @@ function cleanRole(value) {
   }
 
   return role;
+}
+
+function formatDateId(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseDateId(dateId) {
+  const [yyyy, mm, dd] = dateId.split("-").map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+function getWeekStartDate(date) {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = weekStart.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + diff);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function getDateFromTimestampLike(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (typeof value.seconds === "number") {
+    return new Date(value.seconds * 1000);
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
+
+function formatJstDateIdFromDate(date) {
+  const jstDate = new Date(date.getTime() + JST_OFFSET_MINUTES * 60 * 1000);
+  const yyyy = jstDate.getUTCFullYear();
+  const mm = String(jstDate.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(jstDate.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseOptionalDateId(dateId) {
+  if (typeof dateId !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateId)) {
+    return null;
+  }
+
+  return parseDateId(dateId);
+}
+
+function getWeeklyReportGlobalStartWeekId() {
+  return formatDateId(getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK)));
+}
+
+function getWeeklyReportStartWeekIdFromUserRecord(user) {
+  const globalStartWeekId = getWeeklyReportGlobalStartWeekId();
+  const explicitStartWeekDate = parseOptionalDateId(user?.weeklyReportStartWeek);
+
+  if (explicitStartWeekDate) {
+    const explicitStartWeekId = formatDateId(getWeekStartDate(explicitStartWeekDate));
+    return explicitStartWeekId > globalStartWeekId ? explicitStartWeekId : globalStartWeekId;
+  }
+
+  return globalStartWeekId;
+}
+
+function getWeeklyReportStartWeekIdForRegistrationDate(value) {
+  const globalStartWeekId = getWeeklyReportGlobalStartWeekId();
+  const createdAtDate = getDateFromTimestampLike(value);
+
+  if (!createdAtDate) {
+    return globalStartWeekId;
+  }
+
+  const createdDateId = formatJstDateIdFromDate(createdAtDate);
+  const createdWeekId = formatDateId(getWeekStartDate(parseDateId(createdDateId)));
+
+  return createdWeekId > globalStartWeekId ? createdWeekId : globalStartWeekId;
 }
 
 async function assertCallerIsAdmin(request) {
@@ -107,6 +202,7 @@ function normalizeActiveUser(docSnap, currentOfficeId, defaultGroupId) {
     email: data.email || "",
     officeId,
     groupId: data.groupId || defaultGroupId,
+    weeklyReportStartWeek: getWeeklyReportStartWeekIdFromUserRecord(data),
     active: true
   };
 }
@@ -153,6 +249,7 @@ exports.createAuthUserAndProfile = onCall({
   const officeId = cleanText(data.officeId, caller.officeId, 80);
   const groupId = cleanText(data.groupId, caller.groupId, 80);
   const updatedByName = caller.name || caller.email || "";
+  const weeklyReportStartWeek = getWeeklyReportStartWeekIdForRegistrationDate(new Date());
 
   if (!name) {
     throw new HttpsError("invalid-argument", "Name is required.");
@@ -187,6 +284,7 @@ exports.createAuthUserAndProfile = onCall({
       active,
       officeId,
       groupId,
+      weeklyReportStartWeek,
       authCreatedByAdmin: true,
       createdAt: FieldValue.serverTimestamp(),
       createdByUid: caller.uid,

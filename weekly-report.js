@@ -1,3 +1,5 @@
+// STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
+// STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告は登録週の翌週から記入
 // STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
@@ -9,6 +11,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
+import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読・ロック表示を安定化
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
@@ -18,6 +21,7 @@ import { auth, db } from "./firebase-config.js";
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const NO_ACTIVITY_VALUE = "わからない/活動なし（追加質問あり）";
+const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
 
@@ -53,6 +57,8 @@ const nextWeekText = document.getElementById("nextWeekText");
 const otherText = document.getElementById("otherText");
 const weeklyQuickFillButtons = document.querySelectorAll("[data-weekly-fill-target]");
 
+setupSettingsMenuClose();
+
 // 利用者ページではコピー用テキストを表示しない。
 // コピー用テキスト化は支援員ページ側で扱う。
 const saveWeeklyReportButton = document.getElementById("saveWeeklyReportButton");
@@ -61,6 +67,7 @@ let currentUser = null;
 let currentUserData = null;
 let baseLastWeekStartDate = null;
 let displayedWeekStartDate = null;
+let weeklyReportStartWeekDate = null;
 let currentLoadedReport = null;
 
 function formatDateId(date) {
@@ -95,6 +102,60 @@ function getLastCompletedWeekStartDate() {
   const today = new Date();
   const thisWeekStart = getWeekStartDate(today);
   return addDays(thisWeekStart, -7);
+}
+
+function parseOptionalDateId(dateId) {
+  if (typeof dateId !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateId)) {
+    return null;
+  }
+
+  return parseDateId(dateId);
+}
+
+function getWeeklyReportStartWeekDateForUser(userData) {
+  const globalStartWeekDate = getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK));
+  const explicitStartWeekDate = parseOptionalDateId(userData?.weeklyReportStartWeek);
+
+  if (explicitStartWeekDate) {
+    const normalizedExplicitStart = getWeekStartDate(explicitStartWeekDate);
+    return normalizedExplicitStart > globalStartWeekDate
+      ? normalizedExplicitStart
+      : globalStartWeekDate;
+  }
+
+  return globalStartWeekDate;
+}
+
+function getDefaultDisplayedWeekStartDate() {
+  if (!baseLastWeekStartDate) {
+    return null;
+  }
+
+  if (weeklyReportStartWeekDate && baseLastWeekStartDate < weeklyReportStartWeekDate) {
+    return new Date(weeklyReportStartWeekDate);
+  }
+
+  return new Date(baseLastWeekStartDate);
+}
+
+function isWeeklyReportWeekEligible(weekStartDate) {
+  if (!weekStartDate || !baseLastWeekStartDate || !weeklyReportStartWeekDate) {
+    return false;
+  }
+
+  return weekStartDate >= weeklyReportStartWeekDate && weekStartDate <= baseLastWeekStartDate;
+}
+
+function getWeeklyReportNotEligibleMessage(weekStartDate) {
+  if (weeklyReportStartWeekDate && baseLastWeekStartDate && baseLastWeekStartDate < weeklyReportStartWeekDate) {
+    return "週一報告は登録した週が終わった翌週から記入できます。";
+  }
+
+  if (weeklyReportStartWeekDate && weekStartDate < weeklyReportStartWeekDate) {
+    return "この週は登録前のため、週一報告の対象外です。";
+  }
+
+  return "この週はまだ週一報告の対象外です。";
 }
 
 function formatJapaneseDate(dateId) {
@@ -136,6 +197,7 @@ async function mergeWeeklyReportStatusCache(updateData) {
       userEmail: currentUser.email || "",
       officeId: getOfficeId(),
       groupId: getGroupId(),
+      weeklyReportStartWeek: weeklyReportStartWeekDate ? formatDateId(weeklyReportStartWeekDate) : "",
       schemaVersion: WEEKLY_REPORT_STATUS_SCHEMA_VERSION,
       ...updateData,
       updatedAt: serverTimestamp()
@@ -428,14 +490,24 @@ function resetFeedbackAndReadOnly() {
 }
 function updateWeekHeader() {
   const weekStartId = formatDateId(displayedWeekStartDate);
-  const weekEndId = formatDateId(addDays(displayedWeekStartDate, 4));
   const isLastWeek = weekStartId === formatDateId(baseLastWeekStartDate);
+  const hasEligibleWeek = weeklyReportStartWeekDate && baseLastWeekStartDate >= weeklyReportStartWeekDate;
 
-  weeklyReportTitle.textContent = isLastWeek ? "先週分の報告" : "過去の週一報告";
+  weeklyReportTitle.textContent = hasEligibleWeek
+    ? (isLastWeek ? "先週分の報告" : "過去の週一報告")
+    : "週一報告は次週から";
   weeklyReportTargetText.textContent = `対象週：${getJapaneseWeekRange(displayedWeekStartDate)}`;
 
+  if (prevReportWeekButton) {
+    prevReportWeekButton.disabled = !hasEligibleWeek || displayedWeekStartDate <= weeklyReportStartWeekDate;
+  }
+
+  if (currentReportWeekButton) {
+    currentReportWeekButton.disabled = !hasEligibleWeek;
+  }
+
   if (nextReportWeekButton) {
-    nextReportWeekButton.disabled = displayedWeekStartDate >= baseLastWeekStartDate;
+    nextReportWeekButton.disabled = !hasEligibleWeek || displayedWeekStartDate >= baseLastWeekStartDate;
   }
 }
 
@@ -451,6 +523,13 @@ async function loadWeeklyReport() {
   setMessage("");
   renderCopyText(null);
   resetFeedbackAndReadOnly();
+
+  if (!isWeeklyReportWeekEligible(displayedWeekStartDate)) {
+    weeklyReportStatusText.textContent = getWeeklyReportNotEligibleMessage(displayedWeekStartDate);
+    weeklyReportStatusText.className = "weekly-report-status-text";
+    setWeeklyReportFormVisible(false);
+    return;
+  }
 
   try {
     const weekStartDate = formatDateId(displayedWeekStartDate);
@@ -544,6 +623,11 @@ async function saveWeeklyReport(event) {
     return;
   }
 
+  if (!isWeeklyReportWeekEligible(displayedWeekStartDate)) {
+    setMessage(getWeeklyReportNotEligibleMessage(displayedWeekStartDate), "red");
+    return;
+  }
+
   const validationMessage = validateForm();
   if (validationMessage) {
     setMessage(validationMessage, "red");
@@ -613,7 +697,7 @@ function changeDisplayedWeek(offsetWeeks) {
   const nextWeekStart = addDays(displayedWeekStartDate, offsetWeeks * 7);
 
   // 未来週の報告は作らない。最新は「先週分」まで。
-  if (nextWeekStart > baseLastWeekStartDate) {
+  if (nextWeekStart > baseLastWeekStartDate || nextWeekStart < weeklyReportStartWeekDate) {
     return;
   }
 
@@ -631,7 +715,7 @@ function getRequestedWeekStartDate() {
 
   try {
     const parsed = getWeekStartDate(parseDateId(weekStart));
-    if (parsed > baseLastWeekStartDate) {
+    if (parsed > baseLastWeekStartDate || parsed < weeklyReportStartWeekDate) {
       return null;
     }
     return parsed;
@@ -701,7 +785,7 @@ prevReportWeekButton.addEventListener("click", () => {
 });
 
 currentReportWeekButton.addEventListener("click", () => {
-  displayedWeekStartDate = new Date(baseLastWeekStartDate);
+  displayedWeekStartDate = getDefaultDisplayedWeekStartDate();
   loadWeeklyReport();
 });
 
@@ -760,7 +844,8 @@ onAuthStateChanged(auth, async (user) => {
     weeklyReportUserInfo.textContent = `${currentUserData.name || user.email}さん`;
 
     baseLastWeekStartDate = getLastCompletedWeekStartDate();
-    displayedWeekStartDate = getRequestedWeekStartDate() || new Date(baseLastWeekStartDate);
+    weeklyReportStartWeekDate = getWeeklyReportStartWeekDateForUser(currentUserData);
+    displayedWeekStartDate = getRequestedWeekStartDate() || getDefaultDisplayedWeekStartDate();
 
     await loadWeeklyReport();
   } catch (error) {
