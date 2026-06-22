@@ -5474,6 +5474,7 @@ textarea:focus {
    STEP46_BILLING_SAFETY_MANUAL_CONTROLS_20260622_V76：課金安全状態の手動テスト操作
    STEP47_BILLING_SAFETY_TEST_LABEL_20260622_V77：手動テスト中表示
    STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：利用者・支援員へのテスト中表示
+   STEP49_ADMIN_AUTH_CREATE_USER_20260622_V79：AdminからAuthユーザー作成
    ========================================================= */
 .admin-main-shell .admin-summary-box,
 .admin-main-shell .admin-billing-safety-box,
@@ -5668,6 +5669,31 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.admin-create-mode-toggle {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 8px;
+  border-radius: 12px;
+}
+
+.admin-create-mode-toggle .view-toggle-button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.admin-create-mode-toggle .view-toggle-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+  transform: none;
+}
+
+.admin-create-mode-note {
+  margin: -2px 0 12px;
+  color: #7f7467;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
 }
 
 .admin-form-row {
@@ -5889,6 +5915,10 @@ textarea:focus {
 
   .admin-role-filter-toggle {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 14px;
+  }
+
+  .admin-create-mode-toggle {
     border-radius: 14px;
   }
 
