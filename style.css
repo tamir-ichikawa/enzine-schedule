@@ -5470,8 +5470,14 @@ textarea:focus {
    STEP41_ADMIN_USER_MANAGEMENT_20260622_V71：管理者用 利用者管理
    STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72：登録ユーザーの権限フィルター
    STEP44_ADMIN_TOP_SWITCHER_20260622_V74：管理者用ページ切り替えをヘッダーに常時表示
+   STEP45_BILLING_SAFETY_MONITOR_20260622_V75：課金安全状態の表示
+   STEP46_BILLING_SAFETY_MANUAL_CONTROLS_20260622_V76：課金安全状態の手動テスト操作
+   STEP47_BILLING_SAFETY_TEST_LABEL_20260622_V77：手動テスト中表示
+   STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：利用者・支援員へのテスト中表示
+   STEP49_ADMIN_AUTH_CREATE_USER_20260622_V79：AdminからAuthユーザー作成
    ========================================================= */
 .admin-main-shell .admin-summary-box,
+.admin-main-shell .admin-billing-safety-box,
 .admin-main-shell .admin-user-form-box,
 .admin-main-shell .admin-user-list-box {
   min-width: 0;
@@ -5524,6 +5530,134 @@ textarea:focus {
   box-shadow: inset 0 0 0 1px rgba(111, 143, 114, 0.22), 0 2px 6px rgba(84, 72, 58, 0.08);
 }
 
+.admin-billing-safety-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-billing-safety-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-billing-safety-actions button {
+  flex: 1 1 160px;
+}
+
+.admin-billing-safety-status {
+  padding: 14px;
+  border: 1px solid #b7cdb2;
+  border-left: 4px solid #8aae7b;
+  border-radius: 12px;
+  background: #edf5ec;
+  color: #405c3d;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.admin-billing-safety-status.warning {
+  background: #fff4dc;
+  border-color: #dfc27b;
+  border-left-color: #d19a5b;
+  color: #72521e;
+}
+
+.admin-billing-safety-status.locked {
+  background: #fff1ed;
+  border-color: #ddb8ad;
+  border-left-color: #a56759;
+  color: #7a4a40;
+}
+
+.admin-billing-safety-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.admin-billing-safety-test-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid #dfc27b;
+  border-radius: 999px;
+  background: #fff4dc;
+  color: #72521e;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.billing-safety-public-notice {
+  padding: 12px 14px;
+  border: 1px solid #dfc27b;
+  border-left: 4px solid #d19a5b;
+  border-radius: 12px;
+  background: #fff4dc;
+  color: #72521e;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.billing-safety-public-notice.locked {
+  background: #fff1ed;
+  border-color: #ddb8ad;
+  border-left-color: #a56759;
+  color: #7a4a40;
+}
+
+.billing-safety-public-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.billing-safety-public-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid #dfc27b;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #72521e;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.billing-safety-public-body {
+  margin-top: 5px;
+  color: #51483e;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admin-billing-safety-body {
+  margin-top: 6px;
+  color: #51483e;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admin-billing-safety-meta {
+  margin-top: 8px;
+  color: #7f7467;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .admin-user-layout {
   display: grid;
   grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.3fr);
@@ -5535,6 +5669,31 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.admin-create-mode-toggle {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 8px;
+  border-radius: 12px;
+}
+
+.admin-create-mode-toggle .view-toggle-button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.admin-create-mode-toggle .view-toggle-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+  transform: none;
+}
+
+.admin-create-mode-note {
+  margin: -2px 0 12px;
+  color: #7f7467;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
 }
 
 .admin-form-row {
@@ -5721,12 +5880,45 @@ textarea:focus {
     font-size: 14px;
   }
 
+  .admin-billing-safety-title {
+    font-size: 18px;
+  }
+
+  .admin-billing-safety-body {
+    font-size: 16px;
+  }
+
+  .admin-billing-safety-meta {
+    font-size: 14px;
+  }
+
+  .billing-safety-public-title {
+    font-size: 18px;
+  }
+
+  .billing-safety-public-body {
+    font-size: 16px;
+  }
+
+  .admin-billing-safety-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-billing-safety-actions button {
+    width: 100%;
+  }
+
   .admin-form-row {
     grid-template-columns: 1fr;
   }
 
   .admin-role-filter-toggle {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 14px;
+  }
+
+  .admin-create-mode-toggle {
     border-radius: 14px;
   }
 

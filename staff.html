@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=74">
+  <link rel="stylesheet" href="style.css?v=78">
 </head>
 <body class="app-shell-body">
   <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
@@ -33,6 +33,7 @@
   <!-- STEP40_DAILY_LIST_REMOVE_EDIT_LABEL_20260621_V70 -->
   <!-- STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72 -->
   <!-- STEP44_ADMIN_TOP_SWITCHER_20260622_V74 -->
+  <!-- STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78 -->
   <main class="login-container user-page app-main-shell staff-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -67,6 +68,8 @@
       <button type="button" class="page-tab-button" data-staff-tab="weekly-reports">週一報告</button>
       <button type="button" class="page-tab-button" data-staff-tab="operation">運用チェック</button>
     </nav>
+
+    <section id="billingSafetyNotice" class="billing-safety-public-notice hidden" aria-live="polite"></section>
 
     <section class="monthly-calendar-box staff-dashboard-box staff-tab-panel active" data-staff-panel="daily">
       <div class="section-heading-row"><h2>今日の概況</h2><p class="calendar-guide">必要な時だけ集計</p></div>
@@ -559,6 +562,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=74"></script>
+  <script type="module" src="staff.js?v=78"></script>
 </body>
 </html>

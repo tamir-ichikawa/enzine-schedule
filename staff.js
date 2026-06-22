@@ -1,3 +1,4 @@
+// STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：支援員ページにも課金安全テスト中表示を追加
 // STEP44_ADMIN_TOP_SWITCHER_20260622_V74：管理者用の常時表示ページ切り替えを支援員ページにも表示
 // STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72：管理者だけ支援員ページからAdminへ戻れる導線を表示
 // STEP40_DAILY_LIST_REMOVE_EDIT_LABEL_20260621_V70：本日の一覧の編集チップを外して名前クリック案内へ
@@ -37,6 +38,7 @@ import { auth, db } from "./firebase-config.js";
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
+const BILLING_SAFETY_DOC_ID = "billingSafety";
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
 const DAILY_TIME_SLOT_ORDER = {
@@ -124,6 +126,7 @@ const logoutButton = document.getElementById("logoutButton");
 const openAdminPageButton = document.getElementById("openAdminPageButton");
 const staffAdminTopNav = document.getElementById("staffAdminTopNav");
 const message = document.getElementById("message");
+const billingSafetyNotice = document.getElementById("billingSafetyNotice");
 const loadStaffDashboardButton = document.getElementById("loadStaffDashboardButton");
 const staffDashboardResult = document.getElementById("staffDashboardResult");
 
@@ -550,6 +553,70 @@ function buildTimeText(startTime, endTime) {
   }
 
   return "";
+}
+
+function isManualBillingSafetyTest(data) {
+  const reason = data?.reason || data?.message || "";
+  return reason.includes("manual_warning_test") || reason.includes("manual_locked_display_test");
+}
+
+function renderBillingSafetyNotice(data) {
+  if (!billingSafetyNotice) {
+    return;
+  }
+
+  const isLocked = data?.locked === true;
+  const isWarning = data?.warning === true || data?.level === "warning";
+  const isManualTest = isManualBillingSafetyTest(data);
+
+  if (!isLocked && !isWarning && !isManualTest) {
+    billingSafetyNotice.classList.add("hidden");
+    billingSafetyNotice.textContent = "";
+    return;
+  }
+
+  billingSafetyNotice.className = `billing-safety-public-notice ${isLocked ? "locked" : "warning"}`;
+  billingSafetyNotice.innerHTML = "";
+
+  const title = document.createElement("div");
+  title.className = "billing-safety-public-title";
+  title.textContent = isManualTest ? "課金安全チェック：テスト中" : "課金安全チェック中";
+
+  if (isManualTest) {
+    const badge = document.createElement("span");
+    badge.className = "billing-safety-public-badge";
+    badge.textContent = "テスト中";
+    title.appendChild(badge);
+  }
+
+  const body = document.createElement("div");
+  body.className = "billing-safety-public-body";
+  body.textContent = isManualTest
+    ? "管理者が安全表示をテストしています。通常通り利用できます。"
+    : "安全確認中です。必要に応じて管理者から案内します。";
+
+  billingSafetyNotice.appendChild(title);
+  billingSafetyNotice.appendChild(body);
+}
+
+async function loadBillingSafetyNotice() {
+  if (!billingSafetyNotice) {
+    return;
+  }
+
+  try {
+    const docSnap = await getDoc(doc(db, "system", BILLING_SAFETY_DOC_ID));
+
+    if (!docSnap.exists()) {
+      renderBillingSafetyNotice(null);
+      return;
+    }
+
+    renderBillingSafetyNotice(docSnap.data() || {});
+  } catch (error) {
+    console.warn("課金安全表示の読み込みに失敗しました。", error);
+    renderBillingSafetyNotice(null);
+  }
 }
 
 function clearLists() {
@@ -4938,6 +5005,8 @@ onAuthStateChanged(auth, async (user) => {
     if (staffAdminTopNav && userData.role === "admin") {
       staffAdminTopNav.classList.remove("hidden");
     }
+
+    loadBillingSafetyNotice();
 
     targetDate.value = getTodayDateId();
 

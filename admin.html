@@ -4,13 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>管理者ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=74">
+  <link rel="stylesheet" href="style.css?v=79">
 </head>
 <body class="app-shell-body">
   <!-- STEP41_ADMIN_USER_MANAGEMENT_20260622_V71 -->
   <!-- STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72 -->
   <!-- STEP43_ADMIN_TO_STAFF_NAV_20260622_V73 -->
   <!-- STEP44_ADMIN_TOP_SWITCHER_20260622_V74 -->
+  <!-- STEP45_BILLING_SAFETY_MONITOR_20260622_V75 -->
+  <!-- STEP46_BILLING_SAFETY_MANUAL_CONTROLS_20260622_V76 -->
+  <!-- STEP47_BILLING_SAFETY_TEST_LABEL_20260622_V77 -->
+  <!-- STEP49_ADMIN_AUTH_CREATE_USER_20260622_V79 -->
   <main class="login-container user-page app-main-shell staff-main-shell admin-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -37,10 +41,28 @@
       </div>
     </header>
 
+    <section class="monthly-calendar-box admin-billing-safety-box">
+      <div class="section-heading-row">
+        <h2>課金安全チェック</h2>
+        <p class="calendar-guide">予算アラート連携用の安全状態を確認します。現時点では表示のみで、既存機能は止めません。</p>
+      </div>
+
+      <div id="billingSafetyStatus" class="admin-billing-safety-status normal">
+        読み込み中...
+      </div>
+
+      <div class="admin-billing-safety-actions">
+        <button id="reloadBillingSafetyButton" type="button" class="small-button">安全状態を再確認</button>
+        <button id="resetBillingSafetyButton" type="button" class="small-button">通常に戻す</button>
+        <button id="testBillingWarningButton" type="button" class="small-button">注意テスト</button>
+        <button id="testBillingLockedButton" type="button" class="small-button danger-button">ロック表示テスト</button>
+      </div>
+    </section>
+
     <section class="monthly-calendar-box admin-summary-box">
       <div class="section-heading-row">
         <h2>利用者管理</h2>
-        <p class="calendar-guide">Auth作成済みのUIDを登録し、表示名・権限・利用可否を管理します。</p>
+        <p class="calendar-guide">Authユーザーの新規作成、または作成済みUIDの登録で、表示名・権限・利用可否を管理します。</p>
       </div>
 
       <div id="adminUserSummary" class="operation-check-result admin-user-summary">
@@ -52,11 +74,17 @@
       <section class="login-box admin-user-form-box">
         <div class="section-heading-row">
           <h2 id="adminUserFormTitle">利用者を追加</h2>
-          <p class="calendar-guide">Firebase AuthのUIDを users に登録します。</p>
+          <p class="calendar-guide">新規登録はAuthユーザーも同時に作成できます。既存UIDの登録も残しています。</p>
         </div>
 
+        <div class="calendar-view-toggle admin-create-mode-toggle" aria-label="登録方法の切り替え">
+          <button type="button" class="view-toggle-button active" data-admin-create-mode="uid">UIDを登録</button>
+          <button type="button" class="view-toggle-button" data-admin-create-mode="auth">Authも作成</button>
+        </div>
+        <p id="adminUserCreateModeNote" class="admin-create-mode-note">Firebase Authで作成済みのUIDを users に登録します。</p>
+
         <form id="adminUserForm" class="admin-user-form">
-          <label>
+          <label id="adminUserUidLabel">
             UID
             <input type="text" id="adminUserUid" autocomplete="off" placeholder="Firebase Auth の UID">
           </label>
@@ -69,6 +97,11 @@
           <label>
             メールアドレス
             <input type="email" id="adminUserEmail" autocomplete="off" placeholder="example@example.com">
+          </label>
+
+          <label id="adminUserPasswordLabel" class="hidden">
+            初期パスワード
+            <input type="password" id="adminUserPassword" autocomplete="new-password" placeholder="6文字以上">
           </label>
 
           <div class="admin-form-row">
@@ -136,6 +169,6 @@
     </div>
   </main>
 
-  <script type="module" src="admin.js?v=74"></script>
+  <script type="module" src="admin.js?v=79"></script>
 </body>
 </html>

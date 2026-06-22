@@ -1,3 +1,4 @@
+// STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：利用者ページにも課金安全テスト中表示を追加
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
 import {
@@ -38,6 +39,7 @@ const WEEKLY_REPORT_FEEDBACK_CHECK_WEEKS = 12;
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
 const LAST_SCHEDULE_INPUT_STORAGE_KEY = "enzineLastScheduleInput";
+const BILLING_SAFETY_DOC_ID = "billingSafety";
 
 
 const userInfo = document.getElementById("userInfo");
@@ -81,6 +83,7 @@ const weeklyReportReminderCount = document.getElementById("weeklyReportReminderC
 const weeklyReportReminderText = document.getElementById("weeklyReportReminderText");
 const weeklyReportReminderList = document.getElementById("weeklyReportReminderList");
 const weeklyReportHomeStatus = document.getElementById("weeklyReportHomeStatus");
+const billingSafetyNotice = document.getElementById("billingSafetyNotice");
 
 
 const scheduleModal = document.getElementById("scheduleModal");
@@ -1903,6 +1906,70 @@ async function loadWeeklyReportReminder() {
   }
 }
 
+function isManualBillingSafetyTest(data) {
+  const reason = data?.reason || data?.message || "";
+  return reason.includes("manual_warning_test") || reason.includes("manual_locked_display_test");
+}
+
+function renderBillingSafetyNotice(data) {
+  if (!billingSafetyNotice) {
+    return;
+  }
+
+  const isLocked = data?.locked === true;
+  const isWarning = data?.warning === true || data?.level === "warning";
+  const isManualTest = isManualBillingSafetyTest(data);
+
+  if (!isLocked && !isWarning && !isManualTest) {
+    billingSafetyNotice.classList.add("hidden");
+    billingSafetyNotice.textContent = "";
+    return;
+  }
+
+  billingSafetyNotice.className = `billing-safety-public-notice ${isLocked ? "locked" : "warning"}`;
+  billingSafetyNotice.innerHTML = "";
+
+  const title = document.createElement("div");
+  title.className = "billing-safety-public-title";
+  title.textContent = isManualTest ? "課金安全チェック：テスト中" : "課金安全チェック中";
+
+  if (isManualTest) {
+    const badge = document.createElement("span");
+    badge.className = "billing-safety-public-badge";
+    badge.textContent = "テスト中";
+    title.appendChild(badge);
+  }
+
+  const body = document.createElement("div");
+  body.className = "billing-safety-public-body";
+  body.textContent = isManualTest
+    ? "管理者が安全表示をテストしています。通常通り利用できます。"
+    : "安全確認中です。必要に応じて管理者から案内します。";
+
+  billingSafetyNotice.appendChild(title);
+  billingSafetyNotice.appendChild(body);
+}
+
+async function loadBillingSafetyNotice() {
+  if (!billingSafetyNotice) {
+    return;
+  }
+
+  try {
+    const docSnap = await getDoc(doc(db, "system", BILLING_SAFETY_DOC_ID));
+
+    if (!docSnap.exists()) {
+      renderBillingSafetyNotice(null);
+      return;
+    }
+
+    renderBillingSafetyNotice(docSnap.data() || {});
+  } catch (error) {
+    console.warn("課金安全表示の読み込みに失敗しました。", error);
+    renderBillingSafetyNotice(null);
+  }
+}
+
 // ログイン状態を確認する
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -1933,6 +2000,7 @@ onAuthStateChanged(auth, async (user) => {
 
     userInfo.textContent = `${userData.name}さん`;
 
+    loadBillingSafetyNotice();
     await loadWeeklyReportReminder();
     await loadMonthlyCalendar();
 
