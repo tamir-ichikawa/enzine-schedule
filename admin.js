@@ -1,3 +1,5 @@
+// STEP46_BILLING_SAFETY_MANUAL_CONTROLS_20260622_V76：課金安全状態をAdmin画面から表示テストできるよう追加
+// STEP45_BILLING_SAFETY_MONITOR_20260622_V75：課金安全状態をAdmin画面に表示
 // STEP44_ADMIN_TOP_SWITCHER_20260622_V74：管理者用ページ切り替えをヘッダーに常時表示
 // STEP43_ADMIN_TO_STAFF_NAV_20260622_V73：管理者画面から支援員ページへ移動できる導線を追加
 // STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72：登録ユーザーの権限フィルターと管理者導線整理
@@ -18,10 +20,16 @@ import { auth, db } from "./firebase-config.js";
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
+const BILLING_SAFETY_DOC_ID = "billingSafety";
 
 const adminInfo = document.getElementById("adminInfo");
 const logoutButton = document.getElementById("logoutButton");
 const openStaffPageButton = document.getElementById("openStaffPageButton");
+const billingSafetyStatus = document.getElementById("billingSafetyStatus");
+const reloadBillingSafetyButton = document.getElementById("reloadBillingSafetyButton");
+const resetBillingSafetyButton = document.getElementById("resetBillingSafetyButton");
+const testBillingWarningButton = document.getElementById("testBillingWarningButton");
+const testBillingLockedButton = document.getElementById("testBillingLockedButton");
 const adminUserSummary = document.getElementById("adminUserSummary");
 const adminUserList = document.getElementById("adminUserList");
 const adminUserRoleFilterButtons = document.querySelectorAll("[data-admin-role-filter]");
@@ -70,6 +78,22 @@ function setButtonLoading(button, isLoading, loadingText, defaultText) {
 
   button.disabled = isLoading;
   button.textContent = isLoading ? loadingText : defaultText;
+}
+
+function formatAdminTimestamp(value) {
+  if (!value) {
+    return "未記録";
+  }
+
+  if (typeof value.toDate === "function") {
+    return value.toDate().toLocaleString("ja-JP");
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return "未記録";
 }
 
 function getRoleLabel(role) {
@@ -207,6 +231,95 @@ function renderAdminUserSummary(users) {
   appendSummaryCard(grid, "管理者", `${adminUsers.length}人`, "Activeな管理者");
 
   adminUserSummary.appendChild(grid);
+}
+
+function renderBillingSafetyStatus(data, options = {}) {
+  if (!billingSafetyStatus) {
+    return;
+  }
+
+  const safetyData = data || {};
+  const isLocked = safetyData.locked === true;
+  const level = isLocked
+    ? "locked"
+    : safetyData.warning === true || safetyData.level === "warning"
+      ? "warning"
+      : "normal";
+  const title = isLocked
+    ? "課金安全ロックが有効です"
+    : level === "warning"
+      ? "課金安全チェック：注意"
+      : "課金安全チェック：通常";
+  const body = isLocked
+    ? "将来の安全停止用フラグが locked=true です。現時点の実装では表示のみで、既存機能は停止していません。"
+    : level === "warning"
+      ? "注意状態が記録されています。BillingやFirestore使用量を確認してください。"
+      : options.missing
+        ? "system/billingSafety は未作成です。安全停止は未発動として扱っています。"
+        : "安全停止は未発動です。";
+  const updatedText = formatAdminTimestamp(safetyData.updatedAt || safetyData.lockedAt || safetyData.createdAt);
+  const reason = safetyData.reason || safetyData.message || "";
+
+  billingSafetyStatus.className = `admin-billing-safety-status ${level}`;
+  billingSafetyStatus.innerHTML = "";
+
+  const titleEl = document.createElement("div");
+  titleEl.className = "admin-billing-safety-title";
+  titleEl.textContent = title;
+
+  const bodyEl = document.createElement("div");
+  bodyEl.className = "admin-billing-safety-body";
+  bodyEl.textContent = body;
+
+  const metaEl = document.createElement("div");
+  metaEl.className = "admin-billing-safety-meta";
+  metaEl.textContent = reason
+    ? `理由: ${reason} / 更新: ${updatedText}`
+    : `更新: ${updatedText}`;
+
+  billingSafetyStatus.appendChild(titleEl);
+  billingSafetyStatus.appendChild(bodyEl);
+  billingSafetyStatus.appendChild(metaEl);
+}
+
+async function loadBillingSafetyStatus(options = {}) {
+  if (billingSafetyStatus && !options.silent) {
+    billingSafetyStatus.className = "admin-billing-safety-status normal";
+    billingSafetyStatus.textContent = "課金安全状態を確認中...";
+  }
+
+  const docSnap = await getDoc(doc(db, "system", BILLING_SAFETY_DOC_ID));
+
+  if (!docSnap.exists()) {
+    renderBillingSafetyStatus(null, { missing: true });
+    return null;
+  }
+
+  const data = docSnap.data() || {};
+  renderBillingSafetyStatus(data);
+  return data;
+}
+
+function buildBillingSafetyUpdate({ locked, warning, level, reason }) {
+  return {
+    locked: locked === true,
+    warning: warning === true,
+    level: level || "normal",
+    reason: reason || "",
+    updatedAt: serverTimestamp(),
+    updatedByUid: currentUser?.uid || "",
+    updatedByName: currentAdminData?.name || currentUser?.email || ""
+  };
+}
+
+async function updateBillingSafetyStatus(nextState, successMessage) {
+  await setDoc(
+    doc(db, "system", BILLING_SAFETY_DOC_ID),
+    buildBillingSafetyUpdate(nextState),
+    { merge: true }
+  );
+  await loadBillingSafetyStatus({ silent: true });
+  setAdminUserMessage(successMessage, "green");
 }
 
 function buildRoleBadge(user) {
@@ -536,7 +649,10 @@ onAuthStateChanged(auth, async (user) => {
 
     adminInfo.textContent = `管理者｜${userData.name || user.email}`;
     resetAdminUserForm();
-    await loadAdminUsers();
+    await Promise.all([
+      loadBillingSafetyStatus(),
+      loadAdminUsers()
+    ]);
   } catch (error) {
     console.error("Admin初期化エラー:", error);
     alert(`管理者ページの読み込みに失敗しました：${error.code || error.message}`);
@@ -561,6 +677,89 @@ reloadAdminUsersButton.addEventListener("click", async () => {
     setButtonLoading(reloadAdminUsersButton, false, "読み込み中...", "再読み込み");
   }
 });
+
+if (reloadBillingSafetyButton) {
+  reloadBillingSafetyButton.addEventListener("click", async () => {
+    try {
+      setButtonLoading(reloadBillingSafetyButton, true, "確認中...", "安全状態を再確認");
+      await loadBillingSafetyStatus();
+      setAdminUserMessage("課金安全状態を再確認しました。", "green");
+    } catch (error) {
+      console.error("課金安全状態確認エラー:", error);
+      renderBillingSafetyStatus({
+        warning: true,
+        reason: error.code || error.message,
+        updatedAt: new Date().toLocaleString("ja-JP")
+      });
+      setAdminUserMessage(`課金安全状態の確認に失敗しました：${error.code || error.message}`, "red");
+    } finally {
+      setButtonLoading(reloadBillingSafetyButton, false, "確認中...", "安全状態を再確認");
+    }
+  });
+}
+
+if (resetBillingSafetyButton) {
+  resetBillingSafetyButton.addEventListener("click", async () => {
+    try {
+      setButtonLoading(resetBillingSafetyButton, true, "更新中...", "通常に戻す");
+      await updateBillingSafetyStatus({
+        locked: false,
+        warning: false,
+        level: "normal",
+        reason: "manual_reset"
+      }, "課金安全状態を通常に戻しました。");
+    } catch (error) {
+      console.error("課金安全状態リセットエラー:", error);
+      setAdminUserMessage(`課金安全状態のリセットに失敗しました：${error.code || error.message}`, "red");
+    } finally {
+      setButtonLoading(resetBillingSafetyButton, false, "更新中...", "通常に戻す");
+    }
+  });
+}
+
+if (testBillingWarningButton) {
+  testBillingWarningButton.addEventListener("click", async () => {
+    try {
+      setButtonLoading(testBillingWarningButton, true, "更新中...", "注意テスト");
+      await updateBillingSafetyStatus({
+        locked: false,
+        warning: true,
+        level: "warning",
+        reason: "manual_warning_test"
+      }, "注意表示テストを反映しました。");
+    } catch (error) {
+      console.error("課金安全注意テストエラー:", error);
+      setAdminUserMessage(`注意テストに失敗しました：${error.code || error.message}`, "red");
+    } finally {
+      setButtonLoading(testBillingWarningButton, false, "更新中...", "注意テスト");
+    }
+  });
+}
+
+if (testBillingLockedButton) {
+  testBillingLockedButton.addEventListener("click", async () => {
+    const ok = confirm("ロック表示テストを行います。現時点では表示だけで既存機能は止まりません。よろしいですか？");
+
+    if (!ok) {
+      return;
+    }
+
+    try {
+      setButtonLoading(testBillingLockedButton, true, "更新中...", "ロック表示テスト");
+      await updateBillingSafetyStatus({
+        locked: true,
+        warning: true,
+        level: "locked",
+        reason: "manual_locked_display_test"
+      }, "ロック表示テストを反映しました。現時点では既存機能は停止していません。");
+    } catch (error) {
+      console.error("課金安全ロック表示テストエラー:", error);
+      setAdminUserMessage(`ロック表示テストに失敗しました：${error.code || error.message}`, "red");
+    } finally {
+      setButtonLoading(testBillingLockedButton, false, "更新中...", "ロック表示テスト");
+    }
+  });
+}
 
 rebuildActiveUsersButton.addEventListener("click", async () => {
   try {
