@@ -1,3 +1,5 @@
+// STEP44_ADMIN_TOP_SWITCHER_20260622_V74：管理者用の常時表示ページ切り替えを支援員ページにも表示
+// STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72：管理者だけ支援員ページからAdminへ戻れる導線を表示
 // STEP40_DAILY_LIST_REMOVE_EDIT_LABEL_20260621_V70：本日の一覧の編集チップを外して名前クリック案内へ
 // STEP39_DAILY_TIME_SLOT_COLORS_20260621_V69：本日の一覧の時間帯チップを淡色で色分け
 // STEP38_DAILY_TIME_SLOT_SORT_20260621_V68：日別予定一覧を午前・午後・終日の順で表示
@@ -119,6 +121,8 @@ const staffInfo = document.getElementById("staffInfo");
 const targetDate = document.getElementById("targetDate");
 const loadButton = document.getElementById("loadButton");
 const logoutButton = document.getElementById("logoutButton");
+const openAdminPageButton = document.getElementById("openAdminPageButton");
+const staffAdminTopNav = document.getElementById("staffAdminTopNav");
 const message = document.getElementById("message");
 const loadStaffDashboardButton = document.getElementById("loadStaffDashboardButton");
 const staffDashboardResult = document.getElementById("staffDashboardResult");
@@ -4931,6 +4935,10 @@ onAuthStateChanged(auth, async (user) => {
 
     staffInfo.textContent = `支援員｜${userData.name}`;
 
+    if (staffAdminTopNav && userData.role === "admin") {
+      staffAdminTopNav.classList.remove("hidden");
+    }
+
     targetDate.value = getTodayDateId();
 
     const todayForAnnouncement = new Date();
@@ -5300,6 +5308,12 @@ if (userScheduleEditModal) {
     if (event.target === userScheduleEditModal) {
       closeUserScheduleEditModal();
     }
+  });
+}
+
+if (openAdminPageButton) {
+  openAdminPageButton.addEventListener("click", () => {
+    window.location.href = "admin.html";
   });
 }
 

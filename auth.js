@@ -1,3 +1,4 @@
+// STEP41_ADMIN_USER_MANAGEMENT_20260622_V71：adminログイン時は管理者ページへ遷移
 import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
 import {
@@ -58,7 +59,9 @@ loginForm.addEventListener("submit", async (event) => {
       return;
     }
 
-    if (userData.role === "staff" || userData.role === "admin") {
+    if (userData.role === "admin") {
+      window.location.href = "admin.html";
+    } else if (userData.role === "staff") {
       window.location.href = "staff.html";
     } else {
       window.location.href = "user.html";

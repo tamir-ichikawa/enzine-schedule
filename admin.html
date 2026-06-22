@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理者ページ | Enzine Schedule</title>
+  <link rel="stylesheet" href="style.css?v=74">
+</head>
+<body class="app-shell-body">
+  <!-- STEP41_ADMIN_USER_MANAGEMENT_20260622_V71 -->
+  <!-- STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72 -->
+  <!-- STEP43_ADMIN_TO_STAFF_NAV_20260622_V73 -->
+  <!-- STEP44_ADMIN_TOP_SWITCHER_20260622_V74 -->
+  <main class="login-container user-page app-main-shell staff-main-shell admin-main-shell">
+    <header class="app-topbar" aria-label="ページヘッダー">
+      <div class="app-brand">
+        <img src="enzine_icon.png" alt="enzine" class="app-brand-logo-img">
+        <div class="app-brand-text">
+          <div class="app-brand-title">enzine スケジュール</div>
+          <p id="adminInfo" class="app-user-meta">ログイン確認中...</p>
+        </div>
+      </div>
+      <div class="app-topbar-actions admin-topbar-actions">
+        <div class="app-current-section" aria-label="現在のページ">管理者</div>
+        <div class="admin-top-nav" aria-label="管理者用ページ切り替え">
+          <button type="button" class="admin-top-nav-button active" aria-current="page">利用者管理</button>
+          <button id="openStaffPageButton" type="button" class="admin-top-nav-button">支援員ページ</button>
+        </div>
+        <details class="app-settings-menu">
+          <summary class="app-settings-button" aria-label="設定メニュー">⚙</summary>
+          <div class="app-settings-panel">
+            <div class="app-settings-panel-title">設定</div>
+            <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
+            <div class="app-settings-note">管理者だけが開ける利用者管理ページです。</div>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <section class="monthly-calendar-box admin-summary-box">
+      <div class="section-heading-row">
+        <h2>利用者管理</h2>
+        <p class="calendar-guide">Auth作成済みのUIDを登録し、表示名・権限・利用可否を管理します。</p>
+      </div>
+
+      <div id="adminUserSummary" class="operation-check-result admin-user-summary">
+        読み込み中...
+      </div>
+    </section>
+
+    <div class="admin-user-layout">
+      <section class="login-box admin-user-form-box">
+        <div class="section-heading-row">
+          <h2 id="adminUserFormTitle">利用者を追加</h2>
+          <p class="calendar-guide">Firebase AuthのUIDを users に登録します。</p>
+        </div>
+
+        <form id="adminUserForm" class="admin-user-form">
+          <label>
+            UID
+            <input type="text" id="adminUserUid" autocomplete="off" placeholder="Firebase Auth の UID">
+          </label>
+
+          <label>
+            名前
+            <input type="text" id="adminUserName" autocomplete="off" placeholder="例：山田 花子">
+          </label>
+
+          <label>
+            メールアドレス
+            <input type="email" id="adminUserEmail" autocomplete="off" placeholder="example@example.com">
+          </label>
+
+          <div class="admin-form-row">
+            <label>
+              権限
+              <select id="adminUserRole">
+                <option value="user">利用者</option>
+                <option value="staff">支援員</option>
+                <option value="admin">管理者</option>
+              </select>
+            </label>
+
+            <label class="admin-active-label">
+              利用状態
+              <span class="admin-active-toggle">
+                <input type="checkbox" id="adminUserActive" checked>
+                Active
+              </span>
+            </label>
+          </div>
+
+          <div class="admin-form-row">
+            <label>
+              事業所ID
+              <input type="text" id="adminUserOfficeId" autocomplete="off">
+            </label>
+
+            <label>
+              グループID
+              <input type="text" id="adminUserGroupId" autocomplete="off">
+            </label>
+          </div>
+
+          <div class="admin-form-actions">
+            <button id="saveAdminUserButton" type="submit">保存</button>
+            <button id="resetAdminUserFormButton" type="button" class="sub-button">新規入力に戻す</button>
+          </div>
+        </form>
+
+        <p id="adminUserMessage" class="user-schedule-message" aria-live="polite"></p>
+      </section>
+
+      <section class="monthly-calendar-box admin-user-list-box">
+        <div class="section-heading-row">
+          <h2>登録ユーザー</h2>
+          <p class="calendar-guide">名前を選ぶと左のフォームで編集できます。</p>
+        </div>
+
+        <div class="admin-user-list-tools">
+          <button id="reloadAdminUsersButton" type="button" class="small-button">再読み込み</button>
+          <button id="rebuildActiveUsersButton" type="button" class="small-button">利用者一覧キャッシュ更新</button>
+        </div>
+
+        <div class="calendar-view-toggle admin-role-filter-toggle" aria-label="登録ユーザーの表示フィルター">
+          <button type="button" class="view-toggle-button active" data-admin-role-filter="all">すべて</button>
+          <button type="button" class="view-toggle-button" data-admin-role-filter="user">利用者</button>
+          <button type="button" class="view-toggle-button" data-admin-role-filter="staff">支援員</button>
+          <button type="button" class="view-toggle-button" data-admin-role-filter="admin">管理者</button>
+        </div>
+
+        <div id="adminUserList" class="admin-user-list">
+          読み込み中...
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="admin.js?v=74"></script>
+</body>
+</html>

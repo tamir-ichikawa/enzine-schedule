@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=69">
+  <link rel="stylesheet" href="style.css?v=74">
 </head>
 <body class="app-shell-body">
   <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
@@ -31,6 +31,8 @@
   <!-- STEP38_DAILY_TIME_SLOT_SORT_20260621_V68 -->
   <!-- STEP39_DAILY_TIME_SLOT_COLORS_20260621_V69 -->
   <!-- STEP40_DAILY_LIST_REMOVE_EDIT_LABEL_20260621_V70 -->
+  <!-- STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72 -->
+  <!-- STEP44_ADMIN_TOP_SWITCHER_20260622_V74 -->
   <main class="login-container user-page app-main-shell staff-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -40,8 +42,12 @@
           <p id="staffInfo" class="app-user-meta">ログイン確認中...</p>
         </div>
       </div>
-      <div class="app-topbar-actions">
+      <div class="app-topbar-actions admin-topbar-actions">
         <div id="staffCurrentSectionTitle" class="app-current-section" aria-label="現在のページ">日別予定</div>
+        <div id="staffAdminTopNav" class="admin-top-nav hidden" aria-label="管理者用ページ切り替え">
+          <button id="openAdminPageButton" type="button" class="admin-top-nav-button">利用者管理</button>
+          <button type="button" class="admin-top-nav-button active" aria-current="page">支援員ページ</button>
+        </div>
         <details class="app-settings-menu">
           <summary class="app-settings-button" aria-label="設定メニュー">⚙</summary>
           <div class="app-settings-panel">
@@ -553,6 +559,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=70"></script>
+  <script type="module" src="staff.js?v=74"></script>
 </body>
 </html>
