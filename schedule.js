@@ -1,3 +1,5 @@
+// STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告は登録週の翌週から表示
+// STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
 // STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：利用者ページにも課金安全テスト中表示を追加
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
@@ -15,6 +17,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
+import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読フィールドの互換対応
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告は2026-06-15週の月〜金から開始
@@ -85,6 +88,8 @@ const weeklyReportReminderList = document.getElementById("weeklyReportReminderLi
 const weeklyReportHomeStatus = document.getElementById("weeklyReportHomeStatus");
 const billingSafetyNotice = document.getElementById("billingSafetyNotice");
 
+setupSettingsMenuClose();
+
 
 const scheduleModal = document.getElementById("scheduleModal");
 const closeModalButton = document.getElementById("closeModalButton");
@@ -150,6 +155,28 @@ function getLastCompletedWeekStartDate() {
 function parseDateId(dateId) {
   const [yyyy, mm, dd] = dateId.split("-").map(Number);
   return new Date(yyyy, mm - 1, dd);
+}
+
+function parseOptionalDateId(dateId) {
+  if (typeof dateId !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateId)) {
+    return null;
+  }
+
+  return parseDateId(dateId);
+}
+
+function getWeeklyReportStartWeekDateForUser(userData) {
+  const globalStartWeekDate = getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK));
+  const explicitStartWeekDate = parseOptionalDateId(userData?.weeklyReportStartWeek);
+
+  if (explicitStartWeekDate) {
+    const normalizedExplicitStart = getWeekStartDate(explicitStartWeekDate);
+    return normalizedExplicitStart > globalStartWeekDate
+      ? normalizedExplicitStart
+      : globalStartWeekDate;
+  }
+
+  return globalStartWeekDate;
 }
 
 function getNextWeekdayDateId(dateId) {
@@ -1674,6 +1701,7 @@ async function saveWeeklyReportStatusCache(reportStates, firstWeekId, latestWeek
     userEmail: currentUser.email || "",
     officeId: getCurrentOfficeId(),
     groupId: getCurrentGroupId(),
+    weeklyReportStartWeek: formatDateId(getWeeklyReportStartWeekDateForUser(currentUserData)),
     schemaVersion: WEEKLY_REPORT_STATUS_SCHEMA_VERSION,
     ...statusMaps,
     reminderCheckedFromWeek: firstWeekId,
@@ -1804,7 +1832,8 @@ async function loadWeeklyReportReminder() {
 
   try {
     const latestWeekStart = getLastCompletedWeekStartDate();
-    const startWeekDate = getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK));
+    const startWeekDate = getWeeklyReportStartWeekDateForUser(currentUserData);
+    const startWeekId = formatDateId(startWeekDate);
     const weekItems = buildWeeklyReportReminderWeekItems(latestWeekStart, startWeekDate);
     const latestWeekId = formatDateId(latestWeekStart);
     const firstWeekId = weekItems[0]?.weekStartDateId || "";
@@ -1812,8 +1841,14 @@ async function loadWeeklyReportReminder() {
     const unreadFeedbackReports = [];
 
     if (weekItems.length === 0) {
-      renderWeeklyReportReminder([], []);
-      console.log("[Read節約] 週一報告チェック：運用開始前のため確認対象週はありません。");
+      hideWeeklyReportReminder();
+      setWeeklyReportHomeStatus(
+        startWeekDate > latestWeekStart
+          ? "週一報告は登録した週が終わった翌週から表示されます。"
+          : "未記入の週一報告・未確認の返信はありません。",
+        "ok"
+      );
+      console.log("[Read節約] 週一報告チェック：対象開始週前のため確認対象週はありません。");
       return;
     }
 
@@ -1824,7 +1859,7 @@ async function loadWeeklyReportReminder() {
         const cachedState = buildWeeklyReportReminderFromStatus(statusSnap.data(), weekItems);
         renderWeeklyReportReminder(cachedState.pendingWeeks, cachedState.unreadFeedbackReports);
         console.log("週一報告未記入・返信チェック（集約doc）", {
-          startWeek: WEEKLY_REPORT_START_WEEK,
+          startWeek: startWeekId,
           latestWeek: latestWeekId,
           pendingWeeks: cachedState.pendingWeeks.map((week) => week.weekStartDate),
           unreadFeedbackReports: cachedState.unreadFeedbackReports.map((week) => week.weekStartDate)
@@ -1885,7 +1920,7 @@ async function loadWeeklyReportReminder() {
     }
 
     console.log("週一報告未記入・返信チェック", {
-      startWeek: WEEKLY_REPORT_START_WEEK,
+      startWeek: startWeekId,
       latestWeek: latestWeekId,
       pendingWeeks: pendingWeeks.map((week) => week.weekStartDate),
       unreadFeedbackReports: unreadFeedbackReports.map((week) => week.weekStartDate)

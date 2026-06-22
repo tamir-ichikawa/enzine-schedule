@@ -1,3 +1,4 @@
+// STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
 // STEP32_WORKSHOP_CASE_COMPLETE_HIDE_20260621_V62：完了案件を提出期限一覧から除外
 // STEP31_WORKSHOP_CASE_DEADLINE_PREVIEW_20260621_V61：案件納期から提出期限一覧を表示
 // STEP29_CASE_DRAFT_COMPAT_20260621_V59：支援員側の案件下書き作成と互換
@@ -10,6 +11,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
+import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const WORKSHOP_RESOURCES_DOC_PREFIX = "workshopResources_";
@@ -19,6 +21,8 @@ const workshopResourceList = document.getElementById("workshopResourceList");
 const workshopResourceMessage = document.getElementById("workshopResourceMessage");
 const backToScheduleButton = document.getElementById("backToScheduleButton");
 const logoutButton = document.getElementById("logoutButton");
+
+setupSettingsMenuClose();
 
 let currentUserData = null;
 let workshopResourcesCache = {

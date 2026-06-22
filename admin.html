@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>管理者ページ | Enzine Schedule</title>
-  <link rel="stylesheet" href="style.css?v=79">
+  <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
+  <link rel="stylesheet" href="style.css?v=80">
 </head>
 <body class="app-shell-body">
   <!-- STEP41_ADMIN_USER_MANAGEMENT_20260622_V71 -->
@@ -15,6 +16,8 @@
   <!-- STEP46_BILLING_SAFETY_MANUAL_CONTROLS_20260622_V76 -->
   <!-- STEP47_BILLING_SAFETY_TEST_LABEL_20260622_V77 -->
   <!-- STEP49_ADMIN_AUTH_CREATE_USER_20260622_V79 -->
+  <!-- STEP50_ADMIN_CONFIRM_INACTIVE_FILTER_SETTINGS_20260622_V80 -->
+  <!-- STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81 -->
   <main class="login-container user-page app-main-shell staff-main-shell admin-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -160,6 +163,7 @@
           <button type="button" class="view-toggle-button" data-admin-role-filter="user">利用者</button>
           <button type="button" class="view-toggle-button" data-admin-role-filter="staff">支援員</button>
           <button type="button" class="view-toggle-button" data-admin-role-filter="admin">管理者</button>
+          <button type="button" class="view-toggle-button" data-admin-role-filter="inactive">停止中</button>
         </div>
 
         <div id="adminUserList" class="admin-user-list">
@@ -169,6 +173,6 @@
     </div>
   </main>
 
-  <script type="module" src="admin.js?v=79"></script>
+  <script type="module" src="admin.js?v=81"></script>
 </body>
 </html>

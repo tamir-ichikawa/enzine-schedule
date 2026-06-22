@@ -1,3 +1,5 @@
+// STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告開始週を登録・キャッシュ
+// STEP50_ADMIN_CONFIRM_INACTIVE_FILTER_SETTINGS_20260622_V80：重要操作の再確認・停止者フィルター・設定メニュー外クリック対応
 // STEP49_ADMIN_AUTH_CREATE_USER_20260622_V79：Admin画面からFirebase Authユーザーも作成できる登録モードを追加
 // STEP47_BILLING_SAFETY_TEST_LABEL_20260622_V77：手動テスト中であることを明示
 // STEP46_BILLING_SAFETY_MANUAL_CONTROLS_20260622_V76：課金安全状態をAdmin画面から表示テストできるよう追加
@@ -19,12 +21,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { app, auth, db } from "./firebase-config.js";
+import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
 const DEFAULT_OFFICE_ID = "engine_chiba";
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
 const FUNCTIONS_REGION = "asia-northeast1";
+const WEEKLY_REPORT_START_WEEK = "2026-06-15";
+const JST_OFFSET_MINUTES = 9 * 60;
 const ADMIN_USER_MANUAL_SAVE_TEXT = "保存";
 const ADMIN_USER_AUTH_SAVE_TEXT = "Authユーザーを作成して保存";
 const functions = getFunctions(app, FUNCTIONS_REGION);
@@ -67,6 +72,8 @@ let adminUsersCache = [];
 let editingAdminUserId = "";
 let adminUserRoleFilter = "all";
 let adminUserCreateMode = "uid";
+
+setupSettingsMenuClose();
 
 function getCurrentOfficeId() {
   return currentAdminData?.officeId || DEFAULT_OFFICE_ID;
@@ -167,6 +174,38 @@ function getAdminUserErrorMessage(error) {
   return message;
 }
 
+function getActiveLabel(active) {
+  return active ? "Active" : "停止中";
+}
+
+function getAdminUserDisplayName(user) {
+  return user?.name || user?.email || user?.id || "名前未設定";
+}
+
+function formatImportantConfirm(title, lines) {
+  const body = lines
+    .filter((line) => line !== null && line !== undefined)
+    .join("\n");
+
+  return `${title}\n\n${body}\n\nこの操作を実行しますか？`;
+}
+
+function confirmImportantAction(title, lines) {
+  return confirm(formatImportantConfirm(title, lines));
+}
+
+function buildUserConfirmLines({ uid, name, email, role, active, officeId, groupId }) {
+  return [
+    uid ? `UID: ${uid}` : null,
+    `名前: ${name || "未入力"}`,
+    `メール: ${email || "未入力"}`,
+    `権限: ${getRoleLabel(role)}`,
+    `利用状態: ${getActiveLabel(active)}`,
+    `事業所ID: ${officeId || "-"}`,
+    `グループID: ${groupId || "-"}`
+  ];
+}
+
 function formatAdminTimestamp(value) {
   if (!value) {
     return "未記録";
@@ -181,6 +220,99 @@ function formatAdminTimestamp(value) {
   }
 
   return "未記録";
+}
+
+function formatDateId(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseDateId(dateId) {
+  const [yyyy, mm, dd] = dateId.split("-").map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+function getWeekStartDate(date) {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = weekStart.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + diff);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function getDateFromTimestampLike(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (typeof value.seconds === "number") {
+    return new Date(value.seconds * 1000);
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
+
+function formatJstDateIdFromDate(date) {
+  const jstDate = new Date(date.getTime() + JST_OFFSET_MINUTES * 60 * 1000);
+  const yyyy = jstDate.getUTCFullYear();
+  const mm = String(jstDate.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(jstDate.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseOptionalDateId(dateId) {
+  if (typeof dateId !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateId)) {
+    return null;
+  }
+
+  return parseDateId(dateId);
+}
+
+function getWeeklyReportGlobalStartWeekId() {
+  return formatDateId(getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK)));
+}
+
+function getWeeklyReportStartWeekIdFromUserRecord(user) {
+  const globalStartWeekId = getWeeklyReportGlobalStartWeekId();
+  const explicitStartWeekDate = parseOptionalDateId(user?.weeklyReportStartWeek);
+
+  if (explicitStartWeekDate) {
+    const explicitStartWeekId = formatDateId(getWeekStartDate(explicitStartWeekDate));
+    return explicitStartWeekId > globalStartWeekId ? explicitStartWeekId : globalStartWeekId;
+  }
+
+  return globalStartWeekId;
+}
+
+function getWeeklyReportStartWeekIdForRegistrationDate(value) {
+  const globalStartWeekId = getWeeklyReportGlobalStartWeekId();
+  const createdAtDate = getDateFromTimestampLike(value);
+
+  if (!createdAtDate) {
+    return globalStartWeekId;
+  }
+
+  const createdDateId = formatJstDateIdFromDate(createdAtDate);
+  const createdWeekId = formatDateId(getWeekStartDate(parseDateId(createdDateId)));
+
+  return createdWeekId > globalStartWeekId ? createdWeekId : globalStartWeekId;
 }
 
 function getRoleLabel(role) {
@@ -206,6 +338,10 @@ function getAdminUserRoleFilterLabel(roleFilter) {
 
   if (roleFilter === "user") {
     return "利用者";
+  }
+
+  if (roleFilter === "inactive") {
+    return "停止中";
   }
 
   return "すべて";
@@ -244,7 +380,9 @@ function normalizeAdminUser(docId, data) {
     role: data?.role || "user",
     active: data?.active === true,
     officeId: data?.officeId || getCurrentOfficeId(),
-    groupId: data?.groupId || getCurrentGroupId()
+    groupId: data?.groupId || getCurrentGroupId(),
+    createdAt: data?.createdAt || null,
+    weeklyReportStartWeek: getWeeklyReportStartWeekIdFromUserRecord(data)
   };
 }
 
@@ -266,6 +404,7 @@ function normalizeActiveUserRecord(user) {
     email: user.email || "",
     officeId: officeId,
     groupId: user.groupId || getCurrentGroupId(),
+    weeklyReportStartWeek: user.weeklyReportStartWeek || getWeeklyReportStartWeekIdFromUserRecord(user),
     active: true
   };
 }
@@ -525,6 +664,10 @@ function getFilteredAdminUsers() {
     return adminUsersCache;
   }
 
+  if (adminUserRoleFilter === "inactive") {
+    return adminUsersCache.filter((user) => user.active !== true);
+  }
+
   return adminUsersCache.filter((user) => user.role === adminUserRoleFilter);
 }
 
@@ -650,6 +793,20 @@ async function saveAdminUserWithAuth({ name, email, role, active, officeId, grou
     return;
   }
 
+  const weeklyReportStartWeek = getWeeklyReportStartWeekIdForRegistrationDate(new Date());
+
+  const ok = confirmImportantAction("Authユーザーを新規作成します", [
+    ...buildUserConfirmLines({ name, email, role, active, officeId, groupId }),
+    "",
+    "Firebase Authentication と users に同時登録します。",
+    "初期パスワードを本人へ安全な方法で伝えてください。"
+  ]);
+
+  if (!ok) {
+    setAdminUserMessage("Authユーザー作成をキャンセルしました。", "#555");
+    return;
+  }
+
   try {
     setButtonLoading(saveAdminUserButton, true, "作成中...", getAdminUserSaveText());
 
@@ -660,12 +817,23 @@ async function saveAdminUserWithAuth({ name, email, role, active, officeId, grou
       role,
       active,
       officeId,
-      groupId
+      groupId,
+      weeklyReportStartWeek
     });
 
     const createdUid = result?.data?.uid || "";
 
+    if (createdUid) {
+      await setDoc(doc(db, "users", createdUid), {
+        weeklyReportStartWeek,
+        updatedAt: serverTimestamp(),
+        updatedByUid: currentUser?.uid || "",
+        updatedByName: currentAdminData?.name || currentUser?.email || ""
+      }, { merge: true });
+    }
+
     await loadAdminUsers({ silent: true });
+    await rebuildActiveUsersFromUsersCollection({ silent: true });
     resetAdminUserForm();
     setAdminUserMessage(
       createdUid
@@ -718,6 +886,22 @@ async function saveAdminUser(event) {
     return;
   }
 
+  const saveTitle = editingAdminUserId
+    ? "ユーザー情報を更新します"
+    : "UIDを users に登録します";
+  const ok = confirmImportantAction(saveTitle, [
+    ...buildUserConfirmLines({ uid, name, email, role, active, officeId, groupId }),
+    "",
+    editingAdminUserId
+      ? "保存すると users の登録情報と利用者一覧キャッシュを更新します。"
+      : "Firebase Authで作成済みのUIDを users に登録し、利用者一覧キャッシュを更新します。"
+  ]);
+
+  if (!ok) {
+    setAdminUserMessage("保存をキャンセルしました。", "#555");
+    return;
+  }
+
   try {
     setButtonLoading(saveAdminUserButton, true, "保存中...", getAdminUserSaveText());
 
@@ -727,6 +911,7 @@ async function saveAdminUser(event) {
       ? {}
       : {
           createdAt: serverTimestamp(),
+          weeklyReportStartWeek: getWeeklyReportStartWeekIdForRegistrationDate(new Date()),
           createdByUid: currentUser?.uid || "",
           createdByName: currentAdminData?.name || currentUser?.email || ""
         };
@@ -760,6 +945,30 @@ async function toggleAdminUserActive(user) {
   const nextActive = !user.active;
 
   if (preventSelfLockout(user.id, user.role, nextActive)) {
+    return;
+  }
+
+  const ok = confirmImportantAction(
+    nextActive ? "ユーザーをActiveに戻します" : "ユーザーを停止します",
+    [
+      ...buildUserConfirmLines({
+        uid: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        active: nextActive,
+        officeId: user.officeId,
+        groupId: user.groupId
+      }),
+      "",
+      nextActive
+        ? "Activeにすると、対象ユーザーは再びログイン・一覧表示の対象になります。"
+        : "停止すると、対象ユーザーはログインできなくなり、Activeな利用者一覧から外れます。"
+    ]
+  );
+
+  if (!ok) {
+    setAdminUserMessage(`${getAdminUserDisplayName(user)} の${nextActive ? "Active化" : "停止"}をキャンセルしました。`, "#555");
     return;
   }
 
@@ -865,6 +1074,16 @@ if (reloadBillingSafetyButton) {
 
 if (resetBillingSafetyButton) {
   resetBillingSafetyButton.addEventListener("click", async () => {
+    const ok = confirmImportantAction("課金安全状態を通常に戻します", [
+      "system/billingSafety を normal 状態に更新します。",
+      "現時点では表示用の状態更新で、既存機能の停止・再開は行いません。"
+    ]);
+
+    if (!ok) {
+      setAdminUserMessage("課金安全状態のリセットをキャンセルしました。", "#555");
+      return;
+    }
+
     try {
       setButtonLoading(resetBillingSafetyButton, true, "更新中...", "通常に戻す");
       await updateBillingSafetyStatus({
@@ -884,6 +1103,17 @@ if (resetBillingSafetyButton) {
 
 if (testBillingWarningButton) {
   testBillingWarningButton.addEventListener("click", async () => {
+    const ok = confirmImportantAction("注意表示テストを実行します", [
+      "system/billingSafety を warning 状態に更新します。",
+      "利用者・支援員ページにテスト中の表示が出ます。",
+      "現時点では既存機能は停止しません。"
+    ]);
+
+    if (!ok) {
+      setAdminUserMessage("注意表示テストをキャンセルしました。", "#555");
+      return;
+    }
+
     try {
       setButtonLoading(testBillingWarningButton, true, "更新中...", "注意テスト");
       await updateBillingSafetyStatus({
@@ -903,7 +1133,11 @@ if (testBillingWarningButton) {
 
 if (testBillingLockedButton) {
   testBillingLockedButton.addEventListener("click", async () => {
-    const ok = confirm("ロック表示テストを行います。現時点では表示だけで既存機能は止まりません。よろしいですか？");
+    const ok = confirmImportantAction("ロック表示テストを実行します", [
+      "system/billingSafety を locked 表示状態に更新します。",
+      "利用者・支援員ページに強めのテスト中表示が出ます。",
+      "現時点では表示だけで既存機能は停止しません。"
+    ]);
 
     if (!ok) {
       return;
@@ -927,6 +1161,16 @@ if (testBillingLockedButton) {
 }
 
 rebuildActiveUsersButton.addEventListener("click", async () => {
+  const ok = confirmImportantAction("利用者一覧キャッシュを更新します", [
+    "users のActiveな利用者をもとに system/activeUsers を再作成します。",
+    "停止中の利用者はActiveな利用者一覧から外れます。"
+  ]);
+
+  if (!ok) {
+    setAdminUserMessage("利用者一覧キャッシュ更新をキャンセルしました。", "#555");
+    return;
+  }
+
   try {
     setButtonLoading(rebuildActiveUsersButton, true, "更新中...", "利用者一覧キャッシュ更新");
     await rebuildActiveUsersFromUsersCollection();
