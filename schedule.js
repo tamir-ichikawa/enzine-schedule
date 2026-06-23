@@ -1,3 +1,6 @@
+// STEP55_OFFICE_ID_ENZINE_CHIBA_20260623_V85：事業所IDをenzine_chibaへ統一し旧engine_chibaを互換扱い
+// STEP54_CASE_DEADLINES_ON_CALENDAR_20260623_V84：アクティブなワークショップの案件締切をカレンダー表示
+// STEP53_WORKSHOP_DETAIL_LINK_20260623_V83：アナウンスからワークショップ詳細へ遷移
 // STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告は登録週の翌週から表示
 // STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
 // STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：利用者ページにも課金安全テスト中表示を追加
@@ -34,7 +37,8 @@ import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
 // まだ users ドキュメントに officeId / groupId がない場合の仮設定。
 // 将来、事業所が増えたら users 側に officeId / groupId を登録していく。
-const DEFAULT_OFFICE_ID = "engine_chiba";
+const DEFAULT_OFFICE_ID = "enzine_chiba";
+const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const WEEKLY_REPORT_CHECK_WEEKS = 8;
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
@@ -43,6 +47,7 @@ const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
 const LAST_SCHEDULE_INPUT_STORAGE_KEY = "enzineLastScheduleInput";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
+const WORKSHOP_RESOURCES_DOC_PREFIX = "workshopResources_";
 
 
 const userInfo = document.getElementById("userInfo");
@@ -101,6 +106,8 @@ let currentUserData = null;
 let selectedDateId = null;
 let announcementsByDate = {};
 let schedulesByDate = {};
+let workshopResourcesCache = { schemaVersion: 2, workshops: [], cases: [], guides: [] };
+let workshopResourcesLoadedOfficeId = "";
 
 // Step 2：表示中の年月を保持する。
 // month は JavaScript の仕様に合わせて 0〜11 で扱う。
@@ -117,6 +124,7 @@ let currentWeekStartDate = getDefaultWeekStartForMonth(currentYear, currentMonth
 // 同じ月に戻ったときは Firestore を再読み込みしない。
 const monthlyScheduleCache = {};
 const monthlyAnnouncementCache = {};
+const monthlyCaseDeadlineAnnouncementCache = {};
 
 function formatDateId(date) {
   const yyyy = date.getFullYear();
@@ -237,11 +245,30 @@ function getMonthlyAnnouncementId(officeId, monthId) {
 }
 
 function getCurrentOfficeId() {
-  return currentUserData?.officeId || DEFAULT_OFFICE_ID;
+  return normalizeOfficeId(currentUserData?.officeId);
 }
 
 function getCurrentGroupId() {
   return currentUserData?.groupId || DEFAULT_GROUP_ID;
+}
+
+function normalizeOfficeId(officeId) {
+  const value = String(officeId || "").trim();
+  if (!value || LEGACY_OFFICE_IDS.includes(value)) {
+    return DEFAULT_OFFICE_ID;
+  }
+  return value;
+}
+
+function getCompatibleOfficeIds(officeId = getCurrentOfficeId()) {
+  const currentOfficeId = normalizeOfficeId(officeId);
+  return [currentOfficeId, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
+    return value && list.indexOf(value) === index;
+  });
+}
+
+function getWorkshopResourcesDocId(officeId = getCurrentOfficeId()) {
+  return `${WORKSHOP_RESOURCES_DOC_PREFIX}${officeId}`;
 }
 
 function formatJapaneseDate(dateId) {
@@ -286,6 +313,19 @@ function getAnnouncementIcon(category) {
   return "📢";
 }
 
+function sortCalendarAnnouncements(list = []) {
+  return [...list].sort((a, b) => {
+    const timeA = a.startTime || "99:99";
+    const timeB = b.startTime || "99:99";
+
+    if (timeA !== timeB) {
+      return timeA.localeCompare(timeB);
+    }
+
+    return (a.title || "").localeCompare(b.title || "", "ja");
+  });
+}
+
 function shortenText(text, maxLength) {
   if (!text) {
     return "";
@@ -305,9 +345,7 @@ function getCachedScheduleForDate(dateId) {
 }
 
 function getCachedAnnouncementsForDate(dateId) {
-  const monthId = getMonthIdFromDateId(dateId);
-  const monthData = monthlyAnnouncementCache[monthId] || {};
-  return monthData[dateId] || [];
+  return announcementsByDate[dateId] || [];
 }
 
 function calculateWorkDayCount(year, month) {
@@ -591,8 +629,24 @@ function renderModalAnnouncements(dateId) {
       card.appendChild(body);
     }
 
+    appendAnnouncementWorkshopLink(card, announcement);
+
     modalAnnouncements.appendChild(card);
   });
+}
+
+function appendAnnouncementWorkshopLink(parent, announcement) {
+  if (!announcement.sourceWorkshopId) {
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.className = "announcement-workshop-detail-link";
+  link.href = `workshops.html?workshopId=${encodeURIComponent(announcement.sourceWorkshopId)}`;
+  link.textContent = announcement.sourceType === "caseDeadline"
+    ? "関連ワークショップを見る"
+    : "ワークショップ詳細を見る";
+  parent.appendChild(link);
 }
 
 function getTodayScheduleClass(status) {
@@ -679,6 +733,8 @@ function renderTodayAnnouncements() {
     if (announcement.body) {
       card.appendChild(body);
     }
+
+    appendAnnouncementWorkshopLink(card, announcement);
 
     todayAnnouncements.appendChild(card);
   });
@@ -852,6 +908,183 @@ scheduleModal.addEventListener("click", (event) => {
   }
 });
 
+function getActiveItems(items = []) {
+  return items.filter((item) => item && item.active !== false);
+}
+
+function isCompletedCaseStatus(status) {
+  return /納品済|完了|終了/.test(String(status || ""));
+}
+
+function getActiveWorkshopsForCalendar() {
+  return getActiveItems(workshopResourcesCache.workshops || []);
+}
+
+function getCasesForActiveWorkshop(workshop) {
+  if (!workshop) {
+    return [];
+  }
+
+  const byId = new Map();
+  const addCase = (caseItem) => {
+    if (!caseItem || caseItem.active === false) {
+      return;
+    }
+
+    const id = caseItem.id || `${caseItem.caseNo || "case"}_${caseItem.title || "item"}`;
+    byId.set(id, {
+      ...caseItem,
+      id,
+      workshopId: caseItem.workshopId || workshop.id
+    });
+  };
+
+  (workshopResourcesCache.cases || [])
+    .filter((caseItem) => (caseItem.workshopId || "") === workshop.id)
+    .forEach(addCase);
+
+  // 旧形式で workshop.cases に入っているデータも、同じ条件で締切表示に使う。
+  (workshop.cases || []).forEach(addCase);
+
+  return Array.from(byId.values());
+}
+
+async function loadWorkshopResourcesForCalendar() {
+  const officeId = getCurrentOfficeId();
+
+  if (workshopResourcesLoadedOfficeId === officeId) {
+    return;
+  }
+
+  try {
+    let loadedData = null;
+
+    for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
+      const docSnap = await getDoc(doc(db, "system", getWorkshopResourcesDocId(candidateOfficeId)));
+      if (!docSnap.exists()) {
+        continue;
+      }
+
+      const data = docSnap.data() || {};
+      const workshops = Array.isArray(data.workshops) ? data.workshops : [];
+      const cases = Array.isArray(data.cases) ? data.cases : [];
+      const guides = Array.isArray(data.guides) ? data.guides : [];
+
+      if (!loadedData || workshops.length || cases.length || guides.length) {
+        loadedData = {
+          schemaVersion: data.schemaVersion || 2,
+          workshops,
+          cases,
+          guides
+        };
+      }
+
+      if (workshops.length || cases.length || guides.length) {
+        break;
+      }
+    }
+
+    workshopResourcesCache = loadedData || { schemaVersion: 2, workshops: [], cases: [], guides: [] };
+    workshopResourcesLoadedOfficeId = officeId;
+  } catch (error) {
+    console.warn("案件締切用のワークショップ情報を読み込めませんでした。", error);
+    workshopResourcesCache = { schemaVersion: 2, workshops: [], cases: [], guides: [] };
+    workshopResourcesLoadedOfficeId = officeId;
+  }
+}
+
+function buildCaseDeadlineBody(workshop, caseItem) {
+  const parts = [];
+
+  if (workshop.title) {
+    parts.push(`ワークショップ：${workshop.title}`);
+  }
+
+  if (caseItem.status) {
+    parts.push(`状態：${caseItem.status}`);
+  }
+
+  if (caseItem.summary) {
+    parts.push(caseItem.summary);
+  }
+
+  return parts.join(" / ") || "案件の締切日です。";
+}
+
+function buildCaseDeadlineAnnouncementsForMonth(year, month) {
+  const monthId = formatMonthId(year, month);
+  const byDate = {};
+
+  getActiveWorkshopsForCalendar().forEach((workshop) => {
+    getCasesForActiveWorkshop(workshop)
+      .filter((caseItem) => {
+        const dueDate = String(caseItem.dueDate || "");
+        return dueDate
+          && dueDate.startsWith(monthId)
+          && !isCompletedCaseStatus(caseItem.status);
+      })
+      .forEach((caseItem) => {
+        const dateId = String(caseItem.dueDate || "");
+        const caseLabel = caseItem.caseNo ? `案件No.${caseItem.caseNo} ` : "";
+        const title = `${caseLabel}${caseItem.title || "案件"} 締切`;
+
+        if (!byDate[dateId]) {
+          byDate[dateId] = [];
+        }
+
+        byDate[dateId].push({
+          id: `case_deadline_${workshop.id}_${caseItem.id || caseItem.caseNo || caseItem.title || dateId}`,
+          visibility: "all",
+          category: "deadline",
+          title,
+          startTime: "",
+          endTime: "",
+          timeText: "",
+          body: buildCaseDeadlineBody(workshop, caseItem),
+          sourceType: "caseDeadline",
+          sourceWorkshopId: workshop.id,
+          sourceWorkshopTitle: workshop.title || "",
+          active: true,
+          createdAt: caseItem.createdAt || workshop.createdAt || "",
+          updatedAt: caseItem.updatedAt || workshop.updatedAt || ""
+        });
+      });
+  });
+
+  return byDate;
+}
+
+function mergeAnnouncementsByDate(baseByDate = {}, extraByDate = {}) {
+  const merged = {};
+  const addList = (source) => {
+    Object.keys(source || {}).forEach((dateId) => {
+      if (!merged[dateId]) {
+        merged[dateId] = [];
+      }
+      (Array.isArray(source[dateId]) ? source[dateId] : []).forEach((announcement) => {
+        const id = announcement.id || `${announcement.category || "notice"}_${announcement.title || ""}_${announcement.sourceWorkshopId || ""}`;
+        const exists = merged[dateId].some((item) => {
+          const itemId = item.id || `${item.category || "notice"}_${item.title || ""}_${item.sourceWorkshopId || ""}`;
+          return itemId === id;
+        });
+
+        if (!exists) {
+          merged[dateId].push(announcement);
+        }
+      });
+    });
+  };
+
+  addList(baseByDate);
+  addList(extraByDate);
+
+  Object.keys(merged).forEach((dateId) => {
+    merged[dateId] = sortCalendarAnnouncements(merged[dateId]);
+  });
+
+  return merged;
+}
+
 // ==============================
 // アナウンス：新方式 monthlyAnnouncements
 // 事業所1つ・1か月で1ドキュメント
@@ -861,39 +1094,49 @@ async function loadMonthlyAnnouncements(year, month) {
   const officeId = getCurrentOfficeId();
   const cacheKey = `${officeId}_${monthId}`;
 
-  if (monthlyAnnouncementCache[cacheKey]) {
-    announcementsByDate = monthlyAnnouncementCache[cacheKey];
-    return;
-  }
+  if (!monthlyAnnouncementCache[cacheKey]) {
+    const loadedAnnouncementsByDate = {};
 
-  const monthlyAnnouncementId = getMonthlyAnnouncementId(officeId, monthId);
-  const docRef = doc(db, "monthlyAnnouncements", monthlyAnnouncementId);
-  const docSnap = await getDoc(docRef);
+    for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
+      const monthlyAnnouncementId = getMonthlyAnnouncementId(candidateOfficeId, monthId);
+      const docRef = doc(db, "monthlyAnnouncements", monthlyAnnouncementId);
+      const docSnap = await getDoc(docRef);
 
-  if (!docSnap.exists()) {
-    monthlyAnnouncementCache[cacheKey] = {};
-    announcementsByDate = monthlyAnnouncementCache[cacheKey];
-    return;
-  }
+      if (!docSnap.exists()) {
+        continue;
+      }
 
-  const data = docSnap.data();
-  const rawDays = data.days || {};
-  const loadedAnnouncementsByDate = {};
+      const data = docSnap.data();
+      const rawDays = data.days || {};
 
-  Object.keys(rawDays).forEach((dateId) => {
-    const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
+      Object.keys(rawDays).forEach((dateId) => {
+        const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
 
-    const visibleList = rawList.filter((announcement) => {
-      return announcement.visibility !== "staff" && announcement.active !== false;
-    });
+        const visibleList = rawList.filter((announcement) => {
+          return announcement.visibility !== "staff" && announcement.active !== false;
+        });
 
-    if (visibleList.length > 0) {
-      loadedAnnouncementsByDate[dateId] = visibleList;
+        if (visibleList.length > 0) {
+          loadedAnnouncementsByDate[dateId] = sortCalendarAnnouncements([
+            ...(loadedAnnouncementsByDate[dateId] || []),
+            ...visibleList
+          ]);
+        }
+      });
     }
-  });
 
-  monthlyAnnouncementCache[cacheKey] = loadedAnnouncementsByDate;
-  announcementsByDate = loadedAnnouncementsByDate;
+    monthlyAnnouncementCache[cacheKey] = loadedAnnouncementsByDate;
+  }
+
+  if (!monthlyCaseDeadlineAnnouncementCache[cacheKey]) {
+    await loadWorkshopResourcesForCalendar();
+    monthlyCaseDeadlineAnnouncementCache[cacheKey] = buildCaseDeadlineAnnouncementsForMonth(year, month);
+  }
+
+  announcementsByDate = mergeAnnouncementsByDate(
+    monthlyAnnouncementCache[cacheKey],
+    monthlyCaseDeadlineAnnouncementCache[cacheKey]
+  );
 }
 
 // ==============================

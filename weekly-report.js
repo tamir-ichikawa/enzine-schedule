@@ -1,3 +1,4 @@
+// STEP55_OFFICE_ID_ENZINE_CHIBA_20260623_V85：事業所IDをenzine_chibaへ統一し旧engine_chibaを互換扱い
 // STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
 // STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告は登録週の翌週から記入
 // STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
@@ -18,7 +19,8 @@ import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 // STEP18_WEEKLY_REPORT_STATUS_CACHE_20260620_V47：週一報告通知用の集約docを更新
 // STEP20_USER_INPUT_ASSISTS_20260620_V49：特になしボタンで入力負担を軽減
 
-const DEFAULT_OFFICE_ID = "engine_chiba";
+const DEFAULT_OFFICE_ID = "enzine_chiba";
+const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const NO_ACTIVITY_VALUE = "わからない/活動なし（追加質問あり）";
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
@@ -170,7 +172,15 @@ function getJapaneseWeekRange(weekStartDate) {
 }
 
 function getOfficeId() {
-  return currentUserData?.officeId || DEFAULT_OFFICE_ID;
+  return normalizeOfficeId(currentUserData?.officeId);
+}
+
+function normalizeOfficeId(officeId) {
+  const value = String(officeId || "").trim();
+  if (!value || LEGACY_OFFICE_IDS.includes(value)) {
+    return DEFAULT_OFFICE_ID;
+  }
+  return value;
 }
 
 function getGroupId() {

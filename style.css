@@ -578,6 +578,100 @@ body.modal-open {
   font-weight: bold;
 }
 
+/* STEP52_ANNOUNCEMENT_WORKSHOP_PICKER_20260623_V82 */
+.announcement-workshop-picker {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d7e0ec;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.announcement-workshop-picker.hidden {
+  display: none;
+}
+
+.announcement-workshop-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.announcement-workshop-picker-header h4 {
+  margin: 0;
+  color: #334155;
+  font-size: 14px;
+}
+
+.announcement-workshop-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.announcement-workshop-card {
+  width: 100%;
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid #d7e0ec;
+  border-radius: 8px;
+  background: #fff;
+  color: #3f3a32;
+  text-align: left;
+}
+
+.announcement-workshop-card:hover {
+  background: #f4f8f5;
+  border-color: #a9bda5;
+}
+
+.announcement-workshop-card.selected {
+  border-color: #6f8f72;
+  background: #eef6ef;
+}
+
+.announcement-workshop-card-title {
+  color: #243244;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.announcement-workshop-card-meta {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.announcement-workshop-card-body {
+  margin-top: 6px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* STEP53_WORKSHOP_DETAIL_LINK_20260623_V83 */
+.announcement-workshop-detail-link {
+  min-height: 0;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #eef6ef;
+  color: #315b35;
+  border: 1px solid #c7d7c5;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.announcement-workshop-detail-link {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+}
+
 /* =========================================================
    Mobile
    IMPORTANT:

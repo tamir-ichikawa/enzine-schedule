@@ -1,3 +1,5 @@
+// STEP55_OFFICE_ID_ENZINE_CHIBA_20260623_V85：事業所IDをenzine_chibaへ統一し旧engine_chibaを互換扱い
+// STEP52_ANNOUNCEMENT_WORKSHOP_PICKER_20260623_V82：アナウンス作成時に登録済みワークショップを選択
 // STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告は登録週の翌週から対象
 // STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
 // STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78：支援員ページにも課金安全テスト中表示を追加
@@ -38,7 +40,8 @@ import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 // STEP25_STAFF_DATE_PICKER_20260620_V54：日付入力欄全体のクリックでカレンダーを開く
 // STEP26_DAILY_LIST_DIRECT_EDIT_20260620_V55：日別一覧から利用者予定編集へ直接移動
 
-const DEFAULT_OFFICE_ID = "engine_chiba";
+const DEFAULT_OFFICE_ID = "enzine_chiba";
+const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
@@ -280,12 +283,16 @@ const announcementList = document.getElementById("announcementList");
 
 const editingAnnouncementId = document.getElementById("editingAnnouncementId");
 const announcementDate = document.getElementById("announcementDate");
+const announcementWorkshopId = document.getElementById("announcementWorkshopId");
 const announcementVisibility = document.getElementById("announcementVisibility");
 const announcementCategory = document.getElementById("announcementCategory");
 const announcementTitle = document.getElementById("announcementTitle");
 const announcementStartTime = document.getElementById("announcementStartTime");
 const announcementEndTime = document.getElementById("announcementEndTime");
 const announcementBody = document.getElementById("announcementBody");
+const announcementWorkshopPicker = document.getElementById("announcementWorkshopPicker");
+const announcementWorkshopList = document.getElementById("announcementWorkshopList");
+const refreshAnnouncementWorkshopsButton = document.getElementById("refreshAnnouncementWorkshopsButton");
 const saveAnnouncementButton = document.getElementById("saveAnnouncementButton");
 const resetAnnouncementFormButton = document.getElementById("resetAnnouncementFormButton");
 const announcementFormTitle = document.getElementById("announcementFormTitle");
@@ -531,11 +538,30 @@ function formatJapaneseDate(dateId) {
 }
 
 function getCurrentOfficeId() {
-  return currentStaffData?.officeId || DEFAULT_OFFICE_ID;
+  return normalizeOfficeId(currentStaffData?.officeId);
 }
 
 function getCurrentGroupId() {
   return currentStaffData?.groupId || DEFAULT_GROUP_ID;
+}
+
+function normalizeOfficeId(officeId) {
+  const value = String(officeId || "").trim();
+  if (!value || LEGACY_OFFICE_IDS.includes(value)) {
+    return DEFAULT_OFFICE_ID;
+  }
+  return value;
+}
+
+function getCompatibleOfficeIds(officeId = getCurrentOfficeId()) {
+  const currentOfficeId = normalizeOfficeId(officeId);
+  return [currentOfficeId, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
+    return value && list.indexOf(value) === index;
+  });
+}
+
+function officeIdsMatch(a, b) {
+  return normalizeOfficeId(a) === normalizeOfficeId(b);
 }
 
 function getMonthlyAnnouncementId(officeId, monthId) {
@@ -733,7 +759,7 @@ function buildDailyScheduleUserFromListData(data) {
     uid: data.userId,
     name: data.userName || data.userEmail || "名前未設定",
     email: data.userEmail || "",
-    officeId: data.officeId || getCurrentOfficeId(),
+    officeId: normalizeOfficeId(data.officeId || getCurrentOfficeId()),
     groupId: data.groupId || getCurrentGroupId(),
     active: true
   };
@@ -746,7 +772,7 @@ function buildMissingDailyMonthlySchedule(user, monthId) {
     userId: user.id,
     userName: user.name || "名前未設定",
     userEmail: user.email || "",
-    officeId: user.officeId || getCurrentOfficeId(),
+    officeId: normalizeOfficeId(user.officeId || getCurrentOfficeId()),
     groupId: user.groupId || getCurrentGroupId(),
     month: monthId,
     days: {},
@@ -851,6 +877,7 @@ function resetAnnouncementForm() {
   currentEditingAnnouncementId = "";
 
   editingAnnouncementId.value = "";
+  announcementWorkshopId.value = "";
   announcementFormTitle.textContent = "新規追加";
   announcementVisibility.value = "all";
   announcementCategory.value = "notice";
@@ -858,9 +885,194 @@ function resetAnnouncementForm() {
   announcementStartTime.value = "";
   announcementEndTime.value = "";
   announcementBody.value = "";
+  renderAnnouncementWorkshopPicker(false);
 
   if (selectedAnnouncementDate) {
     renderAnnouncementList(selectedAnnouncementDate);
+  }
+}
+
+function getAnnouncementWorkshops() {
+  return [...(workshopResourcesCache.workshops || [])]
+    .filter((workshop) => workshop.active !== false)
+    .sort((a, b) => {
+      const orderA = typeof a.order === "number" ? a.order : 9999;
+      const orderB = typeof b.order === "number" ? b.order : 9999;
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+
+      return (a.title || "").localeCompare(b.title || "", "ja");
+    });
+}
+
+function normalizeAnnouncementTime(value) {
+  const match = String(value || "").match(/^(\d{1,2}):([0-5]\d)$/);
+
+  if (!match) {
+    return "";
+  }
+
+  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+}
+
+function extractTimeRangeFromWorkshop(workshop) {
+  const sourceText = `${workshop?.scheduleText || ""} ${workshop?.description || ""}`;
+  const match = sourceText.match(/(\d{1,2}:[0-5]\d)\s*[〜~\-－ー]\s*(\d{1,2}:[0-5]\d)/);
+
+  if (!match) {
+    return { startTime: "", endTime: "" };
+  }
+
+  return {
+    startTime: normalizeAnnouncementTime(match[1]),
+    endTime: normalizeAnnouncementTime(match[2])
+  };
+}
+
+function buildAnnouncementBodyFromWorkshop(workshop) {
+  const lines = [];
+  const scheduleText = String(workshop?.scheduleText || "").trim();
+  const description = String(workshop?.description || workshop?.summary || "").trim();
+  const cases = getActiveCasesForWorkshop(workshop?.id || "");
+  const activeLinks = (workshop?.links || []).filter((link) => link.active !== false);
+  const activeDeadlines = (workshop?.deadlines || []).filter((deadline) => deadline.active !== false);
+
+  if (scheduleText) {
+    lines.push(`予定：${scheduleText}`);
+  }
+
+  if (description) {
+    lines.push(description);
+  }
+
+  if (cases.length > 0) {
+    const caseNames = cases
+      .slice(0, 5)
+      .map((caseItem) => `${caseItem.caseNo ? `案件No.${caseItem.caseNo} ` : ""}${caseItem.title || "無題の案件"}`)
+      .join("、");
+    const hiddenCount = cases.length - 5;
+    lines.push(`関連案件：${caseNames}${hiddenCount > 0 ? `、ほか${hiddenCount}件` : ""}`);
+  }
+
+  if (activeDeadlines.length > 0) {
+    lines.push(`提出期限：${activeDeadlines.length}件`);
+  }
+
+  if (activeLinks.length > 0) {
+    lines.push(`教材・リンク：${activeLinks.length}件`);
+  }
+
+  return lines.join("\n");
+}
+
+function applyWorkshopToAnnouncementForm(workshopId) {
+  const workshop = (workshopResourcesCache.workshops || []).find((item) => item.id === workshopId);
+
+  if (!workshop) {
+    return;
+  }
+
+  announcementWorkshopId.value = workshop.id;
+  announcementCategory.value = "workshop";
+  announcementTitle.value = workshop.title || "";
+  announcementBody.value = buildAnnouncementBodyFromWorkshop(workshop);
+
+  const { startTime, endTime } = extractTimeRangeFromWorkshop(workshop);
+
+  if (startTime && Array.from(announcementStartTime.options).some((option) => option.value === startTime)) {
+    announcementStartTime.value = startTime;
+  }
+
+  if (endTime && Array.from(announcementEndTime.options).some((option) => option.value === endTime)) {
+    announcementEndTime.value = endTime;
+  }
+
+  renderAnnouncementWorkshopList();
+}
+
+function renderAnnouncementWorkshopList() {
+  if (!announcementWorkshopList) {
+    return;
+  }
+
+  const workshops = getAnnouncementWorkshops();
+  announcementWorkshopList.innerHTML = "";
+
+  if (!workshops.length) {
+    announcementWorkshopList.innerHTML = `<div class="calendar-filter-empty">登録済みのワークショップがありません。先にワークショップ・案件管理で作成してください。</div>`;
+    return;
+  }
+
+  workshops.forEach((workshop) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "announcement-workshop-card";
+    card.dataset.workshopId = workshop.id;
+
+    if (announcementWorkshopId.value === workshop.id) {
+      card.classList.add("selected");
+    }
+
+    const title = document.createElement("div");
+    title.className = "announcement-workshop-card-title";
+    title.textContent = workshop.title || "無題のワークショップ";
+
+    const meta = document.createElement("div");
+    meta.className = "announcement-workshop-card-meta";
+    const caseCount = getActiveCasesForWorkshop(workshop.id).length;
+    const linkCount = (workshop.links || []).filter((item) => item.active !== false).length;
+    const deadlineCount = (workshop.deadlines || []).filter((item) => item.active !== false).length;
+    meta.textContent = `案件${caseCount}件 ／ 教材${linkCount}件 ／ 期限${deadlineCount}件`;
+
+    const body = document.createElement("div");
+    body.className = "announcement-workshop-card-body";
+    body.textContent = workshop.scheduleText || workshop.description || "説明なし";
+
+    card.appendChild(title);
+    card.appendChild(meta);
+    card.appendChild(body);
+    card.addEventListener("click", () => {
+      applyWorkshopToAnnouncementForm(workshop.id);
+    });
+
+    announcementWorkshopList.appendChild(card);
+  });
+}
+
+async function renderAnnouncementWorkshopPicker(shouldLoad = true) {
+  if (!announcementWorkshopPicker) {
+    return;
+  }
+
+  const isWorkshop = announcementCategory.value === "workshop";
+  announcementWorkshopPicker.classList.toggle("hidden", !isWorkshop);
+
+  if (!isWorkshop) {
+    if (announcementWorkshopId) {
+      announcementWorkshopId.value = "";
+    }
+    return;
+  }
+
+  if (!shouldLoad) {
+    renderAnnouncementWorkshopList();
+    return;
+  }
+
+  if (announcementWorkshopList) {
+    announcementWorkshopList.textContent = "ワークショップ一覧を読み込み中...";
+  }
+
+  try {
+    await loadWorkshopResourcesForStaff();
+    renderAnnouncementWorkshopList();
+  } catch (error) {
+    console.error("アナウンス用ワークショップ一覧読み込みエラー:", error);
+    if (announcementWorkshopList) {
+      announcementWorkshopList.innerHTML = `<div class="calendar-filter-empty">ワークショップ一覧の読み込みに失敗しました：${escapeStaffWeeklyText(error.code || error.message)}</div>`;
+    }
   }
 }
 
@@ -875,6 +1087,24 @@ function sortAnnouncements(list) {
 
     return (a.title || "").localeCompare(b.title || "");
   });
+}
+
+function mergeAnnouncementLists(...lists) {
+  const merged = [];
+
+  lists.flat().filter(Boolean).forEach((announcement) => {
+    const id = announcement.id || `${announcement.category || "notice"}_${announcement.title || ""}_${announcement.sourceWorkshopId || ""}`;
+    const exists = merged.some((item) => {
+      const itemId = item.id || `${item.category || "notice"}_${item.title || ""}_${item.sourceWorkshopId || ""}`;
+      return itemId === id;
+    });
+
+    if (!exists) {
+      merged.push(announcement);
+    }
+  });
+
+  return sortAnnouncements(merged);
 }
 
 function updateStaffAnnouncementViewButtons() {
@@ -1066,10 +1296,12 @@ function renderAnnouncementList(dateId) {
       announcementFormTitle.textContent = "編集中";
       announcementVisibility.value = announcement.visibility || "all";
       announcementCategory.value = announcement.category || "notice";
+      announcementWorkshopId.value = announcement.sourceWorkshopId || "";
       announcementTitle.value = announcement.title || "";
       announcementStartTime.value = announcement.startTime || "";
       announcementEndTime.value = announcement.endTime || "";
       announcementBody.value = announcement.body || "";
+      renderAnnouncementWorkshopPicker();
 
       renderAnnouncementList(selectedAnnouncementDate);
     });
@@ -1136,21 +1368,29 @@ async function loadMonthlySchedulesForStaff(year, month) {
     return staffMonthlyScheduleCache[cacheKey];
   }
 
-  const schedulesQuery = query(
-    collection(db, "monthlySchedules"),
-    where("officeId", "==", officeId),
-    where("month", "==", monthId)
-  );
-
-  const snapshot = await getDocs(schedulesQuery);
   const monthlySchedules = [];
 
-  snapshot.forEach((docSnap) => {
-    monthlySchedules.push({
-      id: docSnap.id,
-      ...docSnap.data()
+  for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
+    const schedulesQuery = query(
+      collection(db, "monthlySchedules"),
+      where("officeId", "==", candidateOfficeId),
+      where("month", "==", monthId)
+    );
+
+    const snapshot = await getDocs(schedulesQuery);
+
+    snapshot.forEach((docSnap) => {
+      if (monthlySchedules.some((item) => item.id === docSnap.id)) {
+        return;
+      }
+
+      monthlySchedules.push({
+        id: docSnap.id,
+        ...docSnap.data(),
+        officeId: normalizeOfficeId(docSnap.data().officeId || candidateOfficeId)
+      });
     });
-  });
+  }
 
   staffMonthlyScheduleCache[cacheKey] = monthlySchedules;
   return monthlySchedules;
@@ -1203,7 +1443,7 @@ async function loadDailySchedules() {
         userId: user.id,
         userName: user.name,
         userEmail: user.email,
-        officeId: user.officeId,
+        officeId: normalizeOfficeId(user.officeId || getCurrentOfficeId()),
         groupId: user.groupId,
         userSortIndex: userIndex
       };
@@ -1476,8 +1716,10 @@ function normalizeActiveUserRecord(rawUser, fallbackOfficeId, fallbackGroupId) {
     return null;
   }
 
-  // 移行中は officeId 未設定の利用者も現在の事業所扱いにする。
-  if (rawUser.officeId && rawUser.officeId !== fallbackOfficeId) {
+  const officeId = normalizeOfficeId(rawUser.officeId || fallbackOfficeId);
+
+  // 移行中は officeId 未設定の利用者と旧IDの利用者も現在の事業所扱いにする。
+  if (rawUser.officeId && !officeIdsMatch(rawUser.officeId, fallbackOfficeId)) {
     return null;
   }
 
@@ -1486,7 +1728,7 @@ function normalizeActiveUserRecord(rawUser, fallbackOfficeId, fallbackGroupId) {
     uid: id,
     name: rawUser.name || rawUser.displayName || rawUser.email || "名前未設定",
     email: rawUser.email || "",
-    officeId: rawUser.officeId || fallbackOfficeId,
+    officeId,
     groupId: rawUser.groupId || fallbackGroupId,
     active: rawUser.active !== false,
     weeklyReportStartWeek: getWeeklyReportStartWeekIdFromUserRecord(rawUser)
@@ -1511,8 +1753,12 @@ async function loadActiveUsersFromSystemDoc() {
   let rawUsers = [];
 
   // 将来、複数事業所を1ドキュメント内で分ける場合にも対応。
-  if (data.offices?.[officeId]?.users && Array.isArray(data.offices[officeId].users)) {
-    rawUsers = data.offices[officeId].users;
+  const officeBuckets = getCompatibleOfficeIds(officeId)
+    .map((candidateOfficeId) => data.offices?.[candidateOfficeId]?.users)
+    .filter(Array.isArray);
+
+  if (officeBuckets.length > 0) {
+    rawUsers = officeBuckets.flat();
   } else if (Array.isArray(data.users)) {
     rawUsers = data.users;
   }
@@ -1687,7 +1933,8 @@ async function loadMonthlyScheduleForSingleUser(user, year, month) {
     monthlySchedule = {
       id: docSnap.id,
       _missingDoc: false,
-      ...docSnap.data()
+      ...docSnap.data(),
+      officeId: normalizeOfficeId(docSnap.data().officeId || user.officeId || getCurrentOfficeId())
     };
   } else {
     // 予定データがまだ作られていない利用者でも、エラーにせず「予定未入力」として表示する。
@@ -1697,7 +1944,7 @@ async function loadMonthlyScheduleForSingleUser(user, year, month) {
       userId: user.id,
       userName: user.name || "名前未設定",
       userEmail: user.email || "",
-      officeId: user.officeId || getCurrentOfficeId(),
+      officeId: normalizeOfficeId(user.officeId || getCurrentOfficeId()),
       groupId: user.groupId || getCurrentGroupId(),
       month: monthId,
       days: {},
@@ -2108,21 +2355,27 @@ async function loadWeeklyReportStatusMapForStaff(users) {
   }
 
   const targetUserIds = new Set(users.map((user) => user.id));
-  const statusQuery = query(
-    collection(db, WEEKLY_REPORT_STATUS_COLLECTION),
-    where("officeId", "==", getCurrentOfficeId())
-  );
-  const snapshot = await getDocs(statusQuery);
   const statusMap = {};
 
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data() || {};
-    const userId = data.userId || docSnap.id;
+  for (const candidateOfficeId of getCompatibleOfficeIds()) {
+    const statusQuery = query(
+      collection(db, WEEKLY_REPORT_STATUS_COLLECTION),
+      where("officeId", "==", candidateOfficeId)
+    );
+    const snapshot = await getDocs(statusQuery);
 
-    if (targetUserIds.has(userId)) {
-      statusMap[userId] = data;
-    }
-  });
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const userId = data.userId || docSnap.id;
+
+      if (targetUserIds.has(userId)) {
+        statusMap[userId] = {
+          ...data,
+          officeId: normalizeOfficeId(data.officeId || candidateOfficeId)
+        };
+      }
+    });
+  }
 
   return statusMap;
 }
@@ -2160,7 +2413,7 @@ async function markWeeklyReportFeedbackInStatusCache(report, feedbackVersion) {
       userId,
       userName: report.userName || report._user?.name || "",
       userEmail: report.userEmail || report._user?.email || "",
-      officeId: report.officeId || getCurrentOfficeId(),
+      officeId: normalizeOfficeId(report.officeId || getCurrentOfficeId()),
       groupId: report.groupId || getCurrentGroupId(),
       schemaVersion: WEEKLY_REPORT_STATUS_SCHEMA_VERSION,
       submittedWeeks: {
@@ -2963,27 +3216,32 @@ async function getMonthlyAnnouncementsForOperationCheck(year, month) {
     return staffMonthlyAnnouncementCache[cacheKey];
   }
 
-  const monthlyAnnouncementId = getMonthlyAnnouncementId(officeId, monthId);
-  const docRef = doc(db, "monthlyAnnouncements", monthlyAnnouncementId);
-  const docSnap = await getDoc(docRef);
-
-  if (!docSnap.exists()) {
-    staffMonthlyAnnouncementCache[cacheKey] = {};
-    return staffMonthlyAnnouncementCache[cacheKey];
-  }
-
-  const data = docSnap.data();
-  const rawDays = data.days || {};
   const loadedByDate = {};
 
-  Object.keys(rawDays).forEach((dateId) => {
-    const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
-    const activeList = rawList.filter((announcement) => announcement.active !== false);
+  for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
+    const monthlyAnnouncementId = getMonthlyAnnouncementId(candidateOfficeId, monthId);
+    const docRef = doc(db, "monthlyAnnouncements", monthlyAnnouncementId);
+    const docSnap = await getDoc(docRef);
 
-    if (activeList.length > 0) {
-      loadedByDate[dateId] = sortAnnouncements(activeList);
+    if (!docSnap.exists()) {
+      continue;
     }
-  });
+
+    const data = docSnap.data();
+    const rawDays = data.days || {};
+
+    Object.keys(rawDays).forEach((dateId) => {
+      const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
+      const activeList = rawList.filter((announcement) => announcement.active !== false);
+
+      if (activeList.length > 0) {
+        loadedByDate[dateId] = mergeAnnouncementLists(
+          ...(loadedByDate[dateId] || []),
+          ...activeList
+        );
+      }
+    });
+  }
 
   staffMonthlyAnnouncementCache[cacheKey] = loadedByDate;
   return loadedByDate;
@@ -3235,7 +3493,7 @@ async function openUserScheduleEditModal(dateId) {
 }
 
 function syncSingleMonthlyScheduleIntoStaffMonthlyCache(monthlySchedule) {
-  const officeId = monthlySchedule.officeId || getCurrentOfficeId();
+  const officeId = normalizeOfficeId(monthlySchedule.officeId || getCurrentOfficeId());
   const monthId = monthlySchedule.month;
   const cacheKey = `${officeId}_${monthId}`;
 
@@ -3295,7 +3553,7 @@ async function saveUserScheduleFromStaffModal() {
       id: monthlySchedule.userId || selectedUserScheduleId,
       name: monthlySchedule.userName || "名前未設定",
       email: monthlySchedule.userEmail || "",
-      officeId: monthlySchedule.officeId || getCurrentOfficeId(),
+      officeId: normalizeOfficeId(monthlySchedule.officeId || getCurrentOfficeId()),
       groupId: monthlySchedule.groupId || getCurrentGroupId()
     };
 
@@ -3305,7 +3563,7 @@ async function saveUserScheduleFromStaffModal() {
       userId: selectedUser.id,
       userName: selectedUser.name || monthlySchedule.userName || "名前未設定",
       userEmail: selectedUser.email || monthlySchedule.userEmail || "",
-      officeId: selectedUser.officeId || monthlySchedule.officeId || getCurrentOfficeId(),
+      officeId: normalizeOfficeId(selectedUser.officeId || monthlySchedule.officeId || getCurrentOfficeId()),
       groupId: selectedUser.groupId || monthlySchedule.groupId || getCurrentGroupId(),
       month: monthId,
       days: days,
@@ -3366,28 +3624,32 @@ async function loadMonthlyAnnouncements(year, month) {
     return announcementsByDate;
   }
 
-  const monthlyAnnouncementId = getMonthlyAnnouncementId(officeId, monthId);
-  const docRef = doc(db, "monthlyAnnouncements", monthlyAnnouncementId);
-  const docSnap = await getDoc(docRef);
-
-  if (!docSnap.exists()) {
-    staffMonthlyAnnouncementCache[cacheKey] = {};
-    announcementsByDate = staffMonthlyAnnouncementCache[cacheKey];
-    return announcementsByDate;
-  }
-
-  const data = docSnap.data();
-  const rawDays = data.days || {};
   const loadedByDate = {};
 
-  Object.keys(rawDays).forEach((dateId) => {
-    const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
-    const activeList = rawList.filter((announcement) => announcement.active !== false);
+  for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
+    const monthlyAnnouncementId = getMonthlyAnnouncementId(candidateOfficeId, monthId);
+    const docRef = doc(db, "monthlyAnnouncements", monthlyAnnouncementId);
+    const docSnap = await getDoc(docRef);
 
-    if (activeList.length > 0) {
-      loadedByDate[dateId] = sortAnnouncements(activeList);
+    if (!docSnap.exists()) {
+      continue;
     }
-  });
+
+    const data = docSnap.data();
+    const rawDays = data.days || {};
+
+    Object.keys(rawDays).forEach((dateId) => {
+      const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
+      const activeList = rawList.filter((announcement) => announcement.active !== false);
+
+      if (activeList.length > 0) {
+        loadedByDate[dateId] = mergeAnnouncementLists(
+          ...(loadedByDate[dateId] || []),
+          ...activeList
+        );
+      }
+    });
+  }
 
   staffMonthlyAnnouncementCache[cacheKey] = loadedByDate;
   announcementsByDate = loadedByDate;
@@ -3408,7 +3670,7 @@ async function persistMonthlyAnnouncements(year, month) {
       return;
     }
 
-    const list = sortAnnouncements(announcementsByDate[dateId] || [])
+    const list = mergeAnnouncementLists(announcementsByDate[dateId] || [])
       .filter((announcement) => announcement.active !== false)
       .map((announcement) => ({
         id: announcement.id,
@@ -3419,6 +3681,8 @@ async function persistMonthlyAnnouncements(year, month) {
         endTime: announcement.endTime || "",
         timeText: announcement.timeText || "",
         body: announcement.body || "",
+        sourceWorkshopId: announcement.sourceWorkshopId || "",
+        sourceWorkshopTitle: announcement.sourceWorkshopTitle || "",
         active: true,
         createdByUid: announcement.createdByUid || currentUser.uid,
         createdByName: announcement.createdByName || currentStaffData?.name || currentUser.email,
@@ -3677,8 +3941,8 @@ async function loadAnnouncementCalendar() {
 // system/workshopResources_{officeId} を、開いた時だけ1 readする。
 // schemaVersion 2：workshops / cases / guides を1ドキュメントにまとめる。
 // ==============================
-function getWorkshopResourcesDocId() {
-  return `${WORKSHOP_RESOURCES_DOC_PREFIX}${getCurrentOfficeId()}`;
+function getWorkshopResourcesDocId(officeId = getCurrentOfficeId()) {
+  return `${WORKSHOP_RESOURCES_DOC_PREFIX}${officeId}`;
 }
 
 function normalizeWorkshopId(text) {
@@ -4866,14 +5130,34 @@ async function loadWorkshopResourcesForStaff() {
     return;
   }
 
-  const docRef = doc(db, "system", getWorkshopResourcesDocId());
-  const docSnap = await getDoc(docRef);
+  let docSnap = null;
+  let loadedOfficeId = getCurrentOfficeId();
 
-  if (docSnap.exists()) {
+  for (const candidateOfficeId of getCompatibleOfficeIds()) {
+    const candidateSnap = await getDoc(doc(db, "system", getWorkshopResourcesDocId(candidateOfficeId)));
+
+    if (!candidateSnap.exists()) {
+      continue;
+    }
+
+    docSnap = candidateSnap;
+    loadedOfficeId = candidateOfficeId;
+
+    const data = candidateSnap.data() || {};
+    const hasContent = (Array.isArray(data.workshops) && data.workshops.length > 0)
+      || (Array.isArray(data.cases) && data.cases.length > 0)
+      || (Array.isArray(data.guides) && data.guides.length > 0);
+
+    if (hasContent) {
+      break;
+    }
+  }
+
+  if (docSnap?.exists()) {
     const data = docSnap.data();
     workshopResourcesCache = {
       schemaVersion: data.schemaVersion || 2,
-      officeId: data.officeId || getCurrentOfficeId(),
+      officeId: normalizeOfficeId(data.officeId || loadedOfficeId || getCurrentOfficeId()),
       groupId: data.groupId || getCurrentGroupId(),
       workshops: Array.isArray(data.workshops) ? data.workshops : [],
       cases: Array.isArray(data.cases) ? data.cases : [],
@@ -5446,6 +5730,19 @@ logoutButton.addEventListener("click", async () => {
   window.location.href = "index.html";
 });
 
+if (announcementCategory) {
+  announcementCategory.addEventListener("change", () => {
+    renderAnnouncementWorkshopPicker();
+  });
+}
+
+if (refreshAnnouncementWorkshopsButton) {
+  refreshAnnouncementWorkshopsButton.addEventListener("click", async () => {
+    workshopResourcesLoaded = false;
+    await renderAnnouncementWorkshopPicker();
+  });
+}
+
 saveAnnouncementButton.addEventListener("click", async () => {
   const date = announcementDate.value;
   const visibility = announcementVisibility.value;
@@ -5456,6 +5753,11 @@ saveAnnouncementButton.addEventListener("click", async () => {
   const timeText = buildTimeText(startTime, endTime);
   const body = announcementBody.value.trim();
   const id = editingAnnouncementId.value;
+  const selectedWorkshop = category === "workshop" && announcementWorkshopId.value
+    ? (workshopResourcesCache.workshops || []).find((workshop) => workshop.id === announcementWorkshopId.value)
+    : null;
+  const sourceWorkshopId = category === "workshop" ? (selectedWorkshop?.id || announcementWorkshopId.value || "") : "";
+  const sourceWorkshopTitle = category === "workshop" ? (selectedWorkshop?.title || (sourceWorkshopId ? title : "")) : "";
 
   if (!date) {
     alert("日付が選択されていません。");
@@ -5486,6 +5788,8 @@ saveAnnouncementButton.addEventListener("click", async () => {
           endTime: endTime,
           timeText: timeText,
           body: body,
+          sourceWorkshopId,
+          sourceWorkshopTitle,
           active: true,
           updatedAt: new Date().toISOString()
         };
@@ -5500,6 +5804,8 @@ saveAnnouncementButton.addEventListener("click", async () => {
         endTime: endTime,
         timeText: timeText,
         body: body,
+        sourceWorkshopId,
+        sourceWorkshopTitle,
         active: true,
         createdByUid: currentUser.uid,
         createdByName: currentStaffData?.name || currentUser.email,
