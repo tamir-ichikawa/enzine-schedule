@@ -1,3 +1,4 @@
+// STEP55_OFFICE_ID_ENZINE_CHIBA_20260623_V85：事業所IDをenzine_chibaへ統一し旧engine_chibaを互換扱い
 // STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告開始週を登録・キャッシュ
 // STEP50_ADMIN_CONFIRM_INACTIVE_FILTER_SETTINGS_20260622_V80：重要操作の再確認・停止者フィルター・設定メニュー外クリック対応
 // STEP49_ADMIN_AUTH_CREATE_USER_20260622_V79：Admin画面からFirebase Authユーザーも作成できる登録モードを追加
@@ -23,7 +24,8 @@ import {
 import { app, auth, db } from "./firebase-config.js";
 import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
-const DEFAULT_OFFICE_ID = "engine_chiba";
+const DEFAULT_OFFICE_ID = "enzine_chiba";
+const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
@@ -34,6 +36,7 @@ const ADMIN_USER_MANUAL_SAVE_TEXT = "保存";
 const ADMIN_USER_AUTH_SAVE_TEXT = "Authユーザーを作成して保存";
 const functions = getFunctions(app, FUNCTIONS_REGION);
 const createAuthUserAndProfile = httpsCallable(functions, "createAuthUserAndProfile");
+const migrateLegacyOfficeIdToEnzineChiba = httpsCallable(functions, "migrateLegacyOfficeIdToEnzineChiba");
 
 const adminInfo = document.getElementById("adminInfo");
 const logoutButton = document.getElementById("logoutButton");
@@ -65,6 +68,7 @@ const resetAdminUserFormButton = document.getElementById("resetAdminUserFormButt
 const adminUserMessage = document.getElementById("adminUserMessage");
 const reloadAdminUsersButton = document.getElementById("reloadAdminUsersButton");
 const rebuildActiveUsersButton = document.getElementById("rebuildActiveUsersButton");
+const normalizeOfficeIdButton = document.getElementById("normalizeOfficeIdButton");
 
 let currentUser = null;
 let currentAdminData = null;
@@ -76,11 +80,23 @@ let adminUserCreateMode = "uid";
 setupSettingsMenuClose();
 
 function getCurrentOfficeId() {
-  return currentAdminData?.officeId || DEFAULT_OFFICE_ID;
+  return normalizeOfficeId(currentAdminData?.officeId);
 }
 
 function getCurrentGroupId() {
   return currentAdminData?.groupId || DEFAULT_GROUP_ID;
+}
+
+function normalizeOfficeId(officeId) {
+  const value = String(officeId || "").trim();
+  if (!value || LEGACY_OFFICE_IDS.includes(value)) {
+    return DEFAULT_OFFICE_ID;
+  }
+  return value;
+}
+
+function officeIdsMatch(a, b) {
+  return normalizeOfficeId(a) === normalizeOfficeId(b);
 }
 
 function setAdminUserMessage(text, color = "#555") {
@@ -379,7 +395,7 @@ function normalizeAdminUser(docId, data) {
     email: data?.email || "",
     role: data?.role || "user",
     active: data?.active === true,
-    officeId: data?.officeId || getCurrentOfficeId(),
+    officeId: normalizeOfficeId(data?.officeId || getCurrentOfficeId()),
     groupId: data?.groupId || getCurrentGroupId(),
     createdAt: data?.createdAt || null,
     weeklyReportStartWeek: getWeeklyReportStartWeekIdFromUserRecord(data)
@@ -391,9 +407,9 @@ function normalizeActiveUserRecord(user) {
     return null;
   }
 
-  const officeId = user.officeId || getCurrentOfficeId();
+  const officeId = normalizeOfficeId(user.officeId || getCurrentOfficeId());
 
-  if (officeId !== getCurrentOfficeId()) {
+  if (!officeIdsMatch(officeId, getCurrentOfficeId())) {
     return null;
   }
 
@@ -402,7 +418,7 @@ function normalizeActiveUserRecord(user) {
     uid: user.id,
     name: user.name || user.email || "名前未設定",
     email: user.email || "",
-    officeId: officeId,
+    officeId,
     groupId: user.groupId || getCurrentGroupId(),
     weeklyReportStartWeek: user.weeklyReportStartWeek || getWeeklyReportStartWeekIdFromUserRecord(user),
     active: true
@@ -733,7 +749,7 @@ function setAdminUserForm(user) {
   adminUserEmail.value = user.email || "";
   adminUserRole.value = user.role || "user";
   adminUserActive.checked = user.active === true;
-  adminUserOfficeId.value = user.officeId || getCurrentOfficeId();
+  adminUserOfficeId.value = normalizeOfficeId(user.officeId || getCurrentOfficeId());
   adminUserGroupId.value = user.groupId || getCurrentGroupId();
   setAdminUserCreateMode("uid");
   setAdminUserMessage("編集中です。保存すると users の情報を更新します。", "#555");
@@ -857,7 +873,7 @@ async function saveAdminUser(event) {
   const email = adminUserEmail.value.trim();
   const role = adminUserRole.value;
   const active = adminUserActive.checked;
-  const officeId = adminUserOfficeId.value.trim() || getCurrentOfficeId();
+  const officeId = normalizeOfficeId(adminUserOfficeId.value || getCurrentOfficeId());
   const groupId = adminUserGroupId.value.trim() || getCurrentGroupId();
 
   if (!editingAdminUserId && adminUserCreateMode === "auth") {
@@ -975,6 +991,7 @@ async function toggleAdminUserActive(user) {
   try {
     await setDoc(doc(db, "users", user.id), {
       active: nextActive,
+      officeId: normalizeOfficeId(user.officeId || getCurrentOfficeId()),
       updatedAt: serverTimestamp(),
       updatedByUid: currentUser?.uid || "",
       updatedByName: currentAdminData?.name || currentUser?.email || ""
@@ -1181,6 +1198,40 @@ rebuildActiveUsersButton.addEventListener("click", async () => {
     setButtonLoading(rebuildActiveUsersButton, false, "更新中...", "利用者一覧キャッシュ更新");
   }
 });
+
+if (normalizeOfficeIdButton) {
+  normalizeOfficeIdButton.addEventListener("click", async () => {
+    const ok = confirmImportantAction("事業所IDを修正します", [
+      "旧ID engine_chiba の既存データを正しいID enzine_chiba に寄せます。",
+      "対象: users / monthlySchedules / weeklyReportUserStatus / monthlyAnnouncements / workshopResources / activeUsers",
+      "旧データは安全のためすぐには削除せず、新ID側へコピー・更新します。",
+      "実行後、利用者一覧キャッシュも更新されます。"
+    ]);
+
+    if (!ok) {
+      setAdminUserMessage("事業所ID修正をキャンセルしました。", "#555");
+      return;
+    }
+
+    try {
+      setButtonLoading(normalizeOfficeIdButton, true, "修正中...", "事業所ID修正");
+      const result = await migrateLegacyOfficeIdToEnzineChiba({});
+      await loadAdminUsers({ silent: true });
+      await rebuildActiveUsersFromUsersCollection({ silent: true });
+
+      const counts = result?.data?.counts || {};
+      setAdminUserMessage(
+        `事業所IDを修正しました。users ${counts.users || 0}件 / 月間予定 ${counts.monthlySchedules || 0}件 / 週一報告本文 ${counts.weeklyReports || 0}件 / 週一報告状態 ${counts.weeklyReportStatus || 0}件 / アナウンス ${counts.monthlyAnnouncements || 0}件 / ワークショップ ${counts.workshopResources || 0}件`,
+        "green"
+      );
+    } catch (error) {
+      console.error("事業所ID修正エラー:", error);
+      setAdminUserMessage(`事業所ID修正に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
+    } finally {
+      setButtonLoading(normalizeOfficeIdButton, false, "修正中...", "事業所ID修正");
+    }
+  });
+}
 
 adminUserRoleFilterButtons.forEach((button) => {
   button.addEventListener("click", () => {

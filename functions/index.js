@@ -8,7 +8,8 @@ const db = admin.firestore();
 const auth = admin.auth();
 const FieldValue = admin.firestore.FieldValue;
 
-const DEFAULT_OFFICE_ID = "engine_chiba";
+const DEFAULT_OFFICE_ID = "enzine_chiba";
+const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
@@ -27,6 +28,18 @@ function cleanText(value, fallback = "", maxLength = 120) {
   }
 
   return text.slice(0, maxLength);
+}
+
+function normalizeOfficeId(officeId) {
+  const value = cleanText(officeId, "", 80);
+  if (!value || LEGACY_OFFICE_IDS.includes(value)) {
+    return DEFAULT_OFFICE_ID;
+  }
+  return value;
+}
+
+function officeIdsMatch(a, b) {
+  return normalizeOfficeId(a) === normalizeOfficeId(b);
 }
 
 function cleanEmail(value) {
@@ -177,7 +190,7 @@ async function assertCallerIsAdmin(request) {
     uid: callerUid,
     name: callerData.name || request.auth.token?.email || "",
     email: callerData.email || request.auth.token?.email || "",
-    officeId: callerData.officeId || DEFAULT_OFFICE_ID,
+    officeId: normalizeOfficeId(callerData.officeId || DEFAULT_OFFICE_ID),
     groupId: callerData.groupId || DEFAULT_GROUP_ID
   };
 }
@@ -189,9 +202,9 @@ function normalizeActiveUser(docSnap, currentOfficeId, defaultGroupId) {
     return null;
   }
 
-  const officeId = data.officeId || currentOfficeId;
+  const officeId = normalizeOfficeId(data.officeId || currentOfficeId);
 
-  if (officeId !== currentOfficeId) {
+  if (!officeIdsMatch(officeId, currentOfficeId)) {
     return null;
   }
 
@@ -233,6 +246,124 @@ async function rebuildActiveUsers({ officeId, groupId, updatedByUid, updatedByNa
   return users.length;
 }
 
+async function updateOfficeIdForCollection(collectionName, oldOfficeId, newOfficeId) {
+  const snapshot = await db.collection(collectionName).where("officeId", "==", oldOfficeId).get();
+  let batch = db.batch();
+  let pendingWrites = 0;
+  let count = 0;
+
+  for (const docSnap of snapshot.docs) {
+    batch.set(docSnap.ref, {
+      officeId: newOfficeId,
+      migratedOfficeIdFrom: oldOfficeId,
+      migratedOfficeIdAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    pendingWrites++;
+    count++;
+
+    if (pendingWrites >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      pendingWrites = 0;
+    }
+  }
+
+  if (pendingWrites > 0) {
+    await batch.commit();
+  }
+
+  return count;
+}
+
+async function copyMonthlyAnnouncementsToNewOffice(oldOfficeId, newOfficeId) {
+  const snapshot = await db.collection("monthlyAnnouncements").where("officeId", "==", oldOfficeId).get();
+  let batch = db.batch();
+  let pendingWrites = 0;
+  let count = 0;
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data() || {};
+    const monthId = data.month || data.yearMonth || docSnap.id.replace(`${oldOfficeId}_`, "");
+    const newDocRef = db.collection("monthlyAnnouncements").doc(`${newOfficeId}_${monthId}`);
+
+    batch.set(newDocRef, {
+      ...data,
+      officeId: newOfficeId,
+      migratedOfficeIdFrom: oldOfficeId,
+      migratedOfficeIdAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    pendingWrites++;
+    count++;
+
+    if (pendingWrites >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      pendingWrites = 0;
+    }
+  }
+
+  if (pendingWrites > 0) {
+    await batch.commit();
+  }
+
+  return count;
+}
+
+function mergeResourceItems(primary = [], secondary = []) {
+  const byId = new Map();
+  const addItem = (item) => {
+    if (!item) {
+      return;
+    }
+
+    const id = item.id || item.uid || item.title || JSON.stringify(item);
+    if (!byId.has(id)) {
+      byId.set(id, item);
+    }
+  };
+
+  primary.forEach(addItem);
+  secondary.forEach(addItem);
+  return Array.from(byId.values());
+}
+
+async function copyWorkshopResourcesToNewOffice(oldOfficeId, newOfficeId) {
+  const oldDocRef = db.collection("system").doc(`workshopResources_${oldOfficeId}`);
+  const newDocRef = db.collection("system").doc(`workshopResources_${newOfficeId}`);
+  const [oldSnap, newSnap] = await Promise.all([oldDocRef.get(), newDocRef.get()]);
+
+  if (!oldSnap.exists) {
+    return 0;
+  }
+
+  const oldData = oldSnap.data() || {};
+  const newData = newSnap.exists ? newSnap.data() || {} : {};
+
+  await newDocRef.set({
+    ...oldData,
+    ...newData,
+    officeId: newOfficeId,
+    workshops: mergeResourceItems(
+      Array.isArray(newData.workshops) ? newData.workshops : [],
+      Array.isArray(oldData.workshops) ? oldData.workshops : []
+    ),
+    cases: mergeResourceItems(
+      Array.isArray(newData.cases) ? newData.cases : [],
+      Array.isArray(oldData.cases) ? oldData.cases : []
+    ),
+    guides: mergeResourceItems(
+      Array.isArray(newData.guides) ? newData.guides : [],
+      Array.isArray(oldData.guides) ? oldData.guides : []
+    ),
+    migratedOfficeIdFrom: oldOfficeId,
+    migratedOfficeIdAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  return 1;
+}
+
 exports.createAuthUserAndProfile = onCall({
   region: "asia-northeast1",
   invoker: "public",
@@ -246,7 +377,7 @@ exports.createAuthUserAndProfile = onCall({
   const name = cleanText(data.name, "", 80);
   const role = cleanRole(data.role);
   const active = data.active !== false;
-  const officeId = cleanText(data.officeId, caller.officeId, 80);
+  const officeId = normalizeOfficeId(data.officeId || caller.officeId);
   const groupId = cleanText(data.groupId, caller.groupId, 80);
   const updatedByName = caller.name || caller.email || "";
   const weeklyReportStartWeek = getWeeklyReportStartWeekIdForRegistrationDate(new Date());
@@ -331,5 +462,59 @@ exports.createAuthUserAndProfile = onCall({
     uid: userRecord.uid,
     email,
     created: true
+  };
+});
+
+exports.migrateLegacyOfficeIdToEnzineChiba = onCall({
+  region: "asia-northeast1",
+  invoker: "public",
+  maxInstances: 1,
+  timeoutSeconds: 120
+}, async (request) => {
+  const caller = await assertCallerIsAdmin(request);
+  const oldOfficeId = "engine_chiba";
+  const newOfficeId = DEFAULT_OFFICE_ID;
+  const updatedByName = caller.name || caller.email || "";
+
+  if (oldOfficeId === newOfficeId) {
+    throw new HttpsError("failed-precondition", "Old and new office IDs are the same.");
+  }
+
+  const counts = {
+    users: await updateOfficeIdForCollection("users", oldOfficeId, newOfficeId),
+    monthlySchedules: await updateOfficeIdForCollection("monthlySchedules", oldOfficeId, newOfficeId),
+    weeklyReports: await updateOfficeIdForCollection("weeklyReports", oldOfficeId, newOfficeId),
+    weeklyReportStatus: await updateOfficeIdForCollection("weeklyReportUserStatus", oldOfficeId, newOfficeId),
+    monthlyAnnouncements: await copyMonthlyAnnouncementsToNewOffice(oldOfficeId, newOfficeId),
+    workshopResources: await copyWorkshopResourcesToNewOffice(oldOfficeId, newOfficeId)
+  };
+
+  counts.activeUsers = await rebuildActiveUsers({
+    officeId: newOfficeId,
+    groupId: caller.groupId || DEFAULT_GROUP_ID,
+    updatedByUid: caller.uid,
+    updatedByName
+  });
+
+  await db.collection("system").doc("officeIdMigration_engine_to_enzine_chiba").set({
+    from: oldOfficeId,
+    to: newOfficeId,
+    counts,
+    executedAt: FieldValue.serverTimestamp(),
+    executedByUid: caller.uid,
+    executedByName: updatedByName
+  }, { merge: true });
+
+  logger.info("Office ID migration completed", {
+    from: oldOfficeId,
+    to: newOfficeId,
+    counts,
+    uid: caller.uid
+  });
+
+  return {
+    from: oldOfficeId,
+    to: newOfficeId,
+    counts
   };
 });

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
   <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
-  <link rel="stylesheet" href="style.css?v=80">
+  <link rel="stylesheet" href="style.css?v=83">
 </head>
 <body class="app-shell-body">
   <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
@@ -37,6 +37,7 @@
   <!-- STEP48_PUBLIC_BILLING_SAFETY_TEST_NOTICE_20260622_V78 -->
   <!-- STEP50_SETTINGS_MENU_CLOSE_20260622_V80 -->
   <!-- STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81 -->
+  <!-- STEP52_ANNOUNCEMENT_WORKSHOP_PICKER_20260623_V82 -->
   <main class="login-container user-page app-main-shell staff-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -57,7 +58,7 @@
           <div class="app-settings-panel">
             <div class="app-settings-panel-title">設定</div>
             <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
-            <div class="app-settings-note">表示設定・通知設定などは今後追加予定です。</div>
+            <div class="app-settings-note">表示設定などは今後追加予定です。</div>
           </div>
         </details>
       </div>
@@ -303,7 +304,7 @@
               <h4>案件カード</h4>
               <button id="addWorkshopCaseCardButton" type="button" class="sub-button">案件を追加</button>
             </div>
-            <div id="workshopCaseCardList" class="workshop-case-card-list">
+          <div id="workshopCaseCardList" class="workshop-case-card-list">
               案件を追加すると、ここにカードで表示されます。
             </div>
             <label class="workshop-case-legacy-field hidden">
@@ -479,6 +480,7 @@
 
         <input type="hidden" id="editingAnnouncementId">
         <input type="hidden" id="announcementDate">
+        <input type="hidden" id="announcementWorkshopId">
 
         <label>
           表示範囲
@@ -497,6 +499,16 @@
             <option value="important">重要</option>
           </select>
         </label>
+
+        <section id="announcementWorkshopPicker" class="announcement-workshop-picker hidden" aria-live="polite">
+          <div class="announcement-workshop-picker-header">
+            <h4>ワークショップから入力</h4>
+            <button id="refreshAnnouncementWorkshopsButton" type="button" class="sub-button">一覧を更新</button>
+          </div>
+          <div id="announcementWorkshopList" class="announcement-workshop-list">
+            種類でワークショップを選ぶと一覧を表示します。
+          </div>
+        </section>
 
         <label>
           タイトル
@@ -565,6 +577,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=81"></script>
+  <script type="module" src="staff.js?v=85"></script>
 </body>
 </html>

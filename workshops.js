@@ -1,3 +1,5 @@
+// STEP55_OFFICE_ID_ENZINE_CHIBA_20260623_V85：事業所IDをenzine_chibaへ統一し旧engine_chibaを互換扱い
+// STEP53_WORKSHOP_DETAIL_LINK_20260623_V83：ワークショップ詳細へ直接遷移
 // STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
 // STEP32_WORKSHOP_CASE_COMPLETE_HIDE_20260621_V62：完了案件を提出期限一覧から除外
 // STEP31_WORKSHOP_CASE_DEADLINE_PREVIEW_20260621_V61：案件納期から提出期限一覧を表示
@@ -13,7 +15,8 @@ import {
 import { auth, db } from "./firebase-config.js";
 import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
-const DEFAULT_OFFICE_ID = "engine_chiba";
+const DEFAULT_OFFICE_ID = "enzine_chiba";
+const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const WORKSHOP_RESOURCES_DOC_PREFIX = "workshopResources_";
 
 const workshopUserInfo = document.getElementById("workshopUserInfo");
@@ -33,12 +36,32 @@ let workshopResourcesCache = {
 };
 let selectedWorkshopId = "";
 
-function getOfficeId() {
-  return currentUserData?.officeId || DEFAULT_OFFICE_ID;
+function getRequestedWorkshopId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("workshopId") || "";
 }
 
-function getWorkshopResourcesDocId() {
-  return `${WORKSHOP_RESOURCES_DOC_PREFIX}${getOfficeId()}`;
+function getOfficeId() {
+  return normalizeOfficeId(currentUserData?.officeId);
+}
+
+function normalizeOfficeId(officeId) {
+  const value = String(officeId || "").trim();
+  if (!value || LEGACY_OFFICE_IDS.includes(value)) {
+    return DEFAULT_OFFICE_ID;
+  }
+  return value;
+}
+
+function getCompatibleOfficeIds(officeId = getOfficeId()) {
+  const currentOfficeId = normalizeOfficeId(officeId);
+  return [currentOfficeId, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
+    return value && list.indexOf(value) === index;
+  });
+}
+
+function getWorkshopResourcesDocId(officeId = getOfficeId()) {
+  return `${WORKSHOP_RESOURCES_DOC_PREFIX}${officeId}`;
 }
 
 function escapeText(text) {
@@ -513,7 +536,7 @@ function renderWorkshopDetail(workshopId) {
 function normalizeWorkshopResourcesData(data) {
   return {
     schemaVersion: data.schemaVersion || 2,
-    officeId: data.officeId || getOfficeId(),
+    officeId: normalizeOfficeId(data.officeId || getOfficeId()),
     groupId: data.groupId || "enzine",
     workshops: Array.isArray(data.workshops) ? data.workshops : [],
     cases: Array.isArray(data.cases) ? data.cases : [],
@@ -523,6 +546,11 @@ function normalizeWorkshopResourcesData(data) {
 
 function renderWorkshopResources(data) {
   workshopResourcesCache = normalizeWorkshopResourcesData(data || {});
+  const requestedWorkshopId = getRequestedWorkshopId();
+
+  if (requestedWorkshopId) {
+    selectedWorkshopId = requestedWorkshopId;
+  }
 
   if (selectedWorkshopId) {
     renderWorkshopDetail(selectedWorkshopId);
@@ -535,22 +563,45 @@ function renderWorkshopResources(data) {
 async function loadWorkshopResources() {
   workshopResourceList.textContent = "読み込み中...";
 
-  const docRef = doc(db, "system", getWorkshopResourcesDocId());
-  const docSnap = await getDoc(docRef);
+  let docSnap = null;
+  let loadedOfficeId = getOfficeId();
 
-  if (!docSnap.exists()) {
+  for (const candidateOfficeId of getCompatibleOfficeIds()) {
+    const candidateSnap = await getDoc(doc(db, "system", getWorkshopResourcesDocId(candidateOfficeId)));
+
+    if (!candidateSnap.exists()) {
+      continue;
+    }
+
+    docSnap = candidateSnap;
+    loadedOfficeId = candidateOfficeId;
+
+    const data = candidateSnap.data() || {};
+    const hasContent = (Array.isArray(data.workshops) && data.workshops.length > 0)
+      || (Array.isArray(data.cases) && data.cases.length > 0)
+      || (Array.isArray(data.guides) && data.guides.length > 0);
+
+    if (hasContent) {
+      break;
+    }
+  }
+
+  if (!docSnap?.exists()) {
     renderEmpty("ワークショップ・教材はまだ登録されていません。");
     return;
   }
 
-  renderWorkshopResources(docSnap.data());
+  renderWorkshopResources({
+    ...docSnap.data(),
+    officeId: normalizeOfficeId(docSnap.data().officeId || loadedOfficeId)
+  });
 
   if (workshopResourceMessage) {
     workshopResourceMessage.style.color = "green";
     workshopResourceMessage.textContent = "ワークショップ・教材を表示しました。";
   }
 
-  console.log(`[Read節約] ワークショップ・教材：${getWorkshopResourcesDocId()} をこのページを開いた時だけ1 readしました。詳細表示は手元データのみで切り替えます。`);
+  console.log(`[Read節約] ワークショップ・教材：${getWorkshopResourcesDocId(loadedOfficeId)} をこのページを開いた時だけ読みました。詳細表示は手元データのみで切り替えます。`);
 }
 
 onAuthStateChanged(auth, async (user) => {
