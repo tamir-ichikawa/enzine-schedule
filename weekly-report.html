@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>週一報告 | Enzine Schedule</title>
   <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
-  <link rel="stylesheet" href="style.css?v=80">
+  <link rel="stylesheet" href="style.css?v=86">
 </head>
 <body class="app-shell-body">
   <!-- STEP2_FIXED_20260620_V30 -->
@@ -18,6 +18,8 @@
   <!-- STEP20_USER_INPUT_ASSISTS_20260620_V49 -->
   <!-- STEP50_SETTINGS_MENU_CLOSE_20260622_V80 -->
   <!-- STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81 -->
+  <!-- STEP57_WEEKLY_REPORT_NO_HOME_WORK_NO_REPLY_BOX_20260707_V87 -->
+  <!-- STEP56_WEEKLY_REPORT_NO_HOME_WORK_20260707_V86 -->
   <main class="login-container user-page weekly-report-page app-main-shell">
     <header class="app-topbar" aria-label="ページヘッダー">
       <div class="app-brand">
@@ -83,88 +85,98 @@
       </div>
 
       <form id="weeklyReportForm" class="weekly-report-form">
-        <label>
-          先週、どんな作業や活動をしましたか？
-          <textarea id="workActivityText" required placeholder="例：AI画像生成の練習、デザイン課題、生活リズムを整えることなど"></textarea>
-        </label>
+        <div class="weekly-report-no-home-box">
+          <label class="weekly-report-no-home-option">
+            <input id="noHomeWorkToggle" type="checkbox">
+            <span>在宅していない</span>
+          </label>
+          <p class="weekly-report-help-text">先週在宅していない場合は、この選択だけで提出できます。</p>
+        </div>
 
-        <label>
-          先週の作業・活動時間の目安を教えてください
-          <select id="activityTime" required>
-            <option value="">選択してください</option>
-            <option value="３０分未満">３０分未満</option>
-            <option value="３０分～１時間">３０分～１時間</option>
-            <option value="１時間～２時間">１時間～２時間</option>
-            <option value="２時間以上">２時間以上</option>
-            <option value="わからない/活動なし（追加質問あり）">わからない/活動なし（追加質問あり）</option>
-          </select>
-        </label>
+        <div id="weeklyReportMainFields" class="weekly-report-main-fields">
+          <label>
+            先週、どんな作業や活動をしましたか？
+            <textarea id="workActivityText" required placeholder="例：AI画像生成の練習、デザイン課題、生活リズムを整えることなど"></textarea>
+          </label>
 
-        <label id="noActivityReasonLabel" class="hidden">
-          活動なしと答えた方へ
-          <textarea id="noActivityReason" placeholder="活動ができなかった理由を記入してください"></textarea>
-        </label>
+          <label>
+            先週の作業・活動時間の目安を教えてください
+            <select id="activityTime" required>
+              <option value="">選択してください</option>
+              <option value="３０分未満">３０分未満</option>
+              <option value="３０分～１時間">３０分～１時間</option>
+              <option value="１時間～２時間">１時間～２時間</option>
+              <option value="２時間以上">２時間以上</option>
+              <option value="わからない/活動なし（追加質問あり）">わからない/活動なし（追加質問あり）</option>
+            </select>
+          </label>
 
-        <label>
-          先週の体調や生活リズムについて教えてください
-          <select id="healthStatus" required>
-            <option value="">選択してください</option>
-            <option value="体調良好・生活リズム安定">体調良好・生活リズム安定</option>
-            <option value="体調まぁまぁ・生活リズムほぼ安定">体調まぁまぁ・生活リズムほぼ安定</option>
-            <option value="体調不安定・生活リズム乱れがち">体調不安定・生活リズム乱れがち</option>
-            <option value="体調悪い・生活崩れている">体調悪い・生活崩れている</option>
-            <option value="よくわからない">よくわからない</option>
-          </select>
-        </label>
+          <label id="noActivityReasonLabel" class="hidden">
+            活動なしと答えた方へ
+            <textarea id="noActivityReason" placeholder="活動ができなかった理由を記入してください"></textarea>
+          </label>
 
-        <label>
-          生活リズムについて詳しく教えてください
-          <select id="lifeRhythm" required>
-            <option value="">選択してください</option>
-            <option value="週7日間すべて規則正しかった">週7日間すべて規則正しかった</option>
-            <option value="週4〜6日間規則正しかった">週4〜6日間規則正しかった</option>
-            <option value="週1〜3日間規則正しかった">週1〜3日間規則正しかった</option>
-            <option value="規則正しい日がなかった">規則正しい日がなかった</option>
-          </select>
-        </label>
+          <label>
+            先週の体調や生活リズムについて教えてください
+            <select id="healthStatus" required>
+              <option value="">選択してください</option>
+              <option value="体調良好・生活リズム安定">体調良好・生活リズム安定</option>
+              <option value="体調まぁまぁ・生活リズムほぼ安定">体調まぁまぁ・生活リズムほぼ安定</option>
+              <option value="体調不安定・生活リズム乱れがち">体調不安定・生活リズム乱れがち</option>
+              <option value="体調悪い・生活崩れている">体調悪い・生活崩れている</option>
+              <option value="よくわからない">よくわからない</option>
+            </select>
+          </label>
 
-        <div>
-          <h3>先週の自己採点（1～5満点）を教えてください</h3>
-          <p class="weekly-report-help-text">自分自身の振り返り用であり、点数による評価はありません。</p>
-          <input type="hidden" id="selfScore" required>
-          <div id="selfScoreButtonGroup" class="choice-button-group weekly-score-buttons">
-            <button type="button" class="choice-button" data-score="1">1</button>
-            <button type="button" class="choice-button" data-score="2">2</button>
-            <button type="button" class="choice-button" data-score="3">3</button>
-            <button type="button" class="choice-button" data-score="4">4</button>
-            <button type="button" class="choice-button" data-score="5">5</button>
+          <label>
+            生活リズムについて詳しく教えてください
+            <select id="lifeRhythm" required>
+              <option value="">選択してください</option>
+              <option value="週7日間すべて規則正しかった">週7日間すべて規則正しかった</option>
+              <option value="週4〜6日間規則正しかった">週4〜6日間規則正しかった</option>
+              <option value="週1〜3日間規則正しかった">週1〜3日間規則正しかった</option>
+              <option value="規則正しい日がなかった">規則正しい日がなかった</option>
+            </select>
+          </label>
+
+          <div>
+            <h3>先週の自己採点（1～5満点）を教えてください</h3>
+            <p class="weekly-report-help-text">自分自身の振り返り用であり、点数による評価はありません。</p>
+            <input type="hidden" id="selfScore" required>
+            <div id="selfScoreButtonGroup" class="choice-button-group weekly-score-buttons">
+              <button type="button" class="choice-button" data-score="1">1</button>
+              <button type="button" class="choice-button" data-score="2">2</button>
+              <button type="button" class="choice-button" data-score="3">3</button>
+              <button type="button" class="choice-button" data-score="4">4</button>
+              <button type="button" class="choice-button" data-score="5">5</button>
+            </div>
           </div>
-        </div>
 
-        <label>
-          困ったこと・しんどかったことがあれば教えてください
-          <textarea id="troubleText" required placeholder="特になければ「特になし」と入力してください"></textarea>
-        </label>
-        <div class="assist-button-row">
-          <button type="button" class="assist-chip-button" data-weekly-fill-target="troubleText" data-weekly-fill-value="特になし">特になし</button>
-        </div>
+          <label>
+            困ったこと・しんどかったことがあれば教えてください
+            <textarea id="troubleText" required placeholder="特になければ「特になし」と入力してください"></textarea>
+          </label>
+          <div class="assist-button-row">
+            <button type="button" class="assist-chip-button" data-weekly-fill-target="troubleText" data-weekly-fill-value="特になし">特になし</button>
+          </div>
 
-        <label>
-          できたこと・がんばれたことがあれば教えてください
-          <textarea id="goodText" required></textarea>
-        </label>
+          <label>
+            できたこと・がんばれたことがあれば教えてください
+            <textarea id="goodText" required></textarea>
+          </label>
 
-        <label>
-          今週意識したいこと、取り組みたいことがあれば教えてください
-          <textarea id="nextWeekText" required></textarea>
-        </label>
+          <label>
+            今週意識したいこと、取り組みたいことがあれば教えてください
+            <textarea id="nextWeekText" required></textarea>
+          </label>
 
-        <label>
-          その他伝えたいこと、質問など
-          <textarea id="otherText" placeholder="任意"></textarea>
-        </label>
-        <div class="assist-button-row">
-          <button type="button" class="assist-chip-button" data-weekly-fill-target="otherText" data-weekly-fill-value="特になし">特になし</button>
+          <label>
+            その他伝えたいこと、質問など
+            <textarea id="otherText" placeholder="任意"></textarea>
+          </label>
+          <div class="assist-button-row">
+            <button type="button" class="assist-chip-button" data-weekly-fill-target="otherText" data-weekly-fill-value="特になし">特になし</button>
+          </div>
         </div>
 
         <button id="saveWeeklyReportButton" type="submit">週一報告を保存</button>
@@ -175,6 +187,6 @@
     <p id="weeklyReportMessage"></p>
   </main>
 
-  <script type="module" src="weekly-report.js?v=85"></script>
+  <script type="module" src="weekly-report.js?v=87"></script>
 </body>
 </html>
