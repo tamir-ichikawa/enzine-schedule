@@ -1,4 +1,6 @@
 // STEP55_OFFICE_ID_ENZINE_CHIBA_20260623_V85：事業所IDをenzine_chibaへ統一し旧engine_chibaを互換扱い
+// STEP57_WEEKLY_REPORT_NO_HOME_WORK_NO_REPLY_BOX_20260707_V87：在宅なしは返信欄を出さず詳細を簡潔化
+// STEP56_WEEKLY_REPORT_NO_HOME_WORK_20260707_V86：在宅なしの週は入力を省略して提出済みにできる
 // STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
 // STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告は登録週の翌週から記入
 // STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
@@ -23,6 +25,8 @@ const DEFAULT_OFFICE_ID = "enzine_chiba";
 const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const NO_ACTIVITY_VALUE = "わからない/活動なし（追加質問あり）";
+const NO_HOME_WORK_VALUE = "在宅していない";
+const NO_HOME_WORK_REPORT_TYPE = "no_home_work";
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
@@ -46,6 +50,8 @@ const backToUserPageButton = document.getElementById("backToUserPageButton");
 const logoutButton = document.getElementById("logoutButton");
 
 const workActivityText = document.getElementById("workActivityText");
+const noHomeWorkToggle = document.getElementById("noHomeWorkToggle");
+const weeklyReportMainFields = document.getElementById("weeklyReportMainFields");
 const activityTime = document.getElementById("activityTime");
 const noActivityReasonLabel = document.getElementById("noActivityReasonLabel");
 const noActivityReason = document.getElementById("noActivityReason");
@@ -58,6 +64,16 @@ const goodText = document.getElementById("goodText");
 const nextWeekText = document.getElementById("nextWeekText");
 const otherText = document.getElementById("otherText");
 const weeklyQuickFillButtons = document.querySelectorAll("[data-weekly-fill-target]");
+const weeklyReportRequiredFields = [
+  workActivityText,
+  activityTime,
+  healthStatus,
+  lifeRhythm,
+  selfScore,
+  troubleText,
+  goodText,
+  nextWeekText
+].filter(Boolean);
 
 setupSettingsMenuClose();
 
@@ -217,12 +233,26 @@ async function mergeWeeklyReportStatusCache(updateData) {
   }
 }
 
-async function markWeeklyReportSubmittedInStatusCache(weekStartDate) {
-  await mergeWeeklyReportStatusCache({
+async function markWeeklyReportSubmittedInStatusCache(weekStartDate, options = {}) {
+  const statusPatch = {
     submittedWeeks: {
       [weekStartDate]: true
     }
-  });
+  };
+
+  if (options.noHomeWork !== undefined) {
+    statusPatch.noHomeWorkWeeks = {
+      [weekStartDate]: options.noHomeWork === true
+    };
+  }
+
+  if (options.staffReplyRequired !== undefined) {
+    statusPatch.staffReplyRequiredWeeks = {
+      [weekStartDate]: options.staffReplyRequired !== false
+    };
+  }
+
+  await mergeWeeklyReportStatusCache(statusPatch);
 }
 
 async function markWeeklyReportFeedbackReadInStatusCache(weekStartDate, feedbackVersion) {
@@ -251,10 +281,61 @@ function isNoActivitySelected() {
   return activityTime.value === NO_ACTIVITY_VALUE;
 }
 
+function isNoHomeWorkSelected() {
+  return Boolean(noHomeWorkToggle?.checked);
+}
+
+function isNoHomeWorkReport(report) {
+  return Boolean(
+    report?.noHomeWork === true
+    || report?.reportType === NO_HOME_WORK_REPORT_TYPE
+    || report?.activityTime === NO_HOME_WORK_VALUE
+  );
+}
+
+function updateNoHomeWorkMode() {
+  const noHomeWorkSelected = isNoHomeWorkSelected();
+
+  if (weeklyReportMainFields) {
+    weeklyReportMainFields.classList.toggle("hidden", noHomeWorkSelected);
+  }
+
+  weeklyReportRequiredFields.forEach((field) => {
+    field.required = !noHomeWorkSelected;
+    field.disabled = noHomeWorkSelected;
+  });
+
+  if (noActivityReason) {
+    noActivityReason.required = false;
+    noActivityReason.disabled = noHomeWorkSelected;
+  }
+
+  if (noHomeWorkSelected) {
+    noActivityReasonLabel.classList.add("hidden");
+  } else {
+    updateNoActivityReasonVisibility();
+  }
+
+  if (saveWeeklyReportButton) {
+    saveWeeklyReportButton.textContent = noHomeWorkSelected
+      ? "在宅していない内容で保存"
+      : "週一報告を保存";
+  }
+}
+
 function updateNoActivityReasonVisibility() {
+  if (isNoHomeWorkSelected()) {
+    noActivityReasonLabel.classList.add("hidden");
+    noActivityReason.required = false;
+    noActivityReason.disabled = true;
+    noActivityReason.value = "";
+    return;
+  }
+
   const visible = isNoActivitySelected();
   noActivityReasonLabel.classList.toggle("hidden", !visible);
   noActivityReason.required = visible;
+  noActivityReason.disabled = false;
 
   if (!visible) {
     noActivityReason.value = "";
@@ -270,6 +351,9 @@ function setSelfScore(score) {
 }
 
 function clearForm() {
+  if (noHomeWorkToggle) {
+    noHomeWorkToggle.checked = false;
+  }
   workActivityText.value = "";
   activityTime.value = "";
   noActivityReason.value = "";
@@ -280,10 +364,14 @@ function clearForm() {
   goodText.value = "";
   nextWeekText.value = "";
   otherText.value = "";
+  updateNoHomeWorkMode();
   updateNoActivityReasonVisibility();
 }
 
 function fillForm(report) {
+  if (noHomeWorkToggle) {
+    noHomeWorkToggle.checked = isNoHomeWorkReport(report);
+  }
   workActivityText.value = report.workActivityText || "";
   activityTime.value = report.activityTime || "";
   noActivityReason.value = report.noActivityReason === "1" ? "" : (report.noActivityReason || "");
@@ -294,12 +382,24 @@ function fillForm(report) {
   goodText.value = report.goodText || "";
   nextWeekText.value = report.nextWeekText || "";
   otherText.value = report.otherText || "";
+  updateNoHomeWorkMode();
   updateNoActivityReasonVisibility();
 }
 
 function buildCopyText(report) {
   if (!report) {
     return "";
+  }
+
+  if (isNoHomeWorkReport(report)) {
+    return [
+      "【週一報告】",
+      `氏名：${report.userName || ""}`,
+      `対象週：${formatJapaneseDate(report.weekStartDate)}〜${formatJapaneseDate(report.weekEndDate)}`,
+      "",
+      "報告内容",
+      NO_HOME_WORK_VALUE
+    ].join("\n");
   }
 
   const noActivityReasonText = hasMeaningfulNoActivityReason(report)
@@ -402,6 +502,11 @@ function buildWeeklyReportReadableHtml(report) {
   }
 
   const items = [];
+
+  if (isNoHomeWorkReport(report)) {
+    items.push(buildReadableWeeklyReportItem("報告内容", NO_HOME_WORK_VALUE, { inline: true }));
+    return `<div class="weekly-report-readable-card">${items.join("")}</div>`;
+  }
 
   items.push(buildReadableWeeklyReportItem("作業・活動", report.workActivityText));
   items.push(buildReadableWeeklyReportItem("活動時間", report.activityTime, { inline: true }));
@@ -581,6 +686,10 @@ async function loadWeeklyReport() {
 }
 
 function validateForm() {
+  if (isNoHomeWorkSelected()) {
+    return "";
+  }
+
   if (!workActivityText.value.trim()) {
     return "先週の作業や活動を入力してください。";
   }
@@ -648,8 +757,9 @@ async function saveWeeklyReport(event) {
   const weekEndDate = formatDateId(addDays(displayedWeekStartDate, 4));
   const reportDueDate = formatDateId(addDays(displayedWeekStartDate, 7));
   const reportId = getWeeklyReportId(currentUser.uid, weekStartDate);
+  const noHomeWorkSelected = isNoHomeWorkSelected();
 
-  const reportData = {
+  const baseReportData = {
     userId: currentUser.uid,
     userName: currentUserData.name || currentUser.email || "",
     userEmail: currentUser.email || "",
@@ -658,6 +768,31 @@ async function saveWeeklyReport(event) {
     weekStartDate: weekStartDate,
     weekEndDate: weekEndDate,
     reportDueDate: reportDueDate,
+    submitted: true,
+    submittedAt: currentLoadedReport?.submittedAt || serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+
+  const reportData = noHomeWorkSelected ? {
+    ...baseReportData,
+    reportType: NO_HOME_WORK_REPORT_TYPE,
+    noHomeWork: true,
+    staffReplyRequired: false,
+    workActivityText: NO_HOME_WORK_VALUE,
+    activityTime: NO_HOME_WORK_VALUE,
+    noActivityReason: "1",
+    healthStatus: "",
+    lifeRhythm: "",
+    selfScore: null,
+    troubleText: "",
+    goodText: "",
+    nextWeekText: "",
+    otherText: ""
+  } : {
+    ...baseReportData,
+    reportType: "standard",
+    noHomeWork: false,
+    staffReplyRequired: true,
     workActivityText: workActivityText.value.trim(),
     activityTime: activityTime.value,
     noActivityReason: isNoActivitySelected() ? noActivityReason.value.trim() : "1",
@@ -667,10 +802,7 @@ async function saveWeeklyReport(event) {
     troubleText: troubleText.value.trim(),
     goodText: goodText.value.trim(),
     nextWeekText: nextWeekText.value.trim(),
-    otherText: otherText.value.trim(),
-    submitted: true,
-    submittedAt: currentLoadedReport?.submittedAt || serverTimestamp(),
-    updatedAt: serverTimestamp()
+    otherText: otherText.value.trim()
   };
 
   try {
@@ -678,7 +810,10 @@ async function saveWeeklyReport(event) {
     saveWeeklyReportButton.textContent = "保存中...";
 
     await setDoc(doc(db, "weeklyReports", reportId), reportData, { merge: true });
-    await markWeeklyReportSubmittedInStatusCache(weekStartDate);
+    await markWeeklyReportSubmittedInStatusCache(weekStartDate, {
+      noHomeWork: noHomeWorkSelected,
+      staffReplyRequired: !noHomeWorkSelected
+    });
 
     currentLoadedReport = {
       id: reportId,
@@ -699,7 +834,7 @@ async function saveWeeklyReport(event) {
     setMessage(`保存に失敗しました：${error.code || error.message}`, "red");
   } finally {
     saveWeeklyReportButton.disabled = false;
-    saveWeeklyReportButton.textContent = "週一報告を保存";
+    updateNoHomeWorkMode();
   }
 }
 
@@ -767,6 +902,10 @@ async function markStaffFeedbackAsRead() {
 }
 
 activityTime.addEventListener("change", updateNoActivityReasonVisibility);
+
+if (noHomeWorkToggle) {
+  noHomeWorkToggle.addEventListener("change", updateNoHomeWorkMode);
+}
 
 selfScoreButtonGroup.querySelectorAll("[data-score]").forEach((button) => {
   button.addEventListener("click", () => {

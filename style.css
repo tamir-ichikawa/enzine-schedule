@@ -2645,6 +2645,41 @@ body.modal-open {
   gap: 16px;
 }
 
+.weekly-report-main-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.weekly-report-no-home-box {
+  padding: 14px;
+  border: 1px solid #c8dcc7;
+  border-radius: 14px;
+  background: #f3f8f1;
+}
+
+.weekly-report-no-home-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+  color: #172033;
+  cursor: pointer;
+}
+
+.weekly-report-no-home-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: #6f8f72;
+  flex: 0 0 auto;
+}
+
+.weekly-report-no-home-box .weekly-report-help-text {
+  margin: 8px 0 0 30px;
+}
+
 .weekly-report-form h3 {
   margin: 0 0 6px;
   font-size: 17px;
@@ -2700,6 +2735,19 @@ body.modal-open {
 
   .weekly-report-form {
     gap: 20px;
+  }
+
+  .weekly-report-main-fields {
+    gap: 20px;
+  }
+
+  .weekly-report-no-home-box {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .weekly-report-no-home-option {
+    font-size: 19px;
   }
 
   .weekly-report-form h3 {
@@ -3871,6 +3919,11 @@ body.app-shell-body {
   color: #1f7a3f;
 }
 
+.weekly-report-feedback-status.no-reply {
+  background: #e7f3f1;
+  color: #246b61;
+}
+
 .weekly-report-detail-panel,
 .weekly-report-feedback-box,
 .weekly-report-readonly-box {
@@ -4069,6 +4122,20 @@ body.app-shell-body {
 .weekly-report-feedback-status.read {
   background: #dff5e8 !important;
   color: #155f2f !important;
+}
+
+.weekly-report-feedback-status.no-reply {
+  background: #dcefed !important;
+  color: #1f6259 !important;
+}
+
+.weekly-report-feedback-editor.weekly-report-feedback-editor-disabled {
+  opacity: 0.72;
+}
+
+.weekly-report-feedback-editor.weekly-report-feedback-editor-disabled textarea,
+.weekly-report-feedback-editor.weekly-report-feedback-editor-disabled button {
+  cursor: not-allowed;
 }
 
 /* 詳細表示：支援員側・利用者側で共通の読みやすい表示 */

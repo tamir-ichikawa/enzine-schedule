@@ -1,4 +1,6 @@
 // STEP55_OFFICE_ID_ENZINE_CHIBA_20260623_V85：事業所IDをenzine_chibaへ統一し旧engine_chibaを互換扱い
+// STEP57_WEEKLY_REPORT_NO_HOME_WORK_NO_REPLY_BOX_20260707_V87：在宅なしは返信欄を出さず詳細を簡潔化
+// STEP56_WEEKLY_REPORT_NO_HOME_WORK_20260707_V86：在宅なしの週一報告を返信不要として表示
 // STEP52_ANNOUNCEMENT_WORKSHOP_PICKER_20260623_V82：アナウンス作成時に登録済みワークショップを選択
 // STEP51_WEEKLY_REPORT_NEW_USER_START_20260622_V81：新規登録者の週一報告は登録週の翌週から対象
 // STEP50_SETTINGS_MENU_CLOSE_20260622_V80：設定メニューを外クリックとEscで閉じる
@@ -48,6 +50,8 @@ const BILLING_SAFETY_DOC_ID = "billingSafety";
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
+const NO_HOME_WORK_VALUE = "在宅していない";
+const NO_HOME_WORK_REPORT_TYPE = "no_home_work";
 const DAILY_TIME_SLOT_ORDER = {
   "午前": 1,
   "午後": 2,
@@ -255,6 +259,7 @@ const weeklyReportDetailPanel = document.getElementById("weeklyReportDetailPanel
 const weeklyReportDetailTitle = document.getElementById("weeklyReportDetailTitle");
 const weeklyReportDetailMeta = document.getElementById("weeklyReportDetailMeta");
 const weeklyReportDetailBody = document.getElementById("weeklyReportDetailBody");
+const weeklyReportFeedbackEditor = document.querySelector(".weekly-report-feedback-editor");
 const weeklyReportFeedbackInput = document.getElementById("weeklyReportFeedbackInput");
 const saveWeeklyReportFeedbackButton = document.getElementById("saveWeeklyReportFeedbackButton");
 const weeklyReportFeedbackMessage = document.getElementById("weeklyReportFeedbackMessage");
@@ -2349,6 +2354,18 @@ function hasStaffFeedbackForReport(report) {
   return Boolean(report?.staffFeedbackText || report?.staffFeedbackVersion);
 }
 
+function isNoHomeWorkReport(report) {
+  return Boolean(
+    report?.noHomeWork === true
+    || report?.reportType === NO_HOME_WORK_REPORT_TYPE
+    || report?.activityTime === NO_HOME_WORK_VALUE
+  );
+}
+
+function isStaffReplyNotRequired(report) {
+  return Boolean(isNoHomeWorkReport(report) || report?.staffReplyRequired === false);
+}
+
 async function loadWeeklyReportStatusMapForStaff(users) {
   if (!users.length) {
     return {};
@@ -2383,6 +2400,10 @@ async function loadWeeklyReportStatusMapForStaff(users) {
 function buildStaffWeeklyReportStub(user, statusData, weekStartId, weekEndId) {
   const feedbackVersion = statusData?.feedbackVersions?.[weekStartId] || "";
   const feedbackReadVersion = statusData?.feedbackReadVersions?.[weekStartId] || "";
+  const noHomeWork = statusData?.noHomeWorkWeeks?.[weekStartId] === true;
+  const staffReplyRequired = noHomeWork
+    ? false
+    : statusData?.staffReplyRequiredWeeks?.[weekStartId] !== false;
 
   return {
     id: getStaffWeeklyReportId(user.id, weekStartId),
@@ -2394,6 +2415,11 @@ function buildStaffWeeklyReportStub(user, statusData, weekStartId, weekEndId) {
     weekEndDate: weekEndId,
     userName: user.name || user.email || "名前未設定",
     userEmail: user.email || "",
+    noHomeWork,
+    reportType: noHomeWork ? NO_HOME_WORK_REPORT_TYPE : "",
+    staffReplyRequired,
+    activityTime: noHomeWork ? NO_HOME_WORK_VALUE : "",
+    workActivityText: noHomeWork ? NO_HOME_WORK_VALUE : "",
     staffFeedbackVersion: feedbackVersion,
     staffFeedbackReadVersion: feedbackReadVersion,
     feedbackReadByUser: Boolean(feedbackVersion && feedbackReadVersion === feedbackVersion)
@@ -2503,8 +2529,17 @@ function hideStaffWeeklyReportDetail() {
   if (weeklyReportDetailPanel) {
     weeklyReportDetailPanel.classList.add("hidden");
   }
+  if (weeklyReportFeedbackEditor) {
+    weeklyReportFeedbackEditor.classList.remove("weekly-report-feedback-editor-disabled");
+    weeklyReportFeedbackEditor.classList.remove("hidden");
+  }
   if (weeklyReportFeedbackInput) {
     weeklyReportFeedbackInput.value = "";
+    weeklyReportFeedbackInput.disabled = false;
+  }
+  if (saveWeeklyReportFeedbackButton) {
+    saveWeeklyReportFeedbackButton.disabled = false;
+    saveWeeklyReportFeedbackButton.textContent = "返信を保存して利用者に表示";
   }
   setWeeklyReportFeedbackMessage("");
 }
@@ -2549,6 +2584,9 @@ function isStaffFeedbackUnreadByUser(report) {
 }
 
 function getFeedbackStatusText(report) {
+  if (isStaffReplyNotRequired(report)) {
+    return "返信不要";
+  }
   if (!hasStaffFeedbackForReport(report)) {
     return "返信なし";
   }
@@ -2575,6 +2613,7 @@ function renderSubmittedWeeklyReports(reports) {
   }
 
   reports.forEach((report) => {
+    const noHomeWorkReport = isNoHomeWorkReport(report);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "weekly-report-admin-card submitted-weekly-report-card weekly-report-admin-name-button";
@@ -2590,19 +2629,23 @@ function renderSubmittedWeeklyReports(reports) {
 
     const meta = document.createElement("div");
     meta.className = "weekly-report-admin-meta";
-    meta.textContent = report._statusOnly
-      ? "詳細未読込 ／ 名前を押すと本文を読み込みます"
-      : `自己採点：${report.selfScore || "未入力"} ／ 活動時間：${report.activityTime || "未入力"}`;
+    meta.textContent = noHomeWorkReport
+      ? "報告内容：在宅していない"
+      : report._statusOnly
+        ? "詳細未読込 ／ 名前を押すと本文を読み込みます"
+        : `自己採点：${report.selfScore || "未入力"} ／ 活動時間：${report.activityTime || "未入力"}`;
 
     const feedback = document.createElement("div");
-    feedback.className = `weekly-report-feedback-status ${isStaffFeedbackUnreadByUser(report) ? "unread" : hasStaffFeedbackForReport(report) ? "read" : "none"}`;
+    feedback.className = `weekly-report-feedback-status ${isStaffReplyNotRequired(report) ? "no-reply" : isStaffFeedbackUnreadByUser(report) ? "unread" : hasStaffFeedbackForReport(report) ? "read" : "none"}`;
     feedback.textContent = getFeedbackStatusText(report);
 
     const body = document.createElement("div");
     body.className = "weekly-report-admin-preview";
-    body.textContent = report._statusOnly
-      ? "本文はまだ読み込んでいません。"
-      : shortenStaffWeeklyText(report.workActivityText || "作業・活動内容の記入なし", 100);
+    body.textContent = noHomeWorkReport
+      ? "先週は在宅していないため、詳細入力は省略されています。"
+      : report._statusOnly
+        ? "本文はまだ読み込んでいません。"
+        : shortenStaffWeeklyText(report.workActivityText || "作業・活動内容の記入なし", 100);
 
     button.appendChild(title);
     button.appendChild(meta);
@@ -2839,6 +2882,11 @@ function buildReadableWeeklyReportItem(label, value, options = {}) {
 function buildWeeklyReportReadableHtml(report) {
   const items = [];
 
+  if (isNoHomeWorkReport(report)) {
+    items.push(buildReadableWeeklyReportItem("報告内容", NO_HOME_WORK_VALUE, { inline: true }));
+    return `<div class="weekly-report-readable-card">${items.join("")}</div>`;
+  }
+
   items.push(buildReadableWeeklyReportItem("作業・活動", report.workActivityText));
   items.push(buildReadableWeeklyReportItem("活動時間", report.activityTime, { inline: true }));
 
@@ -2925,8 +2973,25 @@ function renderStaffWeeklyReportDetail(report) {
 
   weeklyReportDetailBody.innerHTML = buildStaffWeeklyReportDetailHtml(report);
 
+  const replyNotRequired = isStaffReplyNotRequired(report);
+  if (weeklyReportFeedbackEditor) {
+    weeklyReportFeedbackEditor.classList.toggle("weekly-report-feedback-editor-disabled", replyNotRequired);
+    weeklyReportFeedbackEditor.classList.toggle("hidden", replyNotRequired);
+  }
+
   if (weeklyReportFeedbackInput) {
     weeklyReportFeedbackInput.value = report.staffFeedbackText || "";
+    weeklyReportFeedbackInput.disabled = replyNotRequired;
+    weeklyReportFeedbackInput.placeholder = replyNotRequired
+      ? "この報告は返信不要です。"
+      : "例：振り返りありがとうございます。できたことが具体的に書けています。次回は〇〇も意識してみましょう。";
+  }
+
+  if (saveWeeklyReportFeedbackButton) {
+    saveWeeklyReportFeedbackButton.disabled = replyNotRequired;
+    saveWeeklyReportFeedbackButton.textContent = replyNotRequired
+      ? "返信不要"
+      : "返信を保存して利用者に表示";
   }
 
   setWeeklyReportFeedbackMessage("");
@@ -2957,6 +3022,11 @@ async function saveWeeklyReportFeedback() {
   const report = getLoadedStaffWeeklyReportById(selectedStaffWeeklyReportId);
   if (!report) {
     setWeeklyReportFeedbackMessage("選択中の週一報告が見つかりません。", "red");
+    return;
+  }
+
+  if (isStaffReplyNotRequired(report)) {
+    setWeeklyReportFeedbackMessage("この報告は返信不要です。", "#475569");
     return;
   }
 
@@ -3023,6 +3093,19 @@ function buildSingleWeeklyReportText(report) {
   const feedbackText = report.staffFeedbackText
     ? `\n\n支援員からの返信\n${report.staffFeedbackText}`
     : "";
+
+  if (isNoHomeWorkReport(report)) {
+    return [
+      "--------------------",
+      `氏名：${report.userName || report._user?.name || ""}`,
+      `記入日：${report.reportDate ? formatStaffWeeklyJapaneseDate(report.reportDate) : ""}`,
+      `対象週：${formatStaffWeeklyJapaneseDate(report.weekStartDate)}〜${formatStaffWeeklyJapaneseDate(report.weekEndDate)}`,
+      "",
+      "報告内容",
+      NO_HOME_WORK_VALUE
+    ].join("\n");
+  }
+
   const noActivityReasonText = hasMeaningfulNoActivityReason(report)
     ? report.noActivityReason
     : "";
