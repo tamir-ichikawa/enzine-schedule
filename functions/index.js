@@ -4,6 +4,8 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
+const chatworkFunctions = require("./chatwork");
+
 const db = admin.firestore();
 const auth = admin.auth();
 const FieldValue = admin.firestore.FieldValue;
@@ -518,3 +520,7 @@ exports.migrateLegacyOfficeIdToEnzineChiba = onCall({
     counts
   };
 });
+
+exports.getChatworkConsoleData = chatworkFunctions.getChatworkConsoleData;
+exports.saveChatworkIntegrationConfig = chatworkFunctions.saveChatworkIntegrationConfig;
+exports.sendChatworkMessage = chatworkFunctions.sendChatworkMessage;

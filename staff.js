@@ -18,6 +18,7 @@
 // STEP29_CASE_DRAFT_20260621_V59：案件情報貼り付け下書き対応
 // STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js";
 
 import {
   collection,
@@ -30,7 +31,7 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase-config.js";
+import { app, auth, db } from "./firebase-config.js";
 import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：週一報告の既読互換と表示漏れ修正
@@ -57,6 +58,9 @@ const DAILY_TIME_SLOT_ORDER = {
   "午後": 2,
   "終日": 3
 };
+const FUNCTIONS_REGION = "asia-northeast1";
+const cloudFunctions = getFunctions(app, FUNCTIONS_REGION);
+const getChatworkConsoleData = httpsCallable(cloudFunctions, "getChatworkConsoleData");
 
 // STEP5_WEBUI_20260620_V33：支援員ページ タブ切り替え・現在位置表示
 const STAFF_TAB_STORAGE_KEY = "enzineStaffActiveTab";
@@ -135,7 +139,9 @@ const targetDate = document.getElementById("targetDate");
 const loadButton = document.getElementById("loadButton");
 const logoutButton = document.getElementById("logoutButton");
 const openAdminPageButton = document.getElementById("openAdminPageButton");
+const openChatworkPageButton = document.getElementById("openChatworkPageButton");
 const staffAdminTopNav = document.getElementById("staffAdminTopNav");
+const staffChatworkTopNav = document.getElementById("staffChatworkTopNav");
 const message = document.getElementById("message");
 const billingSafetyNotice = document.getElementById("billingSafetyNotice");
 const loadStaffDashboardButton = document.getElementById("loadStaffDashboardButton");
@@ -663,6 +669,23 @@ function renderBillingSafetyNotice(data) {
 
   billingSafetyNotice.appendChild(title);
   billingSafetyNotice.appendChild(body);
+}
+
+async function loadChatworkNavVisibility() {
+  if (!staffChatworkTopNav || !openChatworkPageButton) {
+    return;
+  }
+
+  staffChatworkTopNav.classList.add("hidden");
+
+  try {
+    const result = await getChatworkConsoleData({ includeConfig: false });
+    const data = result?.data || {};
+    const shouldShow = data.available === true || (data.canManage === true && data.attachable === true);
+    staffChatworkTopNav.classList.toggle("hidden", !shouldShow);
+  } catch (error) {
+    console.warn("Chatwork連携ナビの確認に失敗しました。", error);
+  }
 }
 
 async function loadBillingSafetyNotice() {
@@ -5428,6 +5451,7 @@ onAuthStateChanged(auth, async (user) => {
       staffAdminTopNav.classList.remove("hidden");
     }
 
+    loadChatworkNavVisibility();
     loadBillingSafetyNotice();
 
     targetDate.value = getTodayDateId();
@@ -5805,6 +5829,12 @@ if (userScheduleEditModal) {
 if (openAdminPageButton) {
   openAdminPageButton.addEventListener("click", () => {
     window.location.href = "admin.html";
+  });
+}
+
+if (openChatworkPageButton) {
+  openChatworkPageButton.addEventListener("click", () => {
+    window.location.href = "chatwork.html";
   });
 }
 
