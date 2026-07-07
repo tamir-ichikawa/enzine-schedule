@@ -17,11 +17,13 @@ const CHATWORK_LOGS_COLLECTION = "chatworkSendLogs";
 const OFFICE_SETTINGS_COLLECTION = "officeSettings";
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
+const WEEKLY_REPORT_MISSING_CHATWORK_GROUP_ID = "weekly_report_missing";
 const VALID_CHATWORK_ROLES = new Set(["staff", "admin"]);
 const MAX_MESSAGE_LENGTH = 5000;
 const MAX_GROUPS = 30;
 const MAX_ROOM_IDS_PER_SEND = 50;
 const ROOM_ID_PATTERN = /^\d{1,20}$/;
+const WEEKLY_REPORT_MISSING_LEGACY_GROUP_PATTERN = /^weekly_report_missing_\d{4}-\d{2}-\d{2}$/;
 
 function cleanText(value, fallback = "", maxLength = 120) {
   if (typeof value !== "string") {
@@ -34,6 +36,50 @@ function cleanText(value, fallback = "", maxLength = 120) {
   }
 
   return text.slice(0, maxLength);
+}
+
+function normalizeSortText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[ァ-ン]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0x60))
+    .toLowerCase();
+}
+
+function cleanNameKana(value) {
+  return cleanText(value, "", 80).replace(/\s+/g, " ");
+}
+
+function buildUserSortName(nameKana, fallbackText) {
+  return normalizeSortText(nameKana || fallbackText).slice(0, 120);
+}
+
+function getUserSortKey(user) {
+  return normalizeSortText(
+    user?.sortName
+    || user?.nameKana
+    || user?.kana
+    || user?.name
+    || user?.displayName
+    || user?.email
+    || user?.id
+    || user?.uid
+    || ""
+  );
+}
+
+function compareUsersBySortName(a, b) {
+  const sortDiff = getUserSortKey(a).localeCompare(getUserSortKey(b), "ja");
+
+  if (sortDiff !== 0) {
+    return sortDiff;
+  }
+
+  return (a?.name || a?.email || a?.id || "").localeCompare(b?.name || b?.email || b?.id || "", "ja");
 }
 
 function normalizeOfficeId(officeId) {
@@ -200,7 +246,7 @@ function normalizeGroups(rawGroups = []) {
     return [];
   }
 
-  return rawGroups.slice(0, MAX_GROUPS).map((group, index) => {
+  const groups = rawGroups.slice(0, MAX_GROUPS).map((group, index) => {
     const id = cleanId(group?.id, `group_${index + 1}`, 80);
     const name = cleanText(group?.name, `グループ${index + 1}`, 80);
     const memberUserIds = Array.isArray(group?.memberUserIds)
@@ -223,6 +269,16 @@ function normalizeGroups(rawGroups = []) {
       memberUserIds,
       roomIds
     };
+  });
+  const hasWeeklyMissingGroup = groups.some((group) => group.id === WEEKLY_REPORT_MISSING_CHATWORK_GROUP_ID);
+
+  if (!hasWeeklyMissingGroup) {
+    return groups;
+  }
+
+  return groups.filter((group) => {
+    return group.id === WEEKLY_REPORT_MISSING_CHATWORK_GROUP_ID
+      || !WEEKLY_REPORT_MISSING_LEGACY_GROUP_PATTERN.test(group.id);
   });
 }
 
@@ -280,10 +336,15 @@ async function loadActiveUsersForOffice(officeId) {
       return;
     }
 
+    const nameKana = cleanNameKana(data.nameKana || data.kana || "");
+    const fallbackName = data.name || data.displayName || data.email || docSnap.id;
+
     users.push({
       id: docSnap.id,
       uid: docSnap.id,
       name: data.name || data.email || "名前未設定",
+      nameKana,
+      sortName: data.sortName || buildUserSortName(nameKana, fallbackName),
       email: data.email || "",
       officeId: userOfficeId,
       groupId: data.groupId || DEFAULT_GROUP_ID,
@@ -291,7 +352,7 @@ async function loadActiveUsersForOffice(officeId) {
     });
   });
 
-  users.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+  users.sort(compareUsersBySortName);
   return users;
 }
 
@@ -384,8 +445,8 @@ async function buildWeeklyReportMissingUsersForOffice(officeId, weekStartId) {
     }
   }
 
-  submittedUsers.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
-  missingUsers.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+  submittedUsers.sort(compareUsersBySortName);
+  missingUsers.sort(compareUsersBySortName);
 
   return {
     users: allUsers,
@@ -734,7 +795,7 @@ exports.getChatworkWeeklyReportMissingGroup = onCall({
     officeId: caller.officeId,
     weekStartDate: weekStartId,
     weekLabel: formatWeeklyReportRangeLabel(weekStartId),
-    groupId: `weekly_report_missing_${weekStartId}`,
+    groupId: WEEKLY_REPORT_MISSING_CHATWORK_GROUP_ID,
     groupName: `週一報告 未提出 ${weekStartId}`,
     memberUserIds: configuredUserIds,
     missingUsers: configuredMissingUsers,

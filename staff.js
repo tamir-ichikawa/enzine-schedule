@@ -575,6 +575,59 @@ function officeIdsMatch(a, b) {
   return normalizeOfficeId(a) === normalizeOfficeId(b);
 }
 
+function normalizeSortText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[ァ-ン]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0x60))
+    .toLowerCase();
+}
+
+function cleanNameKana(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().replace(/\s+/g, " ").slice(0, 80);
+}
+
+function buildUserSortName(nameKana, fallbackText) {
+  return normalizeSortText(nameKana || fallbackText).slice(0, 120);
+}
+
+function getUserSortKey(user) {
+  return normalizeSortText(
+    user?.sortName
+    || user?.nameKana
+    || user?.kana
+    || user?._user?.sortName
+    || user?._user?.nameKana
+    || user?.name
+    || user?.userName
+    || user?.displayName
+    || user?.email
+    || user?.userEmail
+    || user?.id
+    || user?.uid
+    || ""
+  );
+}
+
+function compareUsersBySortName(a, b) {
+  const sortDiff = getUserSortKey(a).localeCompare(getUserSortKey(b), "ja");
+
+  if (sortDiff !== 0) {
+    return sortDiff;
+  }
+
+  return (a?.name || a?.userName || a?.email || a?.id || "")
+    .localeCompare(b?.name || b?.userName || b?.email || b?.id || "", "ja");
+}
+
 function getMonthlyAnnouncementId(officeId, monthId) {
   return `${officeId}_${monthId}`;
 }
@@ -1751,10 +1804,15 @@ function normalizeActiveUserRecord(rawUser, fallbackOfficeId, fallbackGroupId) {
     return null;
   }
 
+  const nameKana = cleanNameKana(rawUser.nameKana || rawUser.kana || "");
+  const fallbackName = rawUser.name || rawUser.displayName || rawUser.email || id;
+
   return {
     id: id,
     uid: id,
     name: rawUser.name || rawUser.displayName || rawUser.email || "名前未設定",
+    nameKana,
+    sortName: rawUser.sortName || buildUserSortName(nameKana, fallbackName),
     email: rawUser.email || "",
     officeId,
     groupId: rawUser.groupId || fallbackGroupId,
@@ -1764,7 +1822,7 @@ function normalizeActiveUserRecord(rawUser, fallbackOfficeId, fallbackGroupId) {
 }
 
 function sortActiveUsers(users) {
-  return [...users].sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+  return [...users].sort(compareUsersBySortName);
 }
 
 async function loadActiveUsersFromSystemDoc() {
@@ -2846,8 +2904,8 @@ async function loadStaffWeeklyReports() {
       }
     }
 
-    submittedReports.sort((a, b) => (a.userName || "").localeCompare(b.userName || "", "ja"));
-    missingUsers.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+    submittedReports.sort(compareUsersBySortName);
+    missingUsers.sort(compareUsersBySortName);
 
     loadedStaffWeeklyReports = submittedReports;
     loadedStaffWeeklyMissingUsers = missingUsers;
