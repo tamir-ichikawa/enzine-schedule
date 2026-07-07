@@ -37,10 +37,12 @@ const ADMIN_USER_AUTH_SAVE_TEXT = "Authユーザーを作成して保存";
 const functions = getFunctions(app, FUNCTIONS_REGION);
 const createAuthUserAndProfile = httpsCallable(functions, "createAuthUserAndProfile");
 const migrateLegacyOfficeIdToEnzineChiba = httpsCallable(functions, "migrateLegacyOfficeIdToEnzineChiba");
+const getChatworkConsoleData = httpsCallable(functions, "getChatworkConsoleData");
 
 const adminInfo = document.getElementById("adminInfo");
 const logoutButton = document.getElementById("logoutButton");
 const openStaffPageButton = document.getElementById("openStaffPageButton");
+const openChatworkPageButton = document.getElementById("openChatworkPageButton");
 const billingSafetyStatus = document.getElementById("billingSafetyStatus");
 const reloadBillingSafetyButton = document.getElementById("reloadBillingSafetyButton");
 const resetBillingSafetyButton = document.getElementById("resetBillingSafetyButton");
@@ -555,6 +557,23 @@ async function loadBillingSafetyStatus(options = {}) {
   return data;
 }
 
+async function loadChatworkNavVisibility() {
+  if (!openChatworkPageButton) {
+    return;
+  }
+
+  openChatworkPageButton.classList.add("hidden");
+
+  try {
+    const result = await getChatworkConsoleData({ includeConfig: false });
+    const data = result?.data || {};
+    const shouldShow = data.available === true || (data.canManage === true && data.attachable === true);
+    openChatworkPageButton.classList.toggle("hidden", !shouldShow);
+  } catch (error) {
+    console.warn("Chatwork連携ナビの確認に失敗しました。", error);
+  }
+}
+
 function buildBillingSafetyUpdate({ locked, warning, level, reason }) {
   return {
     locked: locked === true,
@@ -1042,7 +1061,8 @@ onAuthStateChanged(auth, async (user) => {
     resetAdminUserForm();
     await Promise.all([
       loadBillingSafetyStatus(),
-      loadAdminUsers()
+      loadAdminUsers(),
+      loadChatworkNavVisibility()
     ]);
   } catch (error) {
     console.error("Admin初期化エラー:", error);
@@ -1248,6 +1268,12 @@ adminUserCreateModeButtons.forEach((button) => {
 if (openStaffPageButton) {
   openStaffPageButton.addEventListener("click", () => {
     window.location.href = "staff.html";
+  });
+}
+
+if (openChatworkPageButton) {
+  openChatworkPageButton.addEventListener("click", () => {
+    window.location.href = "chatwork.html";
   });
 }
 

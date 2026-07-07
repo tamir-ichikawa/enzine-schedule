@@ -6,7 +6,7 @@
   },
   "main": "index.js",
   "scripts": {
-    "lint": "node --check index.js"
+    "lint": "node --check index.js && node --check chatwork.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

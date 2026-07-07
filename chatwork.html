@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatwork連携 | Enzine Schedule</title>
+  <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
+  <link rel="stylesheet" href="style.css?v=88">
+</head>
+<body class="app-shell-body">
+  <main class="login-container user-page app-main-shell staff-main-shell chatwork-main-shell">
+    <header class="app-topbar" aria-label="ページヘッダー">
+      <div class="app-brand">
+        <img src="enzine_icon.png" alt="enzine" class="app-brand-logo-img">
+        <div class="app-brand-text">
+          <div class="app-brand-title">enzine スケジュール</div>
+          <p id="chatworkUserInfo" class="app-user-meta">ログイン確認中...</p>
+        </div>
+      </div>
+      <div class="app-topbar-actions admin-topbar-actions">
+        <div class="app-current-section" aria-label="現在のページ">Chatwork</div>
+        <div class="admin-top-nav" aria-label="ページ切り替え">
+          <button id="openAdminPageButton" type="button" class="admin-top-nav-button hidden">利用者管理</button>
+          <button id="openStaffPageButton" type="button" class="admin-top-nav-button">支援員ページ</button>
+          <button type="button" class="admin-top-nav-button active" aria-current="page">Chatwork</button>
+        </div>
+        <details class="app-settings-menu">
+          <summary class="app-settings-button" aria-label="設定メニュー">⚙</summary>
+          <div class="app-settings-panel">
+            <div class="app-settings-panel-title">設定</div>
+            <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
+            <div class="app-settings-note">Chatwork連携ページです。</div>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <section id="chatworkUnavailableBox" class="monthly-calendar-box chatwork-unavailable-box hidden">
+      <div class="section-heading-row">
+        <h2>Chatwork連携</h2>
+        <p class="calendar-guide">この事業所ではChatwork連携を提供していません。</p>
+      </div>
+      <div class="chatwork-status-panel disabled">
+        <div class="chatwork-status-title">未提供</div>
+        <div class="chatwork-status-body">共通管理サイトから切り離されている状態です。</div>
+      </div>
+    </section>
+
+    <section id="chatworkStatusBox" class="monthly-calendar-box chatwork-status-box">
+      <div class="section-heading-row">
+        <h2>連携状態</h2>
+        <p id="chatworkStatusGuide" class="calendar-guide">確認中...</p>
+      </div>
+      <div id="chatworkStatusPanel" class="chatwork-status-panel">
+        読み込み中...
+      </div>
+    </section>
+
+    <section id="chatworkSendBox" class="monthly-calendar-box chatwork-send-box hidden">
+      <div class="section-heading-row">
+        <h2>メッセージ送信</h2>
+        <p class="calendar-guide">登録済みルームまたはグループへ送信します。</p>
+      </div>
+
+      <div class="chatwork-send-grid">
+        <label>
+          送信先
+          <select id="chatworkTargetType">
+            <option value="user">利用者</option>
+            <option value="group">グループ</option>
+            <option value="room">ルームID直接指定</option>
+          </select>
+        </label>
+
+        <label id="chatworkUserTargetLabel">
+          利用者
+          <select id="chatworkUserTarget"></select>
+        </label>
+
+        <label id="chatworkGroupTargetLabel" class="hidden">
+          グループ
+          <select id="chatworkGroupTarget"></select>
+        </label>
+
+        <label id="chatworkDirectRoomLabel" class="hidden">
+          ルームID
+          <input id="chatworkDirectRoomId" type="text" inputmode="numeric" autocomplete="off" placeholder="123456789">
+        </label>
+      </div>
+
+      <label>
+        本文
+        <textarea id="chatworkMessageBody" class="chatwork-message-body" maxlength="5000" placeholder="送信するメッセージを入力"></textarea>
+      </label>
+
+      <div class="chatwork-action-row">
+        <button id="sendChatworkMessageButton" type="button">送信</button>
+        <button id="reloadChatworkDataButton" type="button" class="sub-button">再読み込み</button>
+      </div>
+
+      <p id="chatworkSendMessage" class="user-schedule-message" aria-live="polite"></p>
+    </section>
+
+    <section id="chatworkSettingsBox" class="monthly-calendar-box chatwork-settings-box hidden">
+      <div class="section-heading-row">
+        <h2>Chatwork設定</h2>
+        <p class="calendar-guide">事業所単位で表示・送信・ルームIDを管理します。</p>
+      </div>
+
+      <div class="chatwork-settings-toggles">
+        <label class="chatwork-toggle-label">
+          <input id="chatworkAvailableToggle" type="checkbox">
+          管理サイトにChatwork連携を接続する
+        </label>
+        <label class="chatwork-toggle-label">
+          <input id="chatworkEnabledToggle" type="checkbox">
+          メッセージ送信を有効にする
+        </label>
+      </div>
+
+      <div class="chatwork-settings-layout">
+        <section class="chatwork-settings-panel">
+          <div class="chatwork-settings-panel-header">
+            <h3>利用者ルーム</h3>
+          </div>
+          <div id="chatworkUserRoomList" class="chatwork-user-room-list">
+            読み込み中...
+          </div>
+        </section>
+
+        <section class="chatwork-settings-panel">
+          <div class="chatwork-settings-panel-header">
+            <h3>一括送信グループ</h3>
+            <button id="addChatworkGroupButton" type="button" class="small-button">グループを追加</button>
+          </div>
+          <div id="chatworkGroupList" class="chatwork-group-list">
+            読み込み中...
+          </div>
+        </section>
+      </div>
+
+      <div class="chatwork-action-row">
+        <button id="saveChatworkSettingsButton" type="button">設定を保存</button>
+      </div>
+
+      <p id="chatworkSettingsMessage" class="user-schedule-message" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script type="module" src="chatwork.js?v=1"></script>
+</body>
+</html>

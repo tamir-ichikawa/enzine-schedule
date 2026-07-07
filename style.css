@@ -578,6 +578,327 @@ body.modal-open {
   font-weight: bold;
 }
 
+/* =========================================================
+   STEP58_CHATWORK_INTEGRATION_20260707_V88：Chatwork連携を専用ページへ分離
+   ========================================================= */
+.chatwork-main-shell .monthly-calendar-box {
+  min-width: 0;
+}
+
+.chatwork-status-box,
+.chatwork-send-box,
+.chatwork-settings-box,
+.chatwork-unavailable-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chatwork-status-panel {
+  padding: 14px;
+  border: 1px solid #d8cdbc;
+  border-left: 4px solid #7fa2a6;
+  border-radius: 12px;
+  background: #f8fbfb;
+  color: #3f4f52;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.chatwork-status-panel.enabled {
+  border-color: #b7cdb2;
+  border-left-color: #7ca56e;
+  background: #edf5ec;
+  color: #405c3d;
+}
+
+.chatwork-status-panel.paused {
+  border-color: #dfc27b;
+  border-left-color: #d19a5b;
+  background: #fff4dc;
+  color: #72521e;
+}
+
+.chatwork-status-panel.disabled {
+  border-color: #d5ccc0;
+  border-left-color: #958a7d;
+  background: #f4f0ea;
+  color: #5d554d;
+}
+
+.chatwork-status-title {
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.chatwork-status-body {
+  margin-top: 6px;
+  color: #51483e;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.chatwork-status-meta {
+  margin-top: 8px;
+  color: #7f7467;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.chatwork-send-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.chatwork-message-body {
+  min-height: 150px;
+  resize: vertical;
+}
+
+.chatwork-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chatwork-action-row button {
+  flex: 1 1 180px;
+}
+
+.chatwork-settings-toggles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chatwork-toggle-label,
+.chatwork-inline-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid #dfd1bd;
+  border-radius: 10px;
+  background: #fffaf2;
+  color: #4e473d;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.chatwork-toggle-label input,
+.chatwork-inline-checkbox input,
+.chatwork-group-member input {
+  min-height: auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.chatwork-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(0, 1.1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.chatwork-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e4d8c7;
+  border-radius: 12px;
+  background: #fffdf8;
+}
+
+.chatwork-settings-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chatwork-settings-panel-header h3 {
+  margin: 0;
+  color: #3f3a32;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.chatwork-user-room-list,
+.chatwork-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chatwork-user-room-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid #e5dac9;
+  border-radius: 10px;
+  background: #fffaf2;
+}
+
+.chatwork-user-room-name,
+.chatwork-room-input-label,
+.chatwork-group-name-label,
+.chatwork-extra-room-label {
+  min-width: 0;
+}
+
+.chatwork-user-room-title {
+  color: #3f3a32;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.chatwork-user-room-meta {
+  margin-top: 3px;
+  color: #7f7467;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.chatwork-room-input-label,
+.chatwork-group-name-label,
+.chatwork-extra-room-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #5a5146;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.chatwork-room-id-input,
+.chatwork-group-name-input,
+.chatwork-extra-room-input {
+  width: 100%;
+}
+
+.chatwork-extra-room-input {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.chatwork-group-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e5dac9;
+  border-left: 4px solid #7fa2a6;
+  border-radius: 10px;
+  background: #fffaf2;
+}
+
+.chatwork-group-card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.chatwork-group-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.chatwork-group-member-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.chatwork-group-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #e1d6c6;
+  border-radius: 8px;
+  background: #fffdf8;
+  color: #4e473d;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.chatwork-group-member span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .chatwork-settings-layout,
+  .chatwork-send-grid,
+  .chatwork-settings-toggles {
+    grid-template-columns: 1fr;
+  }
+
+  .chatwork-user-room-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .chatwork-inline-checkbox {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .chatwork-status-title {
+    font-size: 18px;
+  }
+
+  .chatwork-status-body,
+  .chatwork-toggle-label,
+  .chatwork-inline-checkbox {
+    font-size: 16px;
+  }
+
+  .chatwork-status-meta {
+    font-size: 14px;
+  }
+
+  .chatwork-action-row,
+  .chatwork-settings-panel-header,
+  .chatwork-group-card-header,
+  .chatwork-group-card-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chatwork-group-card-header,
+  .chatwork-group-member-list {
+    grid-template-columns: 1fr;
+  }
+
+  .chatwork-action-row button,
+  .chatwork-settings-panel-header button,
+  .chatwork-group-card-actions button {
+    width: 100%;
+  }
+}
+
 /* STEP52_ANNOUNCEMENT_WORKSHOP_PICKER_20260623_V82 */
 .announcement-workshop-picker {
   display: grid;
@@ -5679,6 +6000,10 @@ textarea:focus {
   font-weight: 900;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.admin-top-nav-button.hidden {
+  display: none;
 }
 
 .admin-top-nav-button:hover,
