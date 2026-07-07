@@ -15,6 +15,8 @@ const CHATWORK_PROVIDER = "chatwork";
 const CHATWORK_INTEGRATIONS_COLLECTION = "officeIntegrations";
 const CHATWORK_LOGS_COLLECTION = "chatworkSendLogs";
 const OFFICE_SETTINGS_COLLECTION = "officeSettings";
+const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
+const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const VALID_CHATWORK_ROLES = new Set(["staff", "admin"]);
 const MAX_MESSAGE_LENGTH = 5000;
 const MAX_GROUPS = 30;
@@ -70,6 +72,70 @@ function cleanMessage(value) {
   }
 
   return message;
+}
+
+function formatDateId(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseDateId(dateId) {
+  const [yyyy, mm, dd] = dateId.split("-").map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+function parseOptionalDateId(dateId) {
+  if (typeof dateId !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateId)) {
+    return null;
+  }
+
+  return parseDateId(dateId);
+}
+
+function addDays(date, days) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getWeekStartDate(date) {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = weekStart.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + diff);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function getLastCompletedWeekStartDate() {
+  return addDays(getWeekStartDate(new Date()), -7);
+}
+
+function getWeeklyReportGlobalStartWeekId() {
+  return formatDateId(getWeekStartDate(parseDateId(WEEKLY_REPORT_START_WEEK)));
+}
+
+function getWeeklyReportStartWeekIdFromUserRecord(user) {
+  const globalStartWeekId = getWeeklyReportGlobalStartWeekId();
+  const explicitStartWeekDate = parseOptionalDateId(user?.weeklyReportStartWeek);
+
+  if (explicitStartWeekDate) {
+    const explicitStartWeekId = formatDateId(getWeekStartDate(explicitStartWeekDate));
+    return explicitStartWeekId > globalStartWeekId ? explicitStartWeekId : globalStartWeekId;
+  }
+
+  return globalStartWeekId;
+}
+
+function getWeeklyReportId(userId, weekStartDateId) {
+  return `${userId}_${weekStartDateId}`;
+}
+
+function hasOwnField(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
 }
 
 function cleanId(value, fallback = "") {
@@ -220,12 +286,115 @@ async function loadActiveUsersForOffice(officeId) {
       name: data.name || data.email || "名前未設定",
       email: data.email || "",
       officeId: userOfficeId,
-      groupId: data.groupId || DEFAULT_GROUP_ID
+      groupId: data.groupId || DEFAULT_GROUP_ID,
+      weeklyReportStartWeek: getWeeklyReportStartWeekIdFromUserRecord(data)
     });
   });
 
   users.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
   return users;
+}
+
+async function loadWeeklyReportStatusMapForOffice(users, officeId) {
+  if (!users.length) {
+    return {};
+  }
+
+  const targetUserIds = new Set(users.map((user) => user.uid));
+  const statusMap = {};
+
+  for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
+    const snapshot = await db.collection(WEEKLY_REPORT_STATUS_COLLECTION)
+      .where("officeId", "==", candidateOfficeId)
+      .get();
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const userId = data.userId || docSnap.id;
+
+      if (targetUserIds.has(userId)) {
+        statusMap[userId] = {
+          ...data,
+          officeId: normalizeOfficeId(data.officeId || candidateOfficeId)
+        };
+      }
+    });
+  }
+
+  return statusMap;
+}
+
+function isWeeklyReportUserEligible(user, weekStartId) {
+  const startWeekId = user?.weeklyReportStartWeek || getWeeklyReportGlobalStartWeekId();
+  return weekStartId >= startWeekId;
+}
+
+function normalizeWeeklyReportWeekStartId(value) {
+  const requestedWeek = parseOptionalDateId(value);
+  const weekStartDate = requestedWeek
+    ? getWeekStartDate(requestedWeek)
+    : getLastCompletedWeekStartDate();
+  const lastCompletedWeekStart = getLastCompletedWeekStartDate();
+
+  if (weekStartDate > lastCompletedWeekStart) {
+    throw new HttpsError("failed-precondition", "Weekly report target week is not completed yet.");
+  }
+
+  return formatDateId(weekStartDate);
+}
+
+function formatWeeklyReportRangeLabel(weekStartId) {
+  const weekStartDate = parseDateId(weekStartId);
+  const weekEndDate = addDays(weekStartDate, 4);
+  return `${weekStartDate.getFullYear()}年${weekStartDate.getMonth() + 1}月${weekStartDate.getDate()}日〜${weekEndDate.getMonth() + 1}月${weekEndDate.getDate()}日`;
+}
+
+async function buildWeeklyReportMissingUsersForOffice(officeId, weekStartId) {
+  const allUsers = await loadActiveUsersForOffice(officeId);
+  const users = allUsers.filter((user) => isWeeklyReportUserEligible(user, weekStartId));
+  const excludedCount = allUsers.length - users.length;
+  const statusMap = await loadWeeklyReportStatusMapForOffice(users, officeId);
+  const submittedUsers = [];
+  const missingUsers = [];
+  let fallbackReportReads = 0;
+
+  for (const user of users) {
+    const statusData = statusMap[user.uid] || null;
+    const submittedWeeks = statusData?.submittedWeeks || {};
+
+    if (submittedWeeks[weekStartId] === true) {
+      submittedUsers.push(user);
+      continue;
+    }
+
+    if (hasOwnField(submittedWeeks, weekStartId)) {
+      missingUsers.push(user);
+      continue;
+    }
+
+    const reportSnap = await db.collection("weeklyReports")
+      .doc(getWeeklyReportId(user.uid, weekStartId))
+      .get();
+    fallbackReportReads++;
+
+    if (reportSnap.exists && reportSnap.data()?.submitted === true) {
+      submittedUsers.push(user);
+    } else {
+      missingUsers.push(user);
+    }
+  }
+
+  submittedUsers.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+  missingUsers.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+
+  return {
+    users: allUsers,
+    eligibleUsers: users,
+    submittedUsers,
+    missingUsers,
+    excludedCount,
+    fallbackReportReads
+  };
 }
 
 function buildConfiguredUsers(users, recipients) {
@@ -531,6 +700,50 @@ exports.getChatworkConsoleData = onCall({
   return {
     ...response,
     users: buildConfiguredUsers(activeUsers, integration.recipients)
+  };
+});
+
+exports.getChatworkWeeklyReportMissingGroup = onCall({
+  region: "asia-northeast1",
+  invoker: "public",
+  maxInstances: 2,
+  timeoutSeconds: 60
+}, async (request) => {
+  const caller = await assertCallerCanUseChatwork(request);
+  const integration = await loadChatworkIntegration(caller.officeId);
+  assertIntegrationAvailable(integration);
+
+  const data = request.data || {};
+  const weekStartId = normalizeWeeklyReportWeekStartId(data.weekStartDate);
+  const result = await buildWeeklyReportMissingUsersForOffice(caller.officeId, weekStartId);
+  const configuredMissingUsers = buildConfiguredUsers(result.missingUsers, integration.recipients);
+  const configuredUserIds = configuredMissingUsers
+    .filter((user) => user.chatworkActive === true && user.chatworkRoomId)
+    .map((user) => user.uid);
+
+  logger.info("Chatwork weekly report missing group built", {
+    officeId: caller.officeId,
+    weekStartId,
+    missingCount: result.missingUsers.length,
+    configuredCount: configuredUserIds.length,
+    fallbackReportReads: result.fallbackReportReads,
+    uid: caller.uid
+  });
+
+  return {
+    officeId: caller.officeId,
+    weekStartDate: weekStartId,
+    weekLabel: formatWeeklyReportRangeLabel(weekStartId),
+    groupId: `weekly_report_missing_${weekStartId}`,
+    groupName: `週一報告 未提出 ${weekStartId}`,
+    memberUserIds: configuredUserIds,
+    missingUsers: configuredMissingUsers,
+    missingCount: result.missingUsers.length,
+    configuredCount: configuredUserIds.length,
+    submittedCount: result.submittedUsers.length,
+    eligibleCount: result.eligibleUsers.length,
+    excludedCount: result.excludedCount,
+    fallbackReportReads: result.fallbackReportReads
   };
 });
 
