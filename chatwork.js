@@ -7,6 +7,7 @@ import { setupSettingsMenuClose } from "./ui-common.js?v=80";
 const FUNCTIONS_REGION = "asia-northeast1";
 const functions = getFunctions(app, FUNCTIONS_REGION);
 const getChatworkConsoleData = httpsCallable(functions, "getChatworkConsoleData");
+const getChatworkWeeklyReportMissingGroup = httpsCallable(functions, "getChatworkWeeklyReportMissingGroup");
 const saveChatworkIntegrationConfig = httpsCallable(functions, "saveChatworkIntegrationConfig");
 const sendChatworkMessage = httpsCallable(functions, "sendChatworkMessage");
 
@@ -36,6 +37,9 @@ const chatworkEnabledToggle = document.getElementById("chatworkEnabledToggle");
 const chatworkUserRoomList = document.getElementById("chatworkUserRoomList");
 const chatworkGroupList = document.getElementById("chatworkGroupList");
 const addChatworkGroupButton = document.getElementById("addChatworkGroupButton");
+const chatworkWeeklyReportWeek = document.getElementById("chatworkWeeklyReportWeek");
+const buildWeeklyMissingGroupButton = document.getElementById("buildWeeklyMissingGroupButton");
+const chatworkWeeklyGroupResult = document.getElementById("chatworkWeeklyGroupResult");
 const saveChatworkSettingsButton = document.getElementById("saveChatworkSettingsButton");
 const chatworkSettingsMessage = document.getElementById("chatworkSettingsMessage");
 
@@ -91,6 +95,46 @@ function clearElement(element) {
   if (element) {
     element.textContent = "";
   }
+}
+
+function formatDateId(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseDateId(dateId) {
+  const [yyyy, mm, dd] = String(dateId || "").split("-").map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+function addDays(date, days) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getWeekStartDate(date) {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = weekStart.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + diff);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function getLastCompletedWeekStartDate() {
+  return addDays(getWeekStartDate(new Date()), -7);
+}
+
+function initializeWeeklyReportWeekInput() {
+  if (!chatworkWeeklyReportWeek || chatworkWeeklyReportWeek.value) {
+    return;
+  }
+
+  chatworkWeeklyReportWeek.value = formatDateId(getLastCompletedWeekStartDate());
 }
 
 function getConfiguredUsers() {
@@ -175,6 +219,16 @@ function renderStatusPanel() {
   if (chatworkStatusGuide) {
     chatworkStatusGuide.textContent = `${consoleData.officeId} のChatwork連携`;
   }
+}
+
+function renderWeeklyGroupResult(text = "", tone = "") {
+  if (!chatworkWeeklyGroupResult) {
+    return;
+  }
+
+  chatworkWeeklyGroupResult.className = `chatwork-weekly-group-result ${tone}`.trim();
+  chatworkWeeklyGroupResult.classList.toggle("hidden", !text);
+  chatworkWeeklyGroupResult.textContent = text;
 }
 
 function renderSendTargetOptions() {
@@ -509,6 +563,7 @@ function renderSettingsSection() {
     chatworkEnabledToggle.disabled = consoleData.available !== true;
   }
 
+  initializeWeeklyReportWeekInput();
   renderUserRoomList();
   renderGroupList();
 }
@@ -615,6 +670,78 @@ async function saveSettings() {
     setMessage(chatworkSettingsMessage, `保存に失敗しました：${formatErrorMessage(error)}`, "red");
   } finally {
     setButtonLoading(saveChatworkSettingsButton, false, "保存中...", "設定を保存");
+  }
+}
+
+function upsertGroupDraft(group) {
+  const normalizedGroup = normalizeGroupDraft(group, groupDrafts.length);
+  const existingIndex = groupDrafts.findIndex((item) => item.id === normalizedGroup.id);
+
+  if (existingIndex >= 0) {
+    groupDrafts[existingIndex] = {
+      ...groupDrafts[existingIndex],
+      ...normalizedGroup
+    };
+    return;
+  }
+
+  groupDrafts.push(normalizedGroup);
+}
+
+async function buildWeeklyMissingGroup() {
+  if (!consoleData?.canManage) {
+    return;
+  }
+
+  const rawWeekStart = chatworkWeeklyReportWeek?.value || "";
+
+  if (!rawWeekStart) {
+    renderWeeklyGroupResult("対象週を選択してください。", "error");
+    return;
+  }
+
+  const weekStartId = formatDateId(getWeekStartDate(parseDateId(rawWeekStart)));
+  const ok = confirm(`${weekStartId} の週一報告未提出者グループを作成・更新しますか？`);
+
+  if (!ok) {
+    renderWeeklyGroupResult("未提出者グループ作成をキャンセルしました。");
+    return;
+  }
+
+  try {
+    setButtonLoading(buildWeeklyMissingGroupButton, true, "作成中...", "未提出者グループを作成");
+    renderWeeklyGroupResult("週一報告の提出状況を確認中...");
+
+    const result = await getChatworkWeeklyReportMissingGroup({
+      weekStartDate: weekStartId
+    });
+    const data = result?.data || {};
+
+    upsertGroupDraft({
+      id: data.groupId || `weekly_report_missing_${weekStartId}`,
+      name: data.groupName || `週一報告 未提出 ${weekStartId}`,
+      active: true,
+      memberUserIds: data.memberUserIds || [],
+      roomIds: []
+    });
+
+    renderGroupList();
+    renderSendSection();
+
+    const missingCount = data.missingCount || 0;
+    const configuredCount = data.configuredCount || 0;
+    const unconfiguredCount = Math.max(0, missingCount - configuredCount);
+    const message = unconfiguredCount
+      ? `${data.weekLabel || weekStartId}：未提出${missingCount}人のうち、ルーム設定済み${configuredCount}人でグループを作成しました。未設定${unconfiguredCount}人は利用者ルームにルームIDを入れてください。`
+      : `${data.weekLabel || weekStartId}：未提出${missingCount}人のグループを作成しました。設定を保存すると送信先に出ます。`;
+
+    renderWeeklyGroupResult(message, missingCount ? "success" : "success");
+    setMessage(chatworkSettingsMessage, "未提出者グループを下書き作成しました。最後に「設定を保存」を押してください。", "green");
+  } catch (error) {
+    console.error("週一報告未提出者グループ作成エラー:", error);
+    renderWeeklyGroupResult(`作成に失敗しました：${formatErrorMessage(error)}`, "error");
+  } finally {
+    setButtonLoading(buildWeeklyMissingGroupButton, false, "作成中...", "未提出者グループを作成");
   }
 }
 
@@ -751,6 +878,12 @@ if (addChatworkGroupButton) {
       roomIds: []
     }, groupDrafts.length));
     renderGroupList();
+  });
+}
+
+if (buildWeeklyMissingGroupButton) {
+  buildWeeklyMissingGroupButton.addEventListener("click", () => {
+    buildWeeklyMissingGroup();
   });
 }
 

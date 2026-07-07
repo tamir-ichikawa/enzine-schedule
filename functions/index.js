@@ -522,5 +522,6 @@ exports.migrateLegacyOfficeIdToEnzineChiba = onCall({
 });
 
 exports.getChatworkConsoleData = chatworkFunctions.getChatworkConsoleData;
+exports.getChatworkWeeklyReportMissingGroup = chatworkFunctions.getChatworkWeeklyReportMissingGroup;
 exports.saveChatworkIntegrationConfig = chatworkFunctions.saveChatworkIntegrationConfig;
 exports.sendChatworkMessage = chatworkFunctions.sendChatworkMessage;
