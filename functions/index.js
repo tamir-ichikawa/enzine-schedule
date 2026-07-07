@@ -32,6 +32,50 @@ function cleanText(value, fallback = "", maxLength = 120) {
   return text.slice(0, maxLength);
 }
 
+function normalizeSortText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[ァ-ン]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0x60))
+    .toLowerCase();
+}
+
+function cleanNameKana(value) {
+  return cleanText(value, "", 80).replace(/\s+/g, " ");
+}
+
+function buildUserSortName(nameKana, fallbackText) {
+  return normalizeSortText(nameKana || fallbackText).slice(0, 120);
+}
+
+function getUserSortKey(user) {
+  return normalizeSortText(
+    user?.sortName
+    || user?.nameKana
+    || user?.kana
+    || user?.name
+    || user?.displayName
+    || user?.email
+    || user?.id
+    || user?.uid
+    || ""
+  );
+}
+
+function compareUsersBySortName(a, b) {
+  const sortDiff = getUserSortKey(a).localeCompare(getUserSortKey(b), "ja");
+
+  if (sortDiff !== 0) {
+    return sortDiff;
+  }
+
+  return (a?.name || a?.email || a?.id || "").localeCompare(b?.name || b?.email || b?.id || "", "ja");
+}
+
 function normalizeOfficeId(officeId) {
   const value = cleanText(officeId, "", 80);
   if (!value || LEGACY_OFFICE_IDS.includes(value)) {
@@ -210,10 +254,15 @@ function normalizeActiveUser(docSnap, currentOfficeId, defaultGroupId) {
     return null;
   }
 
+  const nameKana = cleanNameKana(data.nameKana || data.kana || "");
+  const fallbackName = data.name || data.displayName || data.email || docSnap.id;
+
   return {
     id: docSnap.id,
     uid: docSnap.id,
     name: data.name || data.email || "名前未設定",
+    nameKana,
+    sortName: data.sortName || buildUserSortName(nameKana, fallbackName),
     email: data.email || "",
     officeId,
     groupId: data.groupId || defaultGroupId,
@@ -234,7 +283,7 @@ async function rebuildActiveUsers({ officeId, groupId, updatedByUid, updatedByNa
     }
   });
 
-  users.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+  users.sort(compareUsersBySortName);
 
   await db.collection("system").doc(ACTIVE_USERS_DOC_ID).set({
     officeId,
@@ -377,6 +426,8 @@ exports.createAuthUserAndProfile = onCall({
   const email = cleanEmail(data.email);
   const password = cleanPassword(data.password);
   const name = cleanText(data.name, "", 80);
+  const nameKana = cleanNameKana(data.nameKana);
+  const sortName = buildUserSortName(nameKana, name || email);
   const role = cleanRole(data.role);
   const active = data.active !== false;
   const officeId = normalizeOfficeId(data.officeId || caller.officeId);
@@ -412,6 +463,8 @@ exports.createAuthUserAndProfile = onCall({
   try {
     await userDocRef.set({
       name,
+      nameKana,
+      sortName,
       email,
       role,
       active,

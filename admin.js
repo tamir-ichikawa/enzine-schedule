@@ -58,6 +58,7 @@ const adminUserFormTitle = document.getElementById("adminUserFormTitle");
 const adminUserUidLabel = document.getElementById("adminUserUidLabel");
 const adminUserUid = document.getElementById("adminUserUid");
 const adminUserName = document.getElementById("adminUserName");
+const adminUserNameKana = document.getElementById("adminUserNameKana");
 const adminUserEmail = document.getElementById("adminUserEmail");
 const adminUserPasswordLabel = document.getElementById("adminUserPasswordLabel");
 const adminUserPassword = document.getElementById("adminUserPassword");
@@ -99,6 +100,54 @@ function normalizeOfficeId(officeId) {
 
 function officeIdsMatch(a, b) {
   return normalizeOfficeId(a) === normalizeOfficeId(b);
+}
+
+function normalizeSortText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[ァ-ン]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0x60))
+    .toLowerCase();
+}
+
+function cleanNameKana(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().replace(/\s+/g, " ").slice(0, 80);
+}
+
+function buildUserSortName(nameKana, fallbackText) {
+  return normalizeSortText(nameKana || fallbackText).slice(0, 120);
+}
+
+function getUserSortKey(user) {
+  return normalizeSortText(
+    user?.sortName
+    || user?.nameKana
+    || user?.kana
+    || user?.name
+    || user?.displayName
+    || user?.email
+    || user?.id
+    || user?.uid
+    || ""
+  );
+}
+
+function compareUsersBySortName(a, b) {
+  const sortDiff = getUserSortKey(a).localeCompare(getUserSortKey(b), "ja");
+
+  if (sortDiff !== 0) {
+    return sortDiff;
+  }
+
+  return (a?.name || a?.email || a?.id || "").localeCompare(b?.name || b?.email || b?.id || "", "ja");
 }
 
 function setAdminUserMessage(text, color = "#555") {
@@ -212,10 +261,11 @@ function confirmImportantAction(title, lines) {
   return confirm(formatImportantConfirm(title, lines));
 }
 
-function buildUserConfirmLines({ uid, name, email, role, active, officeId, groupId }) {
+function buildUserConfirmLines({ uid, name, nameKana, email, role, active, officeId, groupId }) {
   return [
     uid ? `UID: ${uid}` : null,
     `名前: ${name || "未入力"}`,
+    nameKana ? `ふりがな: ${nameKana}` : null,
     `メール: ${email || "未入力"}`,
     `権限: ${getRoleLabel(role)}`,
     `利用状態: ${getActiveLabel(active)}`,
@@ -385,15 +435,20 @@ function sortAdminUsers(users) {
       return activeDiff;
     }
 
-    return (a.name || a.email || a.id || "").localeCompare(b.name || b.email || b.id || "", "ja");
+    return compareUsersBySortName(a, b);
   });
 }
 
 function normalizeAdminUser(docId, data) {
+  const nameKana = cleanNameKana(data?.nameKana || data?.kana || "");
+  const fallbackName = data?.name || data?.displayName || data?.email || docId;
+
   return {
     id: docId,
     uid: docId,
     name: data?.name || data?.displayName || "",
+    nameKana,
+    sortName: data?.sortName || buildUserSortName(nameKana, fallbackName),
     email: data?.email || "",
     role: data?.role || "user",
     active: data?.active === true,
@@ -410,6 +465,8 @@ function normalizeActiveUserRecord(user) {
   }
 
   const officeId = normalizeOfficeId(user.officeId || getCurrentOfficeId());
+  const nameKana = cleanNameKana(user.nameKana || user.kana || "");
+  const fallbackName = user.name || user.displayName || user.email || user.id;
 
   if (!officeIdsMatch(officeId, getCurrentOfficeId())) {
     return null;
@@ -419,6 +476,8 @@ function normalizeActiveUserRecord(user) {
     id: user.id,
     uid: user.id,
     name: user.name || user.email || "名前未設定",
+    nameKana,
+    sortName: user.sortName || buildUserSortName(nameKana, fallbackName),
     email: user.email || "",
     officeId,
     groupId: user.groupId || getCurrentGroupId(),
@@ -610,6 +669,31 @@ function buildActiveBadge(user) {
   return badge;
 }
 
+async function saveAdminUserKana(user, input, button) {
+  const nameKana = cleanNameKana(input?.value || "");
+  const sortName = buildUserSortName(nameKana, user.name || user.email || user.id);
+
+  try {
+    setButtonLoading(button, true, "保存中...", "保存");
+    await setDoc(doc(db, "users", user.id), {
+      nameKana,
+      sortName,
+      updatedAt: serverTimestamp(),
+      updatedByUid: currentUser?.uid || "",
+      updatedByName: currentAdminData?.name || currentUser?.email || ""
+    }, { merge: true });
+
+    await loadAdminUsers({ silent: true });
+    await rebuildActiveUsersFromUsersCollection({ silent: true });
+    setAdminUserMessage(`${user.name || user.email || user.id} のふりがなを保存しました。`, "green");
+  } catch (error) {
+    console.error("ふりがな保存エラー:", error);
+    setAdminUserMessage(`ふりがなの保存に失敗しました：${error.code || error.message}`, "red");
+  } finally {
+    setButtonLoading(button, false, "保存中...", "保存");
+  }
+}
+
 function renderAdminUserCard(user) {
   const card = document.createElement("article");
   card.className = user.active ? "admin-user-card" : "admin-user-card inactive";
@@ -626,7 +710,9 @@ function renderAdminUserCard(user) {
 
   const meta = document.createElement("div");
   meta.className = "admin-user-card-meta";
-  meta.textContent = user.email || user.id;
+  meta.textContent = user.nameKana
+    ? `ふりがな: ${user.nameKana} / ${user.email || user.id}`
+    : user.email || user.id;
 
   titleBox.appendChild(title);
   titleBox.appendChild(meta);
@@ -642,6 +728,39 @@ function renderAdminUserCard(user) {
   const detail = document.createElement("div");
   detail.className = "admin-user-card-detail";
   detail.textContent = `UID: ${user.id} / ${user.officeId || "-"} / ${user.groupId || "-"}`;
+
+  const kanaRow = document.createElement("div");
+  kanaRow.className = "admin-user-kana-row";
+
+  const kanaLabel = document.createElement("label");
+  kanaLabel.className = "admin-user-kana-label";
+  kanaLabel.textContent = "ふりがな";
+
+  const kanaInput = document.createElement("input");
+  kanaInput.className = "admin-user-kana-input";
+  kanaInput.type = "text";
+  kanaInput.autocomplete = "off";
+  kanaInput.placeholder = "例：やまだ はなこ";
+  kanaInput.value = user.nameKana || "";
+
+  const kanaButton = document.createElement("button");
+  kanaButton.type = "button";
+  kanaButton.className = "small-button";
+  kanaButton.textContent = "保存";
+  kanaButton.addEventListener("click", () => {
+    saveAdminUserKana(user, kanaInput, kanaButton);
+  });
+  kanaInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    saveAdminUserKana(user, kanaInput, kanaButton);
+  });
+
+  kanaLabel.appendChild(kanaInput);
+  kanaRow.appendChild(kanaLabel);
+  kanaRow.appendChild(kanaButton);
 
   const actions = document.createElement("div");
   actions.className = "admin-user-card-actions";
@@ -667,6 +786,7 @@ function renderAdminUserCard(user) {
 
   card.appendChild(header);
   card.appendChild(detail);
+  card.appendChild(kanaRow);
   card.appendChild(actions);
 
   return card;
@@ -749,6 +869,7 @@ function resetAdminUserForm() {
   adminUserUid.value = "";
   adminUserPassword.value = "";
   adminUserName.value = "";
+  adminUserNameKana.value = "";
   adminUserEmail.value = "";
   adminUserRole.value = "user";
   adminUserActive.checked = true;
@@ -765,6 +886,7 @@ function setAdminUserForm(user) {
   adminUserUid.value = user.id;
   adminUserPassword.value = "";
   adminUserName.value = user.name || "";
+  adminUserNameKana.value = user.nameKana || "";
   adminUserEmail.value = user.email || "";
   adminUserRole.value = user.role || "user";
   adminUserActive.checked = user.active === true;
@@ -792,7 +914,7 @@ async function rebuildActiveUsersFromUsersCollection(options = {}) {
   const activeUsers = users
     .map(normalizeActiveUserRecord)
     .filter(Boolean)
-    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ja"));
+    .sort(compareUsersBySortName);
 
   await setDoc(doc(db, "system", ACTIVE_USERS_DOC_ID), {
     officeId: getCurrentOfficeId(),
@@ -810,7 +932,7 @@ async function rebuildActiveUsersFromUsersCollection(options = {}) {
   return activeUsers;
 }
 
-async function saveAdminUserWithAuth({ name, email, role, active, officeId, groupId }) {
+async function saveAdminUserWithAuth({ name, nameKana, sortName, email, role, active, officeId, groupId }) {
   const password = adminUserPassword.value;
 
   if (!name) {
@@ -831,7 +953,7 @@ async function saveAdminUserWithAuth({ name, email, role, active, officeId, grou
   const weeklyReportStartWeek = getWeeklyReportStartWeekIdForRegistrationDate(new Date());
 
   const ok = confirmImportantAction("Authユーザーを新規作成します", [
-    ...buildUserConfirmLines({ name, email, role, active, officeId, groupId }),
+    ...buildUserConfirmLines({ name, nameKana, email, role, active, officeId, groupId }),
     "",
     "Firebase Authentication と users に同時登録します。",
     "初期パスワードを本人へ安全な方法で伝えてください。"
@@ -847,6 +969,8 @@ async function saveAdminUserWithAuth({ name, email, role, active, officeId, grou
 
     const result = await createAuthUserAndProfile({
       name,
+      nameKana,
+      sortName,
       email,
       password,
       role,
@@ -889,15 +1013,19 @@ async function saveAdminUser(event) {
 
   const uid = adminUserUid.value.trim();
   const name = adminUserName.value.trim();
+  const nameKana = cleanNameKana(adminUserNameKana.value);
   const email = adminUserEmail.value.trim();
   const role = adminUserRole.value;
   const active = adminUserActive.checked;
   const officeId = normalizeOfficeId(adminUserOfficeId.value || getCurrentOfficeId());
   const groupId = adminUserGroupId.value.trim() || getCurrentGroupId();
+  const sortName = buildUserSortName(nameKana, name || email || uid);
 
   if (!editingAdminUserId && adminUserCreateMode === "auth") {
     await saveAdminUserWithAuth({
       name,
+      nameKana,
+      sortName,
       email,
       role,
       active,
@@ -925,7 +1053,7 @@ async function saveAdminUser(event) {
     ? "ユーザー情報を更新します"
     : "UIDを users に登録します";
   const ok = confirmImportantAction(saveTitle, [
-    ...buildUserConfirmLines({ uid, name, email, role, active, officeId, groupId }),
+    ...buildUserConfirmLines({ uid, name, nameKana, email, role, active, officeId, groupId }),
     "",
     editingAdminUserId
       ? "保存すると users の登録情報と利用者一覧キャッシュを更新します。"
@@ -954,6 +1082,8 @@ async function saveAdminUser(event) {
     await setDoc(userDocRef, {
       ...nowFields,
       name: name,
+      nameKana: nameKana,
+      sortName: sortName,
       email: email,
       role: role,
       active: active,
@@ -989,6 +1119,7 @@ async function toggleAdminUserActive(user) {
       ...buildUserConfirmLines({
         uid: user.id,
         name: user.name,
+        nameKana: user.nameKana,
         email: user.email,
         role: user.role,
         active: nextActive,

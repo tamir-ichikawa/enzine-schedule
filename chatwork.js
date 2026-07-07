@@ -46,6 +46,7 @@ const chatworkSettingsMessage = document.getElementById("chatworkSettingsMessage
 let currentUser = null;
 let consoleData = null;
 let groupDrafts = [];
+let openChatworkGroupIds = new Set();
 
 setupSettingsMenuClose();
 
@@ -403,11 +404,26 @@ function normalizeGroupDraft(group, index) {
 
 function syncGroupDraftsFromConfig() {
   groupDrafts = (consoleData?.groups || []).map(normalizeGroupDraft);
+  openChatworkGroupIds = new Set(
+    [...openChatworkGroupIds].filter((groupId) => groupDrafts.some((group) => group.id === groupId))
+  );
 }
 
 function getUserNameById(uid) {
   const user = (consoleData?.users || []).find((item) => item.uid === uid);
   return user?.name || user?.email || uid;
+}
+
+function getGroupMemberSummary(group) {
+  const memberCount = Array.isArray(group.memberUserIds) ? group.memberUserIds.length : 0;
+  const roomCount = Array.isArray(group.roomIds) ? group.roomIds.length : 0;
+  const parts = [`登録${memberCount}人`];
+
+  if (roomCount > 0) {
+    parts.push(`追加ルーム${roomCount}件`);
+  }
+
+  return `メンバーを表示・編集（${parts.join(" / ")}）`;
 }
 
 function buildGroupCard(group, index) {
@@ -469,6 +485,21 @@ function buildGroupCard(group, index) {
   header.appendChild(titleLabel);
   header.appendChild(actionBox);
 
+  const memberDetails = document.createElement("details");
+  memberDetails.className = "chatwork-group-member-details";
+  memberDetails.open = openChatworkGroupIds.has(group.id);
+  memberDetails.addEventListener("toggle", () => {
+    if (memberDetails.open) {
+      openChatworkGroupIds.add(group.id);
+    } else {
+      openChatworkGroupIds.delete(group.id);
+    }
+  });
+
+  const memberSummary = document.createElement("summary");
+  memberSummary.className = "chatwork-group-member-summary";
+  memberSummary.textContent = getGroupMemberSummary(group);
+
   const members = document.createElement("div");
   members.className = "chatwork-group-member-list";
 
@@ -486,6 +517,7 @@ function buildGroupCard(group, index) {
       } else if (!memberInput.checked) {
         group.memberUserIds = group.memberUserIds.filter((uid) => uid !== user.uid);
       }
+      memberSummary.textContent = getGroupMemberSummary(group);
       renderSendSection();
     });
 
@@ -510,14 +542,17 @@ function buildGroupCard(group, index) {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean);
+    memberSummary.textContent = getGroupMemberSummary(group);
     renderSendSection();
   });
 
   extraRoomLabel.appendChild(extraRoomInput);
+  memberDetails.appendChild(memberSummary);
+  memberDetails.appendChild(members);
+  memberDetails.appendChild(extraRoomLabel);
 
   card.appendChild(header);
-  card.appendChild(members);
-  card.appendChild(extraRoomLabel);
+  card.appendChild(memberDetails);
 
   return card;
 }
@@ -675,6 +710,14 @@ async function saveSettings() {
 
 function upsertGroupDraft(group) {
   const normalizedGroup = normalizeGroupDraft(group, groupDrafts.length);
+  const isWeeklyMissingGroup = normalizedGroup.id === "weekly_report_missing";
+
+  if (isWeeklyMissingGroup) {
+    groupDrafts = groupDrafts.filter((item) => {
+      return item.id === normalizedGroup.id || !/^weekly_report_missing_\d{4}-\d{2}-\d{2}$/.test(item.id || "");
+    });
+  }
+
   const existingIndex = groupDrafts.findIndex((item) => item.id === normalizedGroup.id);
 
   if (existingIndex >= 0) {
@@ -682,10 +725,12 @@ function upsertGroupDraft(group) {
       ...groupDrafts[existingIndex],
       ...normalizedGroup
     };
+    openChatworkGroupIds.add(normalizedGroup.id);
     return;
   }
 
   groupDrafts.push(normalizedGroup);
+  openChatworkGroupIds.add(normalizedGroup.id);
 }
 
 async function buildWeeklyMissingGroup() {
@@ -718,7 +763,7 @@ async function buildWeeklyMissingGroup() {
     const data = result?.data || {};
 
     upsertGroupDraft({
-      id: data.groupId || `weekly_report_missing_${weekStartId}`,
+      id: data.groupId || "weekly_report_missing",
       name: data.groupName || `週一報告 未提出 ${weekStartId}`,
       active: true,
       memberUserIds: data.memberUserIds || [],
@@ -733,10 +778,10 @@ async function buildWeeklyMissingGroup() {
     const unconfiguredCount = Math.max(0, missingCount - configuredCount);
     const message = unconfiguredCount
       ? `${data.weekLabel || weekStartId}：未提出${missingCount}人のうち、ルーム設定済み${configuredCount}人でグループを作成しました。未設定${unconfiguredCount}人は利用者ルームにルームIDを入れてください。`
-      : `${data.weekLabel || weekStartId}：未提出${missingCount}人のグループを作成しました。設定を保存すると送信先に出ます。`;
+      : `${data.weekLabel || weekStartId}：週一報告の未提出者グループを更新しました。設定を保存すると送信先に出ます。`;
 
     renderWeeklyGroupResult(message, missingCount ? "success" : "success");
-    setMessage(chatworkSettingsMessage, "未提出者グループを下書き作成しました。最後に「設定を保存」を押してください。", "green");
+    setMessage(chatworkSettingsMessage, "未提出者グループを上書き更新しました。最後に「設定を保存」を押してください。", "green");
   } catch (error) {
     console.error("週一報告未提出者グループ作成エラー:", error);
     renderWeeklyGroupResult(`作成に失敗しました：${formatErrorMessage(error)}`, "error");
@@ -870,13 +915,15 @@ if (chatworkAvailableToggle) {
 
 if (addChatworkGroupButton) {
   addChatworkGroupButton.addEventListener("click", () => {
+    const groupId = `group_${Date.now()}`;
     groupDrafts.push(normalizeGroupDraft({
-      id: `group_${Date.now()}`,
+      id: groupId,
       name: "",
       active: true,
       memberUserIds: [],
       roomIds: []
     }, groupDrafts.length));
+    openChatworkGroupIds.add(groupId);
     renderGroupList();
   });
 }
