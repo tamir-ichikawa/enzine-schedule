@@ -772,6 +772,49 @@ body.modal-open {
   color: #7a4a40;
 }
 
+.chatwork-temporary-group-members {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #d8cdbc;
+  border-radius: 10px;
+  background: #fffdf8;
+}
+
+.chatwork-temporary-group-title {
+  color: #3f3a32;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.chatwork-temporary-group-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.chatwork-temporary-group-member {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid #e1d6c6;
+  border-radius: 8px;
+  background: #fffaf2;
+  color: #4e473d;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.chatwork-temporary-group-member span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .chatwork-user-room-list,
 .chatwork-group-list {
   display: flex;
@@ -957,13 +1000,19 @@ body.modal-open {
   }
 
   .chatwork-group-card-header,
-  .chatwork-group-member-list {
+  .chatwork-group-member-list,
+  .chatwork-temporary-group-list {
+    grid-template-columns: 1fr;
+  }
+
+  .chatwork-temporary-group-member {
     grid-template-columns: 1fr;
   }
 
   .chatwork-action-row button,
   .chatwork-settings-panel-header button,
   .chatwork-group-card-actions button,
+  .chatwork-temporary-group-member button,
   .chatwork-weekly-group-tools button {
     width: 100%;
   }
