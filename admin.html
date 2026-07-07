@@ -79,18 +79,18 @@
       <section class="login-box admin-user-form-box">
         <div class="section-heading-row">
           <h2 id="adminUserFormTitle">利用者を追加</h2>
-          <p class="calendar-guide">新規登録はAuthユーザーも同時に作成できます。既存UIDの登録も残しています。</p>
+          <p class="calendar-guide">新規ユーザー登録を基本にし、Firebase Authで作成済みの利用者だけ既存UIDを紐づけます。</p>
         </div>
 
         <div class="calendar-view-toggle admin-create-mode-toggle" aria-label="登録方法の切り替え">
-          <button type="button" class="view-toggle-button active" data-admin-create-mode="uid">UIDを登録</button>
-          <button type="button" class="view-toggle-button" data-admin-create-mode="auth">Authも作成</button>
+          <button type="button" class="view-toggle-button active" data-admin-create-mode="auth">新規ユーザー登録</button>
+          <button type="button" class="view-toggle-button" data-admin-create-mode="uid">既存UIDを紐づけ</button>
         </div>
-        <p id="adminUserCreateModeNote" class="admin-create-mode-note">Firebase Authで作成済みのUIDを users に登録します。</p>
+        <p id="adminUserCreateModeNote" class="admin-create-mode-note">メールアドレスと初期パスワードでログインアカウントを作成し、利用者情報も同時に登録します。</p>
 
         <form id="adminUserForm" class="admin-user-form">
           <label id="adminUserUidLabel">
-            UID
+            既存UID
             <input type="text" id="adminUserUid" autocomplete="off" placeholder="Firebase Auth の UID">
           </label>
 
@@ -181,6 +181,6 @@
     </div>
   </main>
 
-  <script type="module" src="admin.js?v=90"></script>
+  <script type="module" src="admin.js?v=91"></script>
 </body>
 </html>

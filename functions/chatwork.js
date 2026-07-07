@@ -624,6 +624,54 @@ function resolveRoomIdsForGroup(targetGroupId, integration, activeUsersById) {
   return uniqueTargets;
 }
 
+function resolveRoomIdsForTemporaryGroup(data, integration, activeUsersById) {
+  const memberUserIds = Array.isArray(data?.memberUserIds)
+    ? data.memberUserIds
+        .map((uid) => cleanId(uid, "", 128))
+        .filter(Boolean)
+        .filter((uid, index, list) => list.indexOf(uid) === index)
+    : [];
+  const groupName = cleanText(data?.groupName, "一時グループ", 80);
+  const targets = [];
+
+  memberUserIds.forEach((uid) => {
+    const user = activeUsersById.get(uid);
+    const recipient = integration.recipients[uid];
+    const roomId = cleanRoomId(recipient?.roomId || "");
+
+    if (!user || !recipient || recipient.active === false || !roomId) {
+      return;
+    }
+
+    targets.push({
+      roomId,
+      label: user.name || user.email || uid,
+      userId: uid
+    });
+  });
+
+  const uniqueTargets = [];
+  const seenRoomIds = new Set();
+
+  targets.forEach((target) => {
+    if (seenRoomIds.has(target.roomId)) {
+      return;
+    }
+
+    seenRoomIds.add(target.roomId);
+    uniqueTargets.push(target);
+  });
+
+  if (!uniqueTargets.length) {
+    throw new HttpsError("failed-precondition", "Temporary group has no active Chatwork rooms.");
+  }
+
+  return {
+    groupName,
+    targets: uniqueTargets
+  };
+}
+
 function resolveDirectRoomId(roomId, caller) {
   if (!caller.canManage) {
     throw new HttpsError("permission-denied", "Only admins can send to a direct room ID.");
@@ -656,11 +704,15 @@ function resolveSendTargets(data, integration, caller, activeUsers) {
     const group = integration.groups.find((item) => item.id === groupId);
     targets = resolveRoomIdsForGroup(groupId, integration, activeUsersById);
     targetLabel = group?.name || "グループ";
+  } else if (targetType === "temporaryGroup") {
+    const temporaryGroup = resolveRoomIdsForTemporaryGroup(data, integration, activeUsersById);
+    targets = temporaryGroup.targets;
+    targetLabel = temporaryGroup.groupName;
   } else if (targetType === "room") {
     targets = resolveDirectRoomId(data?.roomId, caller);
     targetLabel = "直接指定ルーム";
   } else {
-    throw new HttpsError("invalid-argument", "Target type must be user, group, or room.");
+    throw new HttpsError("invalid-argument", "Target type must be user, group, temporaryGroup, or room.");
   }
 
   if (targets.length > MAX_ROOM_IDS_PER_SEND) {

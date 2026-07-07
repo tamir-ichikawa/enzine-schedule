@@ -33,7 +33,7 @@ const FUNCTIONS_REGION = "asia-northeast1";
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const JST_OFFSET_MINUTES = 9 * 60;
 const ADMIN_USER_MANUAL_SAVE_TEXT = "保存";
-const ADMIN_USER_AUTH_SAVE_TEXT = "Authユーザーを作成して保存";
+const ADMIN_USER_AUTH_SAVE_TEXT = "新規ユーザーを登録";
 const functions = getFunctions(app, FUNCTIONS_REGION);
 const createAuthUserAndProfile = httpsCallable(functions, "createAuthUserAndProfile");
 const migrateLegacyOfficeIdToEnzineChiba = httpsCallable(functions, "migrateLegacyOfficeIdToEnzineChiba");
@@ -78,7 +78,7 @@ let currentAdminData = null;
 let adminUsersCache = [];
 let editingAdminUserId = "";
 let adminUserRoleFilter = "all";
-let adminUserCreateMode = "uid";
+let adminUserCreateMode = "auth";
 
 setupSettingsMenuClose();
 
@@ -202,10 +202,10 @@ function renderAdminUserCreateMode() {
 
   if (adminUserCreateModeNote) {
     adminUserCreateModeNote.textContent = isEditing
-      ? "編集中はAuth作成ではなく、users の登録情報を更新します。"
+      ? "編集中は新規登録ではなく、users の登録情報を更新します。"
       : isAuthMode
-        ? "メールアドレスと初期パスワードでAuthユーザーを作成し、users にも同時登録します。"
-        : "Firebase Authで作成済みのUIDを users に登録します。";
+        ? "メールアドレスと初期パスワードでログインアカウントを作成し、利用者情報も同時に登録します。"
+        : "Firebase Authで作成済みのUIDを、利用者情報として users に紐づけます。";
   }
 
   if (saveAdminUserButton) {
@@ -214,7 +214,7 @@ function renderAdminUserCreateMode() {
 }
 
 function setAdminUserCreateMode(mode) {
-  adminUserCreateMode = mode === "auth" ? "auth" : "uid";
+  adminUserCreateMode = mode === "uid" ? "uid" : "auth";
   renderAdminUserCreateMode();
 }
 
@@ -875,7 +875,7 @@ function resetAdminUserForm() {
   adminUserActive.checked = true;
   adminUserOfficeId.value = getCurrentOfficeId();
   adminUserGroupId.value = getCurrentGroupId();
-  setAdminUserCreateMode("uid");
+  setAdminUserCreateMode("auth");
   setAdminUserMessage("");
 }
 
@@ -952,15 +952,15 @@ async function saveAdminUserWithAuth({ name, nameKana, sortName, email, role, ac
 
   const weeklyReportStartWeek = getWeeklyReportStartWeekIdForRegistrationDate(new Date());
 
-  const ok = confirmImportantAction("Authユーザーを新規作成します", [
+  const ok = confirmImportantAction("新規ユーザーを登録します", [
     ...buildUserConfirmLines({ name, nameKana, email, role, active, officeId, groupId }),
     "",
-    "Firebase Authentication と users に同時登録します。",
+    "Firebase Authentication にログインアカウントを作成し、users に利用者情報も同時登録します。",
     "初期パスワードを本人へ安全な方法で伝えてください。"
   ]);
 
   if (!ok) {
-    setAdminUserMessage("Authユーザー作成をキャンセルしました。", "#555");
+    setAdminUserMessage("新規ユーザー登録をキャンセルしました。", "#555");
     return;
   }
 
@@ -996,13 +996,13 @@ async function saveAdminUserWithAuth({ name, nameKana, sortName, email, role, ac
     resetAdminUserForm();
     setAdminUserMessage(
       createdUid
-        ? `Authユーザーを作成し、users に登録しました。UID: ${createdUid}`
-        : "Authユーザーを作成し、users に登録しました。",
+        ? `新規ユーザーを登録しました。UID: ${createdUid}`
+        : "新規ユーザーを登録しました。",
       "green"
     );
   } catch (error) {
-    console.error("Admin Authユーザー作成エラー:", error);
-    setAdminUserMessage(`Authユーザー作成に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
+    console.error("Admin新規ユーザー登録エラー:", error);
+    setAdminUserMessage(`新規ユーザー登録に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
   } finally {
     setButtonLoading(saveAdminUserButton, false, "作成中...", getAdminUserSaveText());
   }
@@ -1051,13 +1051,13 @@ async function saveAdminUser(event) {
 
   const saveTitle = editingAdminUserId
     ? "ユーザー情報を更新します"
-    : "UIDを users に登録します";
+    : "既存UIDを利用者情報に紐づけます";
   const ok = confirmImportantAction(saveTitle, [
     ...buildUserConfirmLines({ uid, name, nameKana, email, role, active, officeId, groupId }),
     "",
     editingAdminUserId
       ? "保存すると users の登録情報と利用者一覧キャッシュを更新します。"
-      : "Firebase Authで作成済みのUIDを users に登録し、利用者一覧キャッシュを更新します。"
+      : "Firebase Authで作成済みのUIDを users に紐づけ、利用者一覧キャッシュを更新します。"
   ]);
 
   if (!ok) {
