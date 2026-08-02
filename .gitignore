@@ -4,6 +4,7 @@ functions/node_modules/
 functions/lib/
 functions/.secret.local
 .firebase/
+.firebase-cli-config/
 .firebase-deploy/
 .production-backups/
 *-debug.log
