@@ -6080,9 +6080,217 @@ textarea:focus {
    ========================================================= */
 .admin-main-shell .admin-summary-box,
 .admin-main-shell .admin-billing-safety-box,
+.admin-main-shell .organization-management-box,
 .admin-main-shell .admin-user-form-box,
 .admin-main-shell .admin-user-list-box {
   min-width: 0;
+}
+
+.organization-management-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.organization-management-box.hidden,
+.admin-maintenance-box.hidden,
+.admin-audit-log-box.hidden,
+.admin-billing-safety-box.hidden,
+.admin-create-mode-toggle.hidden {
+  display: none !important;
+}
+
+.admin-maintenance-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.maintenance-control-status {
+  padding: 14px;
+  border: 1px solid #b9d0b8;
+  border-radius: 12px;
+  background: #f1f8ef;
+  color: #365c38;
+  font-weight: bold;
+}
+
+.maintenance-control-status.active {
+  border-color: #d9a59b;
+  background: #fff1ed;
+  color: #8a3f32;
+}
+
+.maintenance-control-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.maintenance-control-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: bold;
+}
+
+.maintenance-control-form textarea {
+  resize: vertical;
+}
+
+.maintenance-control-actions,
+.maintenance-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.maintenance-control-actions button,
+.maintenance-page-actions button {
+  flex: 1 1 200px;
+}
+
+.maintenance-public-card {
+  padding: 24px;
+  border: 1px solid #d9a59b;
+  border-radius: 18px;
+  background: #fff8f4;
+  box-shadow: 0 10px 26px rgba(74, 50, 35, 0.08);
+  text-align: center;
+}
+
+.maintenance-public-card.hidden,
+.maintenance-public-card p.hidden,
+.maintenance-public-end.hidden,
+.maintenance-page-actions .hidden {
+  display: none !important;
+}
+
+.maintenance-public-icon {
+  margin-bottom: 8px;
+  color: #a65d4e;
+  font-size: 38px;
+  line-height: 1;
+}
+
+.maintenance-public-card h2 {
+  margin: 0 0 12px;
+  color: #7c3f34;
+}
+
+.maintenance-public-card p {
+  margin: 8px 0;
+  line-height: 1.7;
+}
+
+.maintenance-public-end {
+  font-weight: bold;
+}
+
+.maintenance-public-admin-note,
+.maintenance-public-account {
+  color: #695d52;
+  font-size: 14px;
+}
+
+.maintenance-page-shell {
+  max-width: 680px;
+}
+
+.maintenance-page-card {
+  margin-top: 18px;
+}
+
+.organization-management-notice {
+  padding: 12px 14px;
+  border: 1px solid #dfc27b;
+  border-left: 4px solid #d19a5b;
+  border-radius: 12px;
+  background: #fff4dc;
+  color: #72521e;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.organization-management-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.organization-management-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e4d8c7;
+  border-radius: 14px;
+  background: #fffdf8;
+}
+
+.organization-management-card h3,
+.organization-management-lists h3 {
+  margin: 0;
+  color: #3f3a32;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.organization-management-lists {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.2fr);
+  gap: 14px;
+}
+
+.organization-management-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.organization-management-item {
+  padding: 11px 12px;
+  border: 1px solid #e4d8c7;
+  border-left: 4px solid #8aae7b;
+  border-radius: 11px;
+  background: #fffdf8;
+}
+
+.organization-management-item.inactive {
+  border-left-color: #a56759;
+  background: #f7f3ed;
+}
+
+.organization-management-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.organization-management-item-title {
+  color: #3f3a32;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.organization-management-item-meta {
+  margin-top: 4px;
+  color: #7f7467;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.admin-user-form input[readonly],
+.organization-management-card input[readonly] {
+  background: #f1eee8;
+  color: #665d51;
+  cursor: not-allowed;
 }
 
 .admin-top-nav {
@@ -6140,6 +6348,55 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.admin-audit-log-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-audit-log-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-audit-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-audit-log-item {
+  padding: 12px 14px;
+  border: 1px solid #e4d8c7;
+  border-left: 4px solid #8aae7b;
+  border-radius: 12px;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgba(84, 72, 58, 0.08);
+}
+
+.admin-audit-log-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  color: #3f3a32;
+  line-height: 1.45;
+}
+
+.admin-audit-log-item-header span,
+.admin-audit-log-item-meta,
+.admin-audit-log-item-changes {
+  color: #7f7467;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.admin-audit-log-item-meta,
+.admin-audit-log-item-changes {
+  margin-top: 5px;
 }
 
 .admin-billing-safety-actions {
@@ -6349,6 +6606,35 @@ textarea:focus {
   margin-bottom: 12px;
 }
 
+.admin-user-membership-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #e4d8c7;
+  border-radius: 12px;
+  background: #faf5ec;
+}
+
+.admin-user-membership-filters.hidden {
+  display: none;
+}
+
+.admin-user-membership-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: #5f554b;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.admin-user-membership-filters select {
+  width: 100%;
+}
+
 .admin-user-list {
   display: flex;
   flex-direction: column;
@@ -6487,12 +6773,17 @@ textarea:focus {
 }
 
 @media (max-width: 900px) {
-  .admin-user-layout {
+  .admin-user-layout,
+  .organization-management-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 600px) {
+  .maintenance-control-form {
+    grid-template-columns: 1fr;
+  }
+
   .admin-top-nav {
     order: 2;
     width: 100%;
@@ -6542,9 +6833,38 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .admin-audit-log-actions,
+  .admin-audit-log-item-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-audit-log-actions button {
+    width: 100%;
+  }
+
+  .admin-audit-log-item-header,
+  .admin-audit-log-item-meta,
+  .admin-audit-log-item-changes {
+    font-size: 15px;
+  }
+
+  .organization-management-lists {
+    grid-template-columns: 1fr;
+  }
+
+  .organization-management-notice,
+  .organization-management-item-meta {
+    font-size: 15px;
+  }
+
   .admin-role-filter-toggle {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     border-radius: 14px;
+  }
+
+  .admin-user-membership-filters {
+    grid-template-columns: 1fr;
   }
 
   .admin-create-mode-toggle {

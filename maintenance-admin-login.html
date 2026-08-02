@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>管理者専用入口 | enzine Schedule</title>
+  <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
+  <link rel="stylesheet" href="style.css?v=96">
+</head>
+<body class="app-shell-body">
+  <main id="maintenanceAdminLoginMain" class="login-container login-page app-main-shell hidden" hidden>
+    <header class="login-page-header" aria-label="管理者専用ログインページヘッダー">
+      <div class="app-brand login-page-brand">
+        <img src="enzine_icon.png" alt="enzine" class="app-brand-logo-img">
+        <div class="app-brand-text">
+          <h1 class="app-brand-title">enzine スケジュール</h1>
+          <p class="app-user-meta">管理者専用入口</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="login-box">
+      <div class="section-heading-row login-heading-row">
+        <h2>管理者ログイン</h2>
+      </div>
+
+      <form id="maintenanceAdminLoginForm" class="login-form">
+        <label>
+          メールアドレス
+          <input type="email" id="maintenanceAdminEmail" autocomplete="email" placeholder="example@example.com">
+        </label>
+
+        <label>
+          パスワード
+          <input type="password" id="maintenanceAdminPassword" autocomplete="current-password" placeholder="パスワード">
+        </label>
+
+        <button id="maintenanceAdminLoginSubmit" type="submit">ログイン</button>
+      </form>
+
+      <p id="maintenanceAdminLoginMessage" class="login-message" aria-live="polite"></p>
+    </div>
+  </main>
+
+  <script type="module" src="maintenance-admin-auth.js?v=2"></script>
+</body>
+</html>

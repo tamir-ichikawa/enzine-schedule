@@ -13,7 +13,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
-import { setupSettingsMenuClose } from "./ui-common.js?v=80";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
 
 const DEFAULT_OFFICE_ID = "enzine_chiba";
 const LEGACY_OFFICE_IDS = ["engine_chiba"];
@@ -55,7 +55,12 @@ function normalizeOfficeId(officeId) {
 
 function getCompatibleOfficeIds(officeId = getOfficeId()) {
   const currentOfficeId = normalizeOfficeId(officeId);
-  return [currentOfficeId, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
+
+  if (currentOfficeId !== DEFAULT_OFFICE_ID) {
+    return [currentOfficeId];
+  }
+
+  return [DEFAULT_OFFICE_ID, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
     return value && list.indexOf(value) === index;
   });
 }
@@ -628,6 +633,11 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
+    if (!await enforceMaintenanceAccess(currentUserData)) {
+      return;
+    }
+
+    await applyOfficeBrandName(currentUserData);
     workshopUserInfo.textContent = currentUserData.role === "staff" || currentUserData.role === "admin"
       ? `支援員｜${currentUserData.name || user.email}`
       : `${currentUserData.name || user.email}さん`;

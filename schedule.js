@@ -20,7 +20,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
-import { setupSettingsMenuClose } from "./ui-common.js?v=80";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読フィールドの互換対応
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告は2026-06-15週の月〜金から開始
@@ -262,7 +262,12 @@ function normalizeOfficeId(officeId) {
 
 function getCompatibleOfficeIds(officeId = getCurrentOfficeId()) {
   const currentOfficeId = normalizeOfficeId(officeId);
-  return [currentOfficeId, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
+
+  if (currentOfficeId !== DEFAULT_OFFICE_ID) {
+    return [currentOfficeId];
+  }
+
+  return [DEFAULT_OFFICE_ID, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
     return value && list.indexOf(value) === index;
   });
 }
@@ -2276,6 +2281,11 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
+    if (!await enforceMaintenanceAccess(userData)) {
+      return;
+    }
+
+    await applyOfficeBrandName(userData);
     userInfo.textContent = `${userData.name}さん`;
 
     loadBillingSafetyNotice();

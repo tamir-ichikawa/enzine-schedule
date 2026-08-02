@@ -18,7 +18,7 @@
 // STEP29_CASE_DRAFT_20260621_V59：案件情報貼り付け下書き対応
 // STEP6_READABILITY_FIX_20260620_V35：週一報告の可読性修正
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js";
 
 import {
   collection,
@@ -31,8 +31,8 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { app, auth, db } from "./firebase-config.js";
-import { setupSettingsMenuClose } from "./ui-common.js?v=80";
+import { auth, db, functions } from "./firebase-config.js";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：週一報告の既読互換と表示漏れ修正
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
@@ -58,9 +58,11 @@ const DAILY_TIME_SLOT_ORDER = {
   "午後": 2,
   "終日": 3
 };
-const FUNCTIONS_REGION = "asia-northeast1";
-const cloudFunctions = getFunctions(app, FUNCTIONS_REGION);
-const getChatworkConsoleData = httpsCallable(cloudFunctions, "getChatworkConsoleData");
+const getChatworkConsoleData = httpsCallable(functions, "getChatworkConsoleData");
+
+function getActiveUsersDocId(officeId) {
+  return `${ACTIVE_USERS_DOC_ID}_${String(officeId || "").trim()}`;
+}
 
 // STEP5_WEBUI_20260620_V33：支援員ページ タブ切り替え・現在位置表示
 const STAFF_TAB_STORAGE_KEY = "enzineStaffActiveTab";
@@ -566,7 +568,12 @@ function normalizeOfficeId(officeId) {
 
 function getCompatibleOfficeIds(officeId = getCurrentOfficeId()) {
   const currentOfficeId = normalizeOfficeId(officeId);
-  return [currentOfficeId, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
+
+  if (currentOfficeId !== DEFAULT_OFFICE_ID) {
+    return [currentOfficeId];
+  }
+
+  return [DEFAULT_OFFICE_ID, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
     return value && list.indexOf(value) === index;
   });
 }
@@ -1454,6 +1461,7 @@ async function loadMonthlySchedulesForStaff(year, month) {
   for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
     const schedulesQuery = query(
       collection(db, "monthlySchedules"),
+      where("groupId", "==", getCurrentGroupId()),
       where("officeId", "==", candidateOfficeId),
       where("month", "==", monthId)
     );
@@ -1828,11 +1836,30 @@ function sortActiveUsers(users) {
 async function loadActiveUsersFromSystemDoc() {
   const officeId = getCurrentOfficeId();
   const groupId = getCurrentGroupId();
+  const perOfficeUsers = [];
+
+  for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
+    const officeDocSnap = await getDoc(doc(db, "system", getActiveUsersDocId(candidateOfficeId)));
+
+    if (officeDocSnap.exists() && Array.isArray(officeDocSnap.data()?.users)) {
+      perOfficeUsers.push(...officeDocSnap.data().users);
+    }
+  }
+
+  if (perOfficeUsers.length > 0) {
+    return sortActiveUsers(
+      perOfficeUsers
+        .map((rawUser) => normalizeActiveUserRecord(rawUser, officeId, groupId))
+        .filter(Boolean)
+    );
+  }
+
+  // 本番の既存データとの互換用。事業所別doc導入前のキャッシュを読む。
   const docRef = doc(db, "system", ACTIVE_USERS_DOC_ID);
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
-    throw new Error("system/activeUsers が未作成です。『利用者一覧を更新』を押して作成してください。");
+    throw new Error("事業所別の利用者一覧キャッシュが未作成です。『利用者一覧を更新』を押して作成してください。");
   }
 
   const data = docSnap.data() || {};
@@ -1865,6 +1892,9 @@ async function rebuildActiveUsersFromUsersCollection() {
 
   const usersQuery = query(
     collection(db, "users"),
+    where("groupId", "==", groupId),
+    where("officeId", "==", officeId),
+    where("role", "==", "user"),
     where("active", "==", true)
   );
 
@@ -1890,8 +1920,10 @@ async function rebuildActiveUsersFromUsersCollection() {
 
   const sortedUsers = sortActiveUsers(users);
 
-  await setDoc(doc(db, "system", ACTIVE_USERS_DOC_ID), {
+  await setDoc(doc(db, "system", getActiveUsersDocId(officeId)), {
+    schemaVersion: 1,
     officeId: officeId,
+    organizationId: groupId,
     groupId: groupId,
     users: sortedUsers,
     updatedAt: serverTimestamp(),
@@ -1900,7 +1932,7 @@ async function rebuildActiveUsersFromUsersCollection() {
   }, { merge: true });
 
   activeUserListCache = sortedUsers;
-  console.log(`[Read節約] system/${ACTIVE_USERS_DOC_ID} を更新しました。次回から利用者一覧は1 readです。`);
+  console.log(`[Read節約] system/${getActiveUsersDocId(officeId)} を更新しました。次回から利用者一覧は1 readです。`);
   return sortedUsers;
 }
 
@@ -2458,6 +2490,7 @@ async function loadWeeklyReportStatusMapForStaff(users) {
   for (const candidateOfficeId of getCompatibleOfficeIds()) {
     const statusQuery = query(
       collection(db, WEEKLY_REPORT_STATUS_COLLECTION),
+      where("groupId", "==", getCurrentGroupId()),
       where("officeId", "==", candidateOfficeId)
     );
     const snapshot = await getDocs(statusQuery);
@@ -5503,6 +5536,11 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
+    if (!await enforceMaintenanceAccess(userData)) {
+      return;
+    }
+
+    await applyOfficeBrandName(userData);
     staffInfo.textContent = `支援員｜${userData.name}`;
 
     if (staffAdminTopNav && userData.role === "admin") {

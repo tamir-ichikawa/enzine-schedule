@@ -1,4 +1,9 @@
 .codex/
+node_modules/
 functions/node_modules/
 functions/lib/
+functions/.secret.local
 .firebase/
+.firebase-deploy/
+.production-backups/
+*-debug.log
