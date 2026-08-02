@@ -593,9 +593,12 @@ async function main() {
   await db.collection("monthlyAnnouncements").doc("rules-announcement-b").set(announcementB);
   await expectFirestoreAllowed(userASignIn.idToken, "GET", "monthlyAnnouncements/rules-announcement-a");
   await expectFirestoreDenied(userASignIn.idToken, "GET", "monthlyAnnouncements/rules-announcement-b");
-  await expectFirestoreDenied(userASignIn.idToken, "PATCH", "monthlyAnnouncements/rules-user-cannot-write", announcementA);
-  await expectFirestoreAllowed(staffSignIn.idToken, "PATCH", "monthlyAnnouncements/rules-staff-a", announcementA);
-  await expectFirestoreDenied(staffSignIn.idToken, "PATCH", "monthlyAnnouncements/rules-staff-b", announcementB);
+  await expectFirestoreDenied(userASignIn.idToken, "PATCH", "monthlyAnnouncements/demo-office-a_rules-user-cannot-write", announcementA);
+  await expectFirestoreAllowed(staffSignIn.idToken, "PATCH", "monthlyAnnouncements/demo-office-a_rules-staff-a", announcementA);
+  await expectFirestoreAllowed(officeAdminSignIn.idToken, "PATCH", "monthlyAnnouncements/demo-office-a_rules-office-admin-a", announcementA);
+  await expectFirestoreDenied(staffSignIn.idToken, "PATCH", "monthlyAnnouncements/demo-office-b_rules-wrong-document-id", announcementA);
+  await expectFirestoreDenied(officeAdminSignIn.idToken, "PATCH", "monthlyAnnouncements/demo-office-b_rules-office-admin-b", announcementB);
+  await expectFirestoreAllowed(globalSignIn.idToken, "PATCH", "monthlyAnnouncements/demo-office-b_rules-global", announcementB);
 
   const workshopA = {
     officeId: "demo-office-a",
@@ -614,6 +617,9 @@ async function main() {
   await expectFirestoreDenied(staffSignIn.idToken, "GET", "system/workshopResources_demo-office-b");
   await expectFirestoreAllowed(staffSignIn.idToken, "PATCH", "system/workshopResources_demo-office-a", workshopA);
   await expectFirestoreDenied(staffSignIn.idToken, "PATCH", "system/workshopResources_demo-office-b", workshopB);
+  await expectFirestoreAllowed(officeAdminSignIn.idToken, "PATCH", "system/workshopResources_demo-office-a", workshopA);
+  await expectFirestoreDenied(officeAdminSignIn.idToken, "PATCH", "system/workshopResources_demo-office-b", workshopB);
+  await expectFirestoreAllowed(globalSignIn.idToken, "PATCH", "system/workshopResources_demo-office-b", workshopB);
 
   await expectFirestoreAllowed(staffSignIn.idToken, "GET", "system/activeUsers_demo-office-a");
   await expectFirestoreDenied(staffSignIn.idToken, "GET", "system/activeUsers_demo-office-b");
@@ -628,7 +634,7 @@ async function main() {
       organizationId: "demo-operator",
       groupId: "demo-operator",
       officeId: "demo-office-a",
-      users: []
+      users: officeAUsers
     }
   );
 

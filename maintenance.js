@@ -2,7 +2,7 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
-import { getMaintenanceState } from "./ui-common.js?v=84";
+import { getMaintenanceState } from "./ui-common.js?v=89";
 
 const maintenancePageTitle = document.getElementById("maintenancePageTitle");
 const maintenancePageMessage = document.getElementById("maintenancePageMessage");

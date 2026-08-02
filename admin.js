@@ -24,7 +24,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db, functions } from "./firebase-config.js";
-import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=89";
 
 const DEFAULT_OFFICE_ID = "enzine_chiba";
 const LEGACY_OFFICE_IDS = ["engine_chiba"];
@@ -50,20 +50,24 @@ function getActiveUsersDocId(officeId) {
 }
 
 const adminInfo = document.getElementById("adminInfo");
+const adminMainShell = document.querySelector(".admin-main-shell");
 const logoutButton = document.getElementById("logoutButton");
 const openStaffPageButton = document.getElementById("openStaffPageButton");
 const openChatworkPageButton = document.getElementById("openChatworkPageButton");
-const maintenanceControlSection = document.getElementById("maintenanceControlSection");
+const adminSectionButtons = document.querySelectorAll("[data-admin-section]");
+const adminManageSubnav = document.getElementById("adminManageSubnav");
+const adminManagePanelButtons = document.querySelectorAll("[data-admin-manage-panel]");
+const adminSectionContentPanels = document.querySelectorAll("[data-admin-section-content]");
+const adminManageContentPanels = document.querySelectorAll("[data-admin-manage-content]");
+const globalAdminOnlyNavigationItems = document.querySelectorAll("[data-global-admin-only]");
 const maintenanceControlStatus = document.getElementById("maintenanceControlStatus");
 const maintenanceMessageInput = document.getElementById("maintenanceMessageInput");
 const startMaintenanceButton = document.getElementById("startMaintenanceButton");
 const stopMaintenanceButton = document.getElementById("stopMaintenanceButton");
 const maintenanceControlMessage = document.getElementById("maintenanceControlMessage");
-const adminAuditLogSection = document.getElementById("adminAuditLogSection");
 const reloadAdminAuditLogsButton = document.getElementById("reloadAdminAuditLogsButton");
 const adminAuditLogList = document.getElementById("adminAuditLogList");
 const adminAuditLogMessage = document.getElementById("adminAuditLogMessage");
-const adminBillingSafetySection = document.getElementById("adminBillingSafetySection");
 const billingSafetyStatus = document.getElementById("billingSafetyStatus");
 const reloadBillingSafetyButton = document.getElementById("reloadBillingSafetyButton");
 const resetBillingSafetyButton = document.getElementById("resetBillingSafetyButton");
@@ -71,9 +75,10 @@ const testBillingWarningButton = document.getElementById("testBillingWarningButt
 const testBillingLockedButton = document.getElementById("testBillingLockedButton");
 const adminUserSummary = document.getElementById("adminUserSummary");
 const adminUserList = document.getElementById("adminUserList");
+const adminUserLayout = document.querySelector(".admin-user-layout");
+const adminUserFormBox = document.querySelector(".admin-user-form-box");
 const adminUserRoleFilterButtons = document.querySelectorAll("[data-admin-role-filter]");
 const adminUserCreateModeButtons = document.querySelectorAll("[data-admin-create-mode]");
-const adminUserFormGuide = document.getElementById("adminUserFormGuide");
 const adminUserCreateModeToggle = document.getElementById("adminUserCreateModeToggle");
 const adminUserCreateModeNote = document.getElementById("adminUserCreateModeNote");
 const adminUserForm = document.getElementById("adminUserForm");
@@ -97,7 +102,6 @@ const rebuildActiveUsersButton = document.getElementById("rebuildActiveUsersButt
 const adminUserMembershipFilters = document.getElementById("adminUserMembershipFilters");
 const adminUserOrganizationFilter = document.getElementById("adminUserOrganizationFilter");
 const adminUserOfficeFilter = document.getElementById("adminUserOfficeFilter");
-const organizationManagementSection = document.getElementById("organizationManagementSection");
 const organizationForm = document.getElementById("organizationForm");
 const organizationIdInput = document.getElementById("organizationIdInput");
 const organizationNameInput = document.getElementById("organizationNameInput");
@@ -120,8 +124,11 @@ const officeAdminEmailInput = document.getElementById("officeAdminEmailInput");
 const officeAdminPasswordInput = document.getElementById("officeAdminPasswordInput");
 const createOfficeAdminButton = document.getElementById("createOfficeAdminButton");
 const organizationManagementMessage = document.getElementById("organizationManagementMessage");
+const officeManagementMessage = document.getElementById("officeManagementMessage");
+const officeAdminManagementMessage = document.getElementById("officeAdminManagementMessage");
 const organizationList = document.getElementById("organizationList");
 const officeList = document.getElementById("officeList");
+const officeAdminList = document.getElementById("officeAdminList");
 const adminUserScopeNote = document.getElementById("adminUserScopeNote");
 
 let currentUser = null;
@@ -130,6 +137,8 @@ let adminUsersCache = [];
 let editingAdminUserId = "";
 let adminUserRoleFilter = "all";
 let adminUserCreateMode = "auth";
+let activeAdminSection = "manage";
+let activeAdminManagePanel = "user";
 let maintenanceControlState = { active: false, message: "", scheduledEndText: "" };
 let organizationManagementState = {
   organizations: [],
@@ -138,6 +147,25 @@ let organizationManagementState = {
 };
 
 setupSettingsMenuClose();
+
+function syncAdminUserPanelHeight() {
+  if (!adminUserLayout || !adminUserFormBox) {
+    return;
+  }
+
+  const formHeight = Math.ceil(adminUserFormBox.getBoundingClientRect().height);
+
+  if (formHeight > 0) {
+    adminUserLayout.style.setProperty("--admin-user-form-height", `${formHeight}px`);
+  }
+}
+
+if (adminUserLayout && adminUserFormBox) {
+  const adminUserFormResizeObserver = new ResizeObserver(syncAdminUserPanelHeight);
+  adminUserFormResizeObserver.observe(adminUserFormBox);
+  window.addEventListener("resize", syncAdminUserPanelHeight);
+  window.requestAnimationFrame(syncAdminUserPanelHeight);
+}
 
 function getCurrentOfficeId() {
   return normalizeOfficeId(currentAdminData?.officeId);
@@ -162,6 +190,100 @@ function setGlobalOnlyElementVisibility(element, shouldShow) {
 
   element.hidden = !shouldShow;
   element.classList.toggle("hidden", !shouldShow);
+}
+
+function setAdminPanelVisibility(element, shouldShow) {
+  if (!element) {
+    return;
+  }
+
+  element.hidden = !shouldShow;
+  element.classList.toggle("hidden", !shouldShow);
+}
+
+function isGlobalAdminSection(section) {
+  return ["maintenance", "billing", "audit"].includes(section);
+}
+
+function isGlobalAdminManagePanel(panel) {
+  return ["organization", "office", "office-admin"].includes(panel);
+}
+
+function renderAdminNavigation() {
+  const isGlobalAdmin = isCurrentAdminGlobal();
+
+  globalAdminOnlyNavigationItems.forEach((element) => {
+    setGlobalOnlyElementVisibility(element, isGlobalAdmin);
+  });
+
+  if (!isGlobalAdmin && isGlobalAdminSection(activeAdminSection)) {
+    activeAdminSection = "manage";
+  }
+
+  if (!isGlobalAdmin && isGlobalAdminManagePanel(activeAdminManagePanel)) {
+    activeAdminManagePanel = "user";
+  }
+
+  const manageSectionIsActive = activeAdminSection === "manage";
+  adminMainShell?.classList.toggle(
+    "admin-user-panel-active",
+    manageSectionIsActive && activeAdminManagePanel === "user"
+  );
+  setAdminPanelVisibility(adminManageSubnav, manageSectionIsActive);
+
+  adminSectionButtons.forEach((button) => {
+    const isActive = button.dataset.adminSection === activeAdminSection;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-current", isActive ? "page" : "false");
+    if (button.dataset.adminSection === "manage") {
+      button.setAttribute("aria-expanded", manageSectionIsActive ? "true" : "false");
+    }
+  });
+
+  adminManagePanelButtons.forEach((button) => {
+    const isActive = button.dataset.adminManagePanel === activeAdminManagePanel;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-current", isActive ? "page" : "false");
+  });
+
+  adminManageContentPanels.forEach((panel) => {
+    const panelName = panel.dataset.adminManageContent || "";
+    const isAllowed = isGlobalAdmin || !isGlobalAdminManagePanel(panelName);
+    setAdminPanelVisibility(
+      panel,
+      manageSectionIsActive && isAllowed && panelName === activeAdminManagePanel
+    );
+  });
+
+  adminSectionContentPanels.forEach((panel) => {
+    const sectionName = panel.dataset.adminSectionContent || "";
+    const isAllowed = isGlobalAdmin || !isGlobalAdminSection(sectionName);
+    setAdminPanelVisibility(
+      panel,
+      isAllowed && sectionName === activeAdminSection
+    );
+  });
+
+  if (manageSectionIsActive && activeAdminManagePanel === "user") {
+    window.requestAnimationFrame(syncAdminUserPanelHeight);
+  }
+}
+
+function setActiveAdminSection(section) {
+  const requestedSection = String(section || "manage");
+  activeAdminSection = !isCurrentAdminGlobal() && isGlobalAdminSection(requestedSection)
+    ? "manage"
+    : requestedSection;
+  renderAdminNavigation();
+}
+
+function setActiveAdminManagePanel(panel) {
+  const requestedPanel = String(panel || "user");
+  activeAdminManagePanel = !isCurrentAdminGlobal() && isGlobalAdminManagePanel(requestedPanel)
+    ? "user"
+    : requestedPanel;
+  activeAdminSection = "manage";
+  renderAdminNavigation();
 }
 
 function normalizeOfficeId(officeId) {
@@ -243,12 +365,12 @@ function setButtonLoading(button, isLoading, loadingText, defaultText) {
 }
 
 function setOrganizationManagementMessage(text, color = "#555") {
-  if (!organizationManagementMessage) {
-    return;
-  }
-
-  organizationManagementMessage.style.color = color;
-  organizationManagementMessage.textContent = text;
+  [organizationManagementMessage, officeManagementMessage, officeAdminManagementMessage]
+    .filter(Boolean)
+    .forEach((messageElement) => {
+      messageElement.style.color = color;
+      messageElement.textContent = text;
+    });
 }
 
 function resetOrganizationForm() {
@@ -446,30 +568,32 @@ function buildManagementItem({ title, meta, active, onEdit }) {
   titleElement.className = "organization-management-item-title";
   titleElement.textContent = title;
 
-  const editButton = document.createElement("button");
-  editButton.type = "button";
-  editButton.className = "small-button";
-  editButton.textContent = "編集";
-  editButton.addEventListener("click", onEdit);
-
   const metaElement = document.createElement("div");
   metaElement.className = "organization-management-item-meta";
   metaElement.textContent = meta;
 
   header.appendChild(titleElement);
-  header.appendChild(editButton);
+  if (typeof onEdit === "function") {
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "small-button";
+    editButton.textContent = "編集";
+    editButton.addEventListener("click", onEdit);
+    header.appendChild(editButton);
+  }
   item.appendChild(header);
   item.appendChild(metaElement);
   return item;
 }
 
 function renderOrganizationManagementLists() {
-  if (!organizationList || !officeList) {
+  if (!organizationList || !officeList || !officeAdminList) {
     return;
   }
 
   organizationList.textContent = "";
   officeList.textContent = "";
+  officeAdminList.textContent = "";
 
   if (!organizationManagementState.organizations.length) {
     organizationList.textContent = "運営会社が登録されていません。";
@@ -478,7 +602,7 @@ function renderOrganizationManagementLists() {
   organizationManagementState.organizations.forEach((organization) => {
     organizationList.appendChild(buildManagementItem({
       title: organization.name,
-      meta: `ID: ${organization.id} / ${organization.active ? "Active" : "停止中"}`,
+      meta: `ID: ${organization.id} / ${organization.active ? "利用中" : "停止中"}`,
       active: organization.active,
       onEdit: () => {
         organizationIdInput.readOnly = true;
@@ -498,16 +622,10 @@ function renderOrganizationManagementLists() {
     const organization = organizationManagementState.organizations.find(
       (item) => item.id === office.organizationId
     );
-    const admins = organizationManagementState.officeAdmins.filter(
-      (adminUser) => adminUser.officeId === office.id
-    );
-    const adminText = admins.length
-      ? admins.map((adminUser) => `${adminUser.name}${adminUser.active ? "" : "［停止中］"}`).join("、")
-      : "未登録";
 
     officeList.appendChild(buildManagementItem({
       title: office.name,
-      meta: `ID: ${office.id} / 会社: ${organization?.name || office.organizationId || "-"} / 管理者: ${adminText}`,
+      meta: `ID: ${office.id} / 会社: ${organization?.name || office.organizationId || "-"} / ${office.active ? "利用中" : "停止中"}`,
       active: office.active,
       onEdit: () => {
         officeIdInput.readOnly = true;
@@ -519,19 +637,37 @@ function renderOrganizationManagementLists() {
       }
     }));
   });
+
+  if (!organizationManagementState.officeAdmins.length) {
+    officeAdminList.textContent = "事業所管理者が登録されていません。";
+  }
+
+  organizationManagementState.officeAdmins.forEach((adminUser) => {
+    const organization = organizationManagementState.organizations.find(
+      (item) => item.id === adminUser.organizationId
+    );
+    const office = organizationManagementState.offices.find(
+      (item) => item.id === adminUser.officeId
+    );
+
+    officeAdminList.appendChild(buildManagementItem({
+      title: adminUser.name,
+      meta: `会社: ${organization?.name || adminUser.organizationId || "-"} / 事業所: ${office?.name || adminUser.officeId || "-"} / ${adminUser.active ? "利用中" : "停止中"}`,
+      active: adminUser.active
+    }));
+  });
 }
 
 async function loadOrganizationManagement(options = {}) {
   if (!isCurrentAdminGlobal()) {
-    setGlobalOnlyElementVisibility(organizationManagementSection, false);
+    renderAdminNavigation();
     return null;
   }
-
-  setGlobalOnlyElementVisibility(organizationManagementSection, true);
 
   if (!options.silent) {
     organizationList.textContent = "読み込み中...";
     officeList.textContent = "読み込み中...";
+    officeAdminList.textContent = "読み込み中...";
   }
 
   const result = await getOrganizationManagementData({});
@@ -543,7 +679,8 @@ async function loadOrganizationManagement(options = {}) {
   syncOrganizationManagementSelects();
   syncAdminUserMembershipFilters();
   renderOrganizationManagementLists();
-  renderFilteredAdminUserList();
+  renderAdminUserOverview();
+  renderAdminNavigation();
   return organizationManagementState;
 }
 
@@ -614,7 +751,7 @@ async function createOfficeAdmin(event) {
 
   try {
     setButtonLoading(createOfficeAdminButton, true, "発行中...", "事業所管理者を発行");
-    const result = await createOfficeAdminAccount({
+    await createOfficeAdminAccount({
       organizationId,
       officeId,
       name,
@@ -627,10 +764,7 @@ async function createOfficeAdmin(event) {
     officeAdminNameKanaInput.value = "";
     officeAdminEmailInput.value = "";
     officeAdminPasswordInput.value = "";
-    setOrganizationManagementMessage(
-      `事業所管理者を発行しました。UID: ${result?.data?.uid || "確認中"}`,
-      "green"
-    );
+    setOrganizationManagementMessage("事業所管理者を発行しました。", "green");
   } catch (error) {
     console.error("事業所管理者発行エラー:", error);
     setOrganizationManagementMessage(`事業所管理者の発行に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
@@ -643,10 +777,6 @@ function applyAdminScopeToUserForm() {
   const isGlobalAdmin = isCurrentAdminGlobal();
   const adminRoleOption = adminUserRole?.querySelector('option[value="admin"]');
 
-  setGlobalOnlyElementVisibility(organizationManagementSection, isGlobalAdmin);
-  setGlobalOnlyElementVisibility(maintenanceControlSection, isGlobalAdmin);
-  setGlobalOnlyElementVisibility(adminAuditLogSection, isGlobalAdmin);
-  setGlobalOnlyElementVisibility(adminBillingSafetySection, isGlobalAdmin);
   setGlobalOnlyElementVisibility(adminUserCreateModeToggle, isGlobalAdmin);
   adminUserOfficeId.readOnly = !isGlobalAdmin;
   adminUserGroupId.readOnly = !isGlobalAdmin;
@@ -662,17 +792,12 @@ function applyAdminScopeToUserForm() {
 
   if (adminUserScopeNote) {
     adminUserScopeNote.textContent = isGlobalAdmin
-      ? "全体管理者として会社・事業所IDを指定できます。事業所管理者の発行は上の専用フォームを使ってください。"
-      : `事業所管理者のため、運営会社ID ${getCurrentOrganizationId()}・事業所ID ${getCurrentOfficeId()} に固定されます。登録できる権限は支援員・利用者です。`;
-  }
-
-  if (adminUserFormGuide) {
-    adminUserFormGuide.textContent = isGlobalAdmin
-      ? "新規ユーザー登録を基本にし、移行・復旧時だけFirebase Authで作成済みのUIDを紐づけます。"
-      : "支援員・利用者のログインアカウントを新規登録します。所属先は管理者の会社・事業所に固定されます。";
+      ? "所属先を指定できます。事業所管理者は「管理者発行」から追加します。"
+      : "所属先は固定です。支援員・利用者を登録できます。";
   }
 
   syncAdminUserMembershipFilters();
+  renderAdminNavigation();
 }
 
 function getAdminUserSaveText() {
@@ -709,10 +834,10 @@ function renderAdminUserCreateMode() {
 
   if (adminUserCreateModeNote) {
     adminUserCreateModeNote.textContent = isEditing
-      ? "編集中は新規登録ではなく、users の登録情報を更新します。"
+      ? "登録内容を編集中です。"
       : isAuthMode
         ? "メールアドレスと初期パスワードでログインアカウントを作成し、利用者情報も同時に登録します。"
-        : "Firebase Authで作成済みのUIDを、利用者情報として users に紐づけます。";
+        : "すでに作成済みのアカウント情報を登録します。";
   }
 
   if (saveAdminUserButton) {
@@ -749,7 +874,7 @@ function getAdminUserErrorMessage(error) {
 }
 
 function getActiveLabel(active) {
-  return active ? "Active" : "停止中";
+  return active ? "利用中" : "停止中";
 }
 
 function getAdminUserDisplayName(user) {
@@ -770,14 +895,14 @@ function confirmImportantAction(title, lines) {
 
 function buildUserConfirmLines({ uid, name, nameKana, email, role, active, officeId, groupId }) {
   return [
-    uid ? `UID: ${uid}` : null,
+    uid ? `アカウントID: ${uid}` : null,
     `名前: ${name || "未入力"}`,
     nameKana ? `ふりがな: ${nameKana}` : null,
     `メール: ${email || "未入力"}`,
     `権限: ${getRoleLabel(role)}`,
     `利用状態: ${getActiveLabel(active)}`,
     `事業所ID: ${officeId || "-"}`,
-    `グループID: ${groupId || "-"}`
+    `運営会社ID: ${groupId || "-"}`
   ];
 }
 
@@ -1037,10 +1162,10 @@ function renderAdminUserSummary(users) {
   const staffUsers = users.filter((user) => user.role === "staff" && user.active === true);
   const adminUsers = users.filter((user) => user.role === "admin" && user.active === true);
 
-  appendSummaryCard(grid, "利用者", `${activeUsers.length}人`, "Activeな利用者");
-  appendSummaryCard(grid, "停止中", `${inactiveUsers.length}人`, "active=false");
-  appendSummaryCard(grid, "支援員", `${staffUsers.length}人`, "Activeな支援員");
-  appendSummaryCard(grid, "管理者", `${adminUsers.length}人`, "Activeな管理者");
+  appendSummaryCard(grid, "利用者", `${activeUsers.length}人`, "利用中");
+  appendSummaryCard(grid, "停止中", `${inactiveUsers.length}人`, "利用停止中");
+  appendSummaryCard(grid, "支援員", `${staffUsers.length}人`, "利用中");
+  appendSummaryCard(grid, "管理者", `${adminUsers.length}人`, "利用中");
 
   adminUserSummary.appendChild(grid);
 }
@@ -1142,11 +1267,10 @@ function renderAdminAuditLogs(logs) {
 
 async function loadAdminAuditLogs(options = {}) {
   if (!isCurrentAdminGlobal()) {
-    setGlobalOnlyElementVisibility(adminAuditLogSection, false);
+    renderAdminNavigation();
     return [];
   }
 
-  setGlobalOnlyElementVisibility(adminAuditLogSection, true);
   if (!options.silent && adminAuditLogList) {
     adminAuditLogList.textContent = "読み込み中...";
   }
@@ -1190,11 +1314,10 @@ function renderMaintenanceControlStatus(data = {}) {
 
 async function loadMaintenanceControlStatus() {
   if (!isCurrentAdminGlobal()) {
-    setGlobalOnlyElementVisibility(maintenanceControlSection, false);
+    renderAdminNavigation();
     return null;
   }
 
-  setGlobalOnlyElementVisibility(maintenanceControlSection, true);
   const maintenanceSnap = await getDoc(doc(db, "system", MAINTENANCE_DOC_ID));
   maintenanceControlState = maintenanceSnap.exists()
     ? maintenanceSnap.data() || {}
@@ -1382,33 +1505,8 @@ function buildRoleBadge(user) {
 function buildActiveBadge(user) {
   const badge = document.createElement("span");
   badge.className = user.active ? "admin-active-badge active" : "admin-active-badge inactive";
-  badge.textContent = user.active ? "Active" : "停止中";
+  badge.textContent = user.active ? "利用中" : "停止中";
   return badge;
-}
-
-async function saveAdminUserKana(user, input, button) {
-  const nameKana = cleanNameKana(input?.value || "");
-  const sortName = buildUserSortName(nameKana, user.name || user.email || user.id);
-
-  try {
-    setButtonLoading(button, true, "保存中...", "保存");
-    await setDoc(doc(db, "users", user.id), {
-      nameKana,
-      sortName,
-      updatedAt: serverTimestamp(),
-      updatedByUid: currentUser?.uid || "",
-      updatedByName: currentAdminData?.name || currentUser?.email || ""
-    }, { merge: true });
-
-    await loadAdminUsers({ silent: true });
-    await rebuildActiveUsersFromUsersCollection({ silent: true });
-    setAdminUserMessage(`${user.name || user.email || user.id} のふりがなを保存しました。`, "green");
-  } catch (error) {
-    console.error("ふりがな保存エラー:", error);
-    setAdminUserMessage(`ふりがなの保存に失敗しました：${error.code || error.message}`, "red");
-  } finally {
-    setButtonLoading(button, false, "保存中...", "保存");
-  }
 }
 
 function renderAdminUserCard(user) {
@@ -1423,61 +1521,14 @@ function renderAdminUserCard(user) {
 
   const title = document.createElement("h3");
   title.className = "admin-user-card-title";
-  title.textContent = user.name || user.email || "名前未設定";
-
-  const meta = document.createElement("div");
-  meta.className = "admin-user-card-meta";
-  meta.textContent = user.nameKana
-    ? `ふりがな: ${user.nameKana} / ${user.email || user.id}`
-    : user.email || user.id;
+  title.textContent = user.name || "名前未設定";
 
   titleBox.appendChild(title);
-  titleBox.appendChild(meta);
 
   const badges = document.createElement("div");
   badges.className = "admin-user-card-badges";
   badges.appendChild(buildRoleBadge(user));
   badges.appendChild(buildActiveBadge(user));
-
-  header.appendChild(titleBox);
-  header.appendChild(badges);
-
-  const detail = document.createElement("div");
-  detail.className = "admin-user-card-detail";
-  detail.textContent = `UID: ${user.id} / 会社: ${user.organizationId || user.groupId || "-"} / 事業所: ${user.officeId || "-"}`;
-
-  const kanaRow = document.createElement("div");
-  kanaRow.className = "admin-user-kana-row";
-
-  const kanaLabel = document.createElement("label");
-  kanaLabel.className = "admin-user-kana-label";
-  kanaLabel.textContent = "ふりがな";
-
-  const kanaInput = document.createElement("input");
-  kanaInput.className = "admin-user-kana-input";
-  kanaInput.type = "text";
-  kanaInput.autocomplete = "off";
-  kanaInput.placeholder = "例：やまだ はなこ";
-  kanaInput.value = user.nameKana || "";
-
-  const kanaButton = document.createElement("button");
-  kanaButton.type = "button";
-  kanaButton.className = "small-button";
-  kanaButton.textContent = "保存";
-  kanaButton.addEventListener("click", () => {
-    saveAdminUserKana(user, kanaInput, kanaButton);
-  });
-  kanaInput.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") {
-      return;
-    }
-    event.preventDefault();
-    saveAdminUserKana(user, kanaInput, kanaButton);
-  });
-
-  kanaLabel.appendChild(kanaInput);
-  kanaRow.appendChild(kanaLabel);
-  kanaRow.appendChild(kanaButton);
 
   const actions = document.createElement("div");
   actions.className = "admin-user-card-actions";
@@ -1493,7 +1544,7 @@ function renderAdminUserCard(user) {
   const toggleButton = document.createElement("button");
   toggleButton.type = "button";
   toggleButton.className = user.active ? "small-button danger-button" : "small-button";
-  toggleButton.textContent = user.active ? "停止" : "Activeにする";
+  toggleButton.textContent = user.active ? "停止" : "利用を再開";
   toggleButton.addEventListener("click", async () => {
     await toggleAdminUserActive(user);
   });
@@ -1501,10 +1552,11 @@ function renderAdminUserCard(user) {
   actions.appendChild(editButton);
   actions.appendChild(toggleButton);
 
+  header.appendChild(badges);
+  header.appendChild(actions);
+
   card.appendChild(header);
-  card.appendChild(detail);
-  card.appendChild(kanaRow);
-  card.appendChild(actions);
+  card.appendChild(titleBox);
 
   return card;
 }
@@ -1535,7 +1587,7 @@ function renderAdminUserList(users) {
   });
 }
 
-function getFilteredAdminUsers() {
+function getMembershipFilteredAdminUsers() {
   let users = adminUsersCache;
 
   if (isCurrentAdminGlobal()) {
@@ -1551,6 +1603,12 @@ function getFilteredAdminUsers() {
     }
   }
 
+  return users;
+}
+
+function getFilteredAdminUsers() {
+  const users = getMembershipFilteredAdminUsers();
+
   if (adminUserRoleFilter === "all") {
     return users;
   }
@@ -1564,6 +1622,11 @@ function getFilteredAdminUsers() {
 
 function renderFilteredAdminUserList() {
   renderAdminUserList(getFilteredAdminUsers());
+}
+
+function renderAdminUserOverview() {
+  renderAdminUserSummary(getMembershipFilteredAdminUsers());
+  renderFilteredAdminUserList();
 }
 
 function setAdminUserRoleFilter(roleFilter) {
@@ -1609,15 +1672,14 @@ async function loadAdminUsers(options = {}) {
 
   adminUsersCache = sortAdminUsers(users);
   syncAdminUserMembershipFilters();
-  renderAdminUserSummary(adminUsersCache);
-  renderFilteredAdminUserList();
+  renderAdminUserOverview();
 
   return adminUsersCache;
 }
 
 function resetAdminUserForm() {
   editingAdminUserId = "";
-  adminUserFormTitle.textContent = "利用者を追加";
+  adminUserFormTitle.textContent = "ユーザー追加";
   adminUserUid.readOnly = false;
   adminUserUid.value = "";
   adminUserPassword.value = "";
@@ -1648,7 +1710,7 @@ function setAdminUserForm(user) {
   adminUserGroupId.value = user.organizationId || user.groupId || getCurrentOrganizationId();
   setAdminUserCreateMode("uid");
   applyAdminScopeToUserForm();
-  setAdminUserMessage("編集中です。保存すると users の情報を更新します。", "#555");
+  setAdminUserMessage("登録内容を編集中です。", "#555");
 }
 
 function preventSelfLockout(uid, role, active) {
@@ -1657,7 +1719,7 @@ function preventSelfLockout(uid, role, active) {
   }
 
   if (role !== "admin" || active !== true) {
-    setAdminUserMessage("自分自身の管理者権限やActive状態はこの画面では変更できません。", "red");
+    setAdminUserMessage("自分自身の管理者権限や利用状態はこの画面では変更できません。", "red");
     return true;
   }
 
@@ -1719,7 +1781,7 @@ async function rebuildActiveUsersFromUsersCollection(options = {}) {
   }
 
   if (!options.silent) {
-    setAdminUserMessage(`利用者一覧キャッシュを更新しました。Activeな利用者 ${activeUsers.length}人。`, "green");
+    setAdminUserMessage(`利用者一覧を更新しました。利用中の利用者は ${activeUsers.length}人です。`, "green");
   }
 
   return activeUsers;
@@ -1748,7 +1810,7 @@ async function saveAdminUserWithAuth({ name, nameKana, sortName, email, role, ac
   const ok = confirmImportantAction("新規ユーザーを登録します", [
     ...buildUserConfirmLines({ name, nameKana, email, role, active, officeId, groupId }),
     "",
-    "Firebase Authentication にログインアカウントを作成し、users に利用者情報も同時登録します。",
+    "ログインアカウントとユーザー情報を登録します。",
     "初期パスワードを本人へ安全な方法で伝えてください。"
   ]);
 
@@ -1788,12 +1850,7 @@ async function saveAdminUserWithAuth({ name, nameKana, sortName, email, role, ac
     await loadAdminUsers({ silent: true });
     await rebuildActiveUsersFromUsersCollection({ silent: true });
     resetAdminUserForm();
-    setAdminUserMessage(
-      createdUid
-        ? `新規ユーザーを登録しました。UID: ${createdUid}`
-        : "新規ユーザーを登録しました。",
-      "green"
-    );
+    setAdminUserMessage("新規ユーザーを登録しました。", "green");
   } catch (error) {
     console.error("Admin新規ユーザー登録エラー:", error);
     setAdminUserMessage(`新規ユーザー登録に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
@@ -1839,7 +1896,7 @@ async function saveAdminUser(event) {
   }
 
   if (!uid) {
-    setAdminUserMessage("UIDを入力してください。", "red");
+    setAdminUserMessage("アカウントIDを入力してください。", "red");
     return;
   }
 
@@ -1854,13 +1911,13 @@ async function saveAdminUser(event) {
 
   const saveTitle = editingAdminUserId
     ? "ユーザー情報を更新します"
-    : "既存UIDを利用者情報に紐づけます";
+    : "既存アカウントを登録します";
   const ok = confirmImportantAction(saveTitle, [
     ...buildUserConfirmLines({ uid, name, nameKana, email, role, active, officeId, groupId }),
     "",
     editingAdminUserId
-      ? "保存すると users の登録情報と利用者一覧キャッシュを更新します。"
-      : "Firebase Authで作成済みのUIDを users に紐づけ、利用者一覧キャッシュを更新します。"
+      ? "保存すると登録情報と利用者一覧を更新します。"
+      : "作成済みのアカウント情報と利用者一覧を登録します。"
   ]);
 
   if (!ok) {
@@ -1902,7 +1959,7 @@ async function saveAdminUser(event) {
     await loadAdminUsers({ silent: true });
     await rebuildActiveUsersFromUsersCollection({ silent: true });
     resetAdminUserForm();
-    setAdminUserMessage("ユーザー情報を保存し、利用者一覧キャッシュを更新しました。", "green");
+    setAdminUserMessage("ユーザー情報と利用者一覧を更新しました。", "green");
   } catch (error) {
     console.error("Adminユーザー保存エラー:", error);
     setAdminUserMessage(`保存に失敗しました：${error.code || error.message}`, "red");
@@ -1919,7 +1976,7 @@ async function toggleAdminUserActive(user) {
   }
 
   const ok = confirmImportantAction(
-    nextActive ? "ユーザーをActiveに戻します" : "ユーザーを停止します",
+    nextActive ? "ユーザーの利用を再開します" : "ユーザーを停止します",
     [
       ...buildUserConfirmLines({
         uid: user.id,
@@ -1933,13 +1990,13 @@ async function toggleAdminUserActive(user) {
       }),
       "",
       nextActive
-        ? "Activeにすると、対象ユーザーは再びログイン・一覧表示の対象になります。"
-        : "停止すると、対象ユーザーはログインできなくなり、Activeな利用者一覧から外れます。"
+        ? "利用を再開すると、対象ユーザーは再びログイン・一覧表示の対象になります。"
+        : "停止すると、対象ユーザーはログインできなくなり、利用者一覧から外れます。"
     ]
   );
 
   if (!ok) {
-    setAdminUserMessage(`${getAdminUserDisplayName(user)} の${nextActive ? "Active化" : "停止"}をキャンセルしました。`, "#555");
+    setAdminUserMessage(`${getAdminUserDisplayName(user)} の${nextActive ? "利用再開" : "停止"}をキャンセルしました。`, "#555");
     return;
   }
 
@@ -1955,12 +2012,26 @@ async function toggleAdminUserActive(user) {
 
     await loadAdminUsers({ silent: true });
     await rebuildActiveUsersFromUsersCollection({ silent: true });
-    setAdminUserMessage(`${user.name || user.email || user.id} を${nextActive ? "Active" : "停止中"}にしました。`, "green");
+    setAdminUserMessage(`${user.name || user.email || user.id} を${nextActive ? "利用中" : "停止中"}にしました。`, "green");
   } catch (error) {
-    console.error("AdminユーザーActive切替エラー:", error);
-    setAdminUserMessage(`Active切替に失敗しました：${error.code || error.message}`, "red");
+    console.error("Adminユーザー利用状態切替エラー:", error);
+    setAdminUserMessage(`利用状態の切り替えに失敗しました：${error.code || error.message}`, "red");
   }
 }
+
+adminSectionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setActiveAdminSection(button.dataset.adminSection || "manage");
+  });
+});
+
+adminManagePanelButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setActiveAdminManagePanel(button.dataset.adminManagePanel || "user");
+  });
+});
+
+renderAdminNavigation();
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -2180,26 +2251,26 @@ if (testBillingLockedButton) {
 }
 
 rebuildActiveUsersButton.addEventListener("click", async () => {
-  const ok = confirmImportantAction("利用者一覧キャッシュを更新します", [
+  const ok = confirmImportantAction("利用者一覧を更新します", [
     isCurrentAdminGlobal()
-      ? "users のActiveな利用者をもとに全体・事業所別キャッシュを再作成します。"
-      : `自分の事業所 ${getCurrentOfficeId()} の利用者一覧キャッシュだけを再作成します。`,
-    "停止中の利用者はActiveな利用者一覧から外れます。"
+      ? "利用中のユーザーをもとに、全体・事業所別の利用者一覧を最新にします。"
+      : "自分の事業所の利用者一覧だけを最新にします。",
+    "停止中の利用者は一覧から外れます。"
   ]);
 
   if (!ok) {
-    setAdminUserMessage("利用者一覧キャッシュ更新をキャンセルしました。", "#555");
+    setAdminUserMessage("利用者一覧の更新をキャンセルしました。", "#555");
     return;
   }
 
   try {
-    setButtonLoading(rebuildActiveUsersButton, true, "更新中...", "利用者一覧キャッシュ更新");
+    setButtonLoading(rebuildActiveUsersButton, true, "更新中...", "利用者一覧を更新");
     await rebuildActiveUsersFromUsersCollection();
   } catch (error) {
     console.error("ActiveUsers再構築エラー:", error);
-    setAdminUserMessage(`利用者一覧キャッシュ更新に失敗しました：${error.code || error.message}`, "red");
+    setAdminUserMessage(`利用者一覧の更新に失敗しました：${error.code || error.message}`, "red");
   } finally {
-    setButtonLoading(rebuildActiveUsersButton, false, "更新中...", "利用者一覧キャッシュ更新");
+    setButtonLoading(rebuildActiveUsersButton, false, "更新中...", "利用者一覧を更新");
   }
 });
 
@@ -2218,7 +2289,7 @@ adminUserCreateModeButtons.forEach((button) => {
 if (adminUserOrganizationFilter) {
   adminUserOrganizationFilter.addEventListener("change", () => {
     syncAdminUserMembershipFilters({ resetOffice: true });
-    renderFilteredAdminUserList();
+    renderAdminUserOverview();
   });
 }
 
@@ -2236,7 +2307,7 @@ if (stopMaintenanceButton) {
 
 if (adminUserOfficeFilter) {
   adminUserOfficeFilter.addEventListener("change", () => {
-    renderFilteredAdminUserList();
+    renderAdminUserOverview();
   });
 }
 

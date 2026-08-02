@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>支援員ページ | Enzine Schedule</title>
+  <script src="ui-mode-bootstrap.js?v=1"></script>
   <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
-  <link rel="stylesheet" href="style.css?v=90">
+  <link rel="stylesheet" href="style.css?v=124">
 </head>
 <body class="app-shell-body">
   <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
@@ -50,7 +51,7 @@
       <div class="app-topbar-actions admin-topbar-actions">
         <div id="staffCurrentSectionTitle" class="app-current-section" aria-label="現在のページ">日別予定</div>
         <div id="staffAdminTopNav" class="admin-top-nav hidden" aria-label="管理者用ページ切り替え">
-          <button id="openAdminPageButton" type="button" class="admin-top-nav-button">利用者管理</button>
+          <button id="openAdminPageButton" type="button" class="admin-top-nav-button">管理画面</button>
           <button type="button" class="admin-top-nav-button active" aria-current="page">支援員ページ</button>
         </div>
         <div id="staffChatworkTopNav" class="admin-top-nav hidden" aria-label="Chatworkページ切り替え">
@@ -61,11 +62,16 @@
           <div class="app-settings-panel">
             <div class="app-settings-panel-title">設定</div>
             <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
-            <div class="app-settings-note">表示設定などは今後追加予定です。</div>
           </div>
         </details>
       </div>
     </header>
+
+    <section id="staffOfficeScopeBar" class="staff-office-scope-bar hidden" aria-label="操作対象事業所">
+      <label for="staffOfficeScopeSelect">操作対象事業所</label>
+      <select id="staffOfficeScopeSelect" aria-describedby="staffOfficeScopeStatus"></select>
+      <p id="staffOfficeScopeStatus" class="staff-office-scope-status" aria-live="polite"></p>
+    </section>
 
     <nav id="staffTabNav" class="page-tab-nav staff-page-tab-nav" aria-label="支援員メニュー">
       <button type="button" class="page-tab-button active" data-staff-tab="daily">日別予定</button>
@@ -196,54 +202,107 @@
     <section class="monthly-calendar-box staff-user-schedule-box staff-tab-panel" data-staff-panel="user-schedule">
       <div class="section-heading-row"><h2 id="userScheduleTitle">利用者別 月間予定</h2><p class="calendar-guide">利用者名を押して個別予定を確認・編集します。</p></div>
 
-      <div class="calendar-month-nav">
-        <button id="prevUserScheduleMonthButton" type="button" class="sub-button">＜ 前月</button>
-        <div id="userScheduleMonthLabel" class="calendar-month-label">今月</div>
-        <button id="nextUserScheduleMonthButton" type="button" class="sub-button">次月 ＞</button>
-      </div>
+      <div class="staff-user-schedule-workspace">
+        <aside id="staffUserScheduleSidebar" class="staff-user-schedule-sidebar" aria-label="利用者一覧">
+          <div class="staff-user-list-control-row">
+            <div class="staff-user-list-label">利用者一覧</div>
+            <button id="refreshActiveUsersButton" type="button" class="small-button refresh-active-users-button">一覧を更新</button>
+          </div>
+          <div class="staff-user-search-box">
+            <label class="visually-hidden" for="userScheduleUserSearchInput">利用者を名前で検索</label>
+            <input id="userScheduleUserSearchInput" type="search" placeholder="名前で検索" autocomplete="off">
+            <button id="clearUserScheduleUserSearchButton" type="button" class="staff-user-search-clear hidden" aria-label="利用者検索をクリア" hidden>×</button>
+          </div>
+          <div id="userScheduleUserList" class="staff-user-button-list">
+            読み込み中...
+          </div>
+        </aside>
 
-      <div class="staff-user-schedule-select-label">
-        <div class="staff-user-list-control-row">
-          <div class="staff-user-list-label">表示する利用者</div>
-          <button id="refreshActiveUsersButton" type="button" class="small-button refresh-active-users-button">利用者一覧を更新</button>
+        <div id="staffUserScheduleMainPane" class="staff-user-schedule-main-pane">
+          <div class="calendar-month-nav">
+            <button id="prevUserScheduleMonthButton" type="button" class="sub-button">＜ 前月</button>
+            <div id="userScheduleMonthLabel" class="calendar-month-label">今月</div>
+            <button id="nextUserScheduleMonthButton" type="button" class="sub-button">次月 ＞</button>
+          </div>
+
+          <div class="calendar-view-toggle calendar-view-toggle-three">
+            <button id="userScheduleCalendarViewButton" type="button" class="view-toggle-button active">月間表示</button>
+            <button id="userScheduleWeekViewButton" type="button" class="view-toggle-button">週間表示</button>
+            <button id="userScheduleListViewButton" type="button" class="view-toggle-button">リスト表示</button>
+          </div>
+
+          <div id="userScheduleWeekNavigation" class="calendar-week-nav hidden">
+            <button id="prevUserScheduleWeekButton" type="button" class="sub-button">＜ 前週</button>
+            <div id="userScheduleWeekLabel" class="calendar-week-label">今週</div>
+            <button id="nextUserScheduleWeekButton" type="button" class="sub-button">次週 ＞</button>
+          </div>
+
+          <div id="userScheduleFilterBox" class="calendar-filter-box calendar-filter-box-with-action staff-user-schedule-filter-box">
+            <div class="calendar-filter-heading-row">
+              <div id="userScheduleFilterTitle" class="calendar-filter-title">表示する日</div>
+              <button id="userScheduleBulkRegisterButton" type="button" class="small-button calendar-bulk-register-button hidden" hidden>一括登録</button>
+            </div>
+            <div id="userScheduleDisplayFilterControls" class="calendar-filter-options">
+              <label class="calendar-filter-label">
+                <input type="checkbox" id="showOnlyUseDaysUserScheduleCheckbox">
+                利用日だけ表示
+              </label>
+              <label class="calendar-filter-label">
+                <input type="checkbox" id="showAnnouncementsUserScheduleCheckbox" checked>
+                アナウンス
+              </label>
+            </div>
+            <div id="userScheduleBulkControls" class="calendar-bulk-controls hidden" hidden>
+              <div class="calendar-bulk-choice-groups">
+                <fieldset class="calendar-bulk-choice-group">
+                  <legend>予定</legend>
+                  <label class="calendar-bulk-choice-label">
+                    <input type="checkbox" id="userScheduleBulkStatusComing" value="通所">
+                    通所
+                  </label>
+                  <label class="calendar-bulk-choice-label">
+                    <input type="checkbox" id="userScheduleBulkStatusHome" value="在宅">
+                    在宅
+                  </label>
+                </fieldset>
+                <fieldset class="calendar-bulk-choice-group">
+                  <legend>時間帯</legend>
+                  <label class="calendar-bulk-choice-label">
+                    <input type="checkbox" id="userScheduleBulkTimeAll" value="終日">
+                    終日
+                  </label>
+                  <label class="calendar-bulk-choice-label">
+                    <input type="checkbox" id="userScheduleBulkTimeMorning" value="午前">
+                    午前
+                  </label>
+                  <label class="calendar-bulk-choice-label">
+                    <input type="checkbox" id="userScheduleBulkTimeAfternoon" value="午後">
+                    午後
+                  </label>
+                </fieldset>
+              </div>
+              <div class="calendar-bulk-footer">
+                <div id="userScheduleBulkSelectedCount" class="calendar-bulk-selected-count" aria-live="polite">選択中：0日</div>
+                <button id="userScheduleBulkCancelButton" type="button" class="sub-button calendar-bulk-cancel-button">キャンセル</button>
+              </div>
+            </div>
+            <div id="userScheduleBulkAlert" class="calendar-action-toast hidden" role="alert" aria-live="assertive" hidden></div>
+          </div>
+
+          <p id="userScheduleMessage" class="user-schedule-message"></p>
+
+          <div id="userScheduleCalendarWeekHeader" class="calendar-week-header weekday-calendar-header">
+            <div>月</div>
+            <div>火</div>
+            <div>水</div>
+            <div>木</div>
+            <div>金</div>
+          </div>
+
+          <div id="userScheduleCalendar" class="monthly-calendar weekday-calendar staff-user-schedule-calendar">
+            利用者を選択してください。
+          </div>
         </div>
-        <div id="userScheduleUserList" class="staff-user-button-list">
-          読み込み中...
-        </div>
-      </div>
-
-      <div class="calendar-view-toggle calendar-view-toggle-three">
-        <button id="userScheduleCalendarViewButton" type="button" class="view-toggle-button active">月間表示</button>
-        <button id="userScheduleWeekViewButton" type="button" class="view-toggle-button">週間表示</button>
-        <button id="userScheduleListViewButton" type="button" class="view-toggle-button">リスト表示</button>
-      </div>
-
-      <div id="userScheduleWeekNavigation" class="calendar-week-nav hidden">
-        <button id="prevUserScheduleWeekButton" type="button" class="sub-button">＜ 前週</button>
-        <div id="userScheduleWeekLabel" class="calendar-week-label">今週</div>
-        <button id="nextUserScheduleWeekButton" type="button" class="sub-button">次週 ＞</button>
-      </div>
-
-      <div class="calendar-filter-box staff-user-schedule-filter-box">
-        <div class="calendar-filter-title">表示する日</div>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showOnlyUseDaysUserScheduleCheckbox">
-          利用日だけ表示
-        </label>
-      </div>
-
-      <p id="userScheduleMessage" class="user-schedule-message"></p>
-
-      <div id="userScheduleCalendarWeekHeader" class="calendar-week-header weekday-calendar-header">
-        <div>月</div>
-        <div>火</div>
-        <div>水</div>
-        <div>木</div>
-        <div>金</div>
-      </div>
-
-      <div id="userScheduleCalendar" class="monthly-calendar weekday-calendar staff-user-schedule-calendar">
-        利用者を選択してください。
       </div>
     </section>
     <!-- ここまで追加 -->
@@ -580,6 +639,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=95"></script>
+  <script type="module" src="staff.js?v=104"></script>
 </body>
 </html>

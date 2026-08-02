@@ -13,7 +13,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
-import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
+import { applyOfficeBrandName, enforceMaintenanceAccess, restoreWeeklyReportNavPendingCount, setupSettingsMenuClose } from "./ui-common.js?v=89";
 
 const DEFAULT_OFFICE_ID = "enzine_chiba";
 const LEGACY_OFFICE_IDS = ["engine_chiba"];
@@ -638,6 +638,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     await applyOfficeBrandName(currentUserData);
+    restoreWeeklyReportNavPendingCount(user.uid);
     workshopUserInfo.textContent = currentUserData.role === "staff" || currentUserData.role === "admin"
       ? `支援員｜${currentUserData.name || user.email}`
       : `${currentUserData.name || user.email}さん`;

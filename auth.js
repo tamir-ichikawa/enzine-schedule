@@ -8,7 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
-import { getMaintenanceState } from "./ui-common.js?v=84";
+import { getMaintenanceState } from "./ui-common.js?v=89";
 
 // STEP8_LOGIN_UNIFY_20260620_V37：ログイン画面統一・二重送信防止
 
@@ -19,10 +19,8 @@ const loginButton = document.getElementById("loginButton");
 const message = document.getElementById("message");
 const loginBox = document.getElementById("loginBox");
 const loginHeadingTitle = document.getElementById("loginHeadingTitle");
-const loginHeadingGuide = document.getElementById("loginHeadingGuide");
 const loginMaintenanceNotice = document.getElementById("loginMaintenanceNotice");
 const loginMaintenanceMessage = document.getElementById("loginMaintenanceMessage");
-const loginBrandLogo = document.getElementById("loginBrandLogo");
 let loginMaintenanceActive = false;
 
 function setElementHidden(element, hidden) {
@@ -34,28 +32,6 @@ function setElementHidden(element, hidden) {
   element.classList.toggle("hidden", hidden);
 }
 
-function applyOfficeLoginLogo() {
-  const officeId = new URLSearchParams(window.location.search).get("office")?.trim() || "";
-
-  if (!officeId) {
-    return;
-  }
-
-  // URL値はロゴ選択だけに使用し、ログイン後の所属・権限判定には使用しない。
-  if (!/^[a-z0-9][a-z0-9_-]{0,79}$/i.test(officeId)) {
-    setElementHidden(loginBrandLogo, true);
-    return;
-  }
-
-  setElementHidden(loginBrandLogo, true);
-  loginBrandLogo.addEventListener("load", () => setElementHidden(loginBrandLogo, false), { once: true });
-  loginBrandLogo.addEventListener("error", () => setElementHidden(loginBrandLogo, true), { once: true });
-  loginBrandLogo.alt = "";
-  loginBrandLogo.src = `office-logos/${officeId}.png`;
-}
-
-applyOfficeLoginLogo();
-
 function renderLoginMaintenanceState(state) {
   loginMaintenanceActive = state?.active === true;
   setElementHidden(loginMaintenanceNotice, !loginMaintenanceActive);
@@ -63,7 +39,6 @@ function renderLoginMaintenanceState(state) {
 
   if (!loginMaintenanceActive) {
     loginHeadingTitle.textContent = "ログイン";
-    loginHeadingGuide.textContent = "登録済みアカウントで入ります。";
     loginButton.textContent = "ログイン";
     return;
   }

@@ -6,7 +6,7 @@ import {
 import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
-import { getMaintenanceState } from "./ui-common.js?v=84";
+import { getMaintenanceState } from "./ui-common.js?v=89";
 
 const loginMain = document.getElementById("maintenanceAdminLoginMain");
 const loginForm = document.getElementById("maintenanceAdminLoginForm");
