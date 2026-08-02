@@ -3,10 +3,12 @@ import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/1
 
 import {
   doc,
-  getDoc
+  getDoc,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
+import { getMaintenanceState } from "./ui-common.js?v=84";
 
 // STEP8_LOGIN_UNIFY_20260620_V37：ログイン画面統一・二重送信防止
 
@@ -15,6 +17,77 @@ const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const loginButton = document.getElementById("loginButton");
 const message = document.getElementById("message");
+const loginBox = document.getElementById("loginBox");
+const loginHeadingTitle = document.getElementById("loginHeadingTitle");
+const loginHeadingGuide = document.getElementById("loginHeadingGuide");
+const loginMaintenanceNotice = document.getElementById("loginMaintenanceNotice");
+const loginMaintenanceMessage = document.getElementById("loginMaintenanceMessage");
+const loginBrandLogo = document.getElementById("loginBrandLogo");
+let loginMaintenanceActive = false;
+
+function setElementHidden(element, hidden) {
+  if (!element) {
+    return;
+  }
+
+  element.hidden = hidden;
+  element.classList.toggle("hidden", hidden);
+}
+
+function applyOfficeLoginLogo() {
+  const officeId = new URLSearchParams(window.location.search).get("office")?.trim() || "";
+
+  if (!officeId) {
+    return;
+  }
+
+  // URL値はロゴ選択だけに使用し、ログイン後の所属・権限判定には使用しない。
+  if (!/^[a-z0-9][a-z0-9_-]{0,79}$/i.test(officeId)) {
+    setElementHidden(loginBrandLogo, true);
+    return;
+  }
+
+  setElementHidden(loginBrandLogo, true);
+  loginBrandLogo.addEventListener("load", () => setElementHidden(loginBrandLogo, false), { once: true });
+  loginBrandLogo.addEventListener("error", () => setElementHidden(loginBrandLogo, true), { once: true });
+  loginBrandLogo.alt = "";
+  loginBrandLogo.src = `office-logos/${officeId}.png`;
+}
+
+applyOfficeLoginLogo();
+
+function renderLoginMaintenanceState(state) {
+  loginMaintenanceActive = state?.active === true;
+  setElementHidden(loginMaintenanceNotice, !loginMaintenanceActive);
+  setElementHidden(loginBox, loginMaintenanceActive);
+
+  if (!loginMaintenanceActive) {
+    loginHeadingTitle.textContent = "ログイン";
+    loginHeadingGuide.textContent = "登録済みアカウントで入ります。";
+    loginButton.textContent = "ログイン";
+    return;
+  }
+
+  const publicMessage = state.scheduledEndText || state.message || "";
+  loginMaintenanceMessage.textContent = publicMessage;
+  setElementHidden(loginMaintenanceMessage, !publicMessage);
+}
+
+getMaintenanceState().then(renderLoginMaintenanceState);
+onSnapshot(
+  doc(db, "system", "maintenanceMode"),
+  (maintenanceSnap) => {
+    const data = maintenanceSnap.exists() ? maintenanceSnap.data() || {} : {};
+    renderLoginMaintenanceState({
+      active: data.active === true,
+      message: String(data.message || "").trim(),
+      scheduledEndText: String(data.scheduledEndText || "").trim()
+    });
+  },
+  (error) => {
+    console.warn("ログイン画面でメンテナンス状態を監視できませんでした。", error);
+  }
+);
 
 function setLoginMessage(text, color = "red") {
   message.style.color = color;
@@ -23,7 +96,9 @@ function setLoginMessage(text, color = "red") {
 
 function setLoginLoading(isLoading) {
   loginButton.disabled = isLoading;
-  loginButton.textContent = isLoading ? "ログイン中..." : "ログイン";
+  loginButton.textContent = isLoading
+    ? "ログイン中..."
+    : "ログイン";
 }
 
 loginForm.addEventListener("submit", async (event) => {
@@ -56,6 +131,13 @@ loginForm.addEventListener("submit", async (event) => {
 
     if (userData.active !== true) {
       setLoginMessage("このアカウントは現在利用できません。");
+      return;
+    }
+
+    const maintenanceState = await getMaintenanceState();
+
+    if (maintenanceState.active === true && userData.role !== "admin") {
+      window.location.href = "maintenance.html";
       return;
     }
 

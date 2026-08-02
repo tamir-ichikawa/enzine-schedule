@@ -1,0 +1,73 @@
+{
+  "firestore": {
+    "rules": ".firebase-deploy/firestore.production.candidate.rules"
+  },
+  "hosting": {
+    "public": ".firebase-deploy/public",
+    "ignore": [
+      "**/.*"
+    ],
+    "headers": [
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=()"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          }
+        ]
+      }
+    ]
+  },
+  "functions": [
+    {
+      "source": ".firebase-deploy/functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".git/**",
+        "*.local",
+        ".secret*",
+        ".env",
+        ".env.*",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ]
+}

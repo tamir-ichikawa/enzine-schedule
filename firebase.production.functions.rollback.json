@@ -1,0 +1,19 @@
+{
+  "functions": [
+    {
+      "source": ".firebase-deploy/functions-rollback",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".git/**",
+        "*.local",
+        ".secret*",
+        ".env",
+        ".env.*",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ]
+}

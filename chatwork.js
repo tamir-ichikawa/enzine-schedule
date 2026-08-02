@@ -1,11 +1,10 @@
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { app, auth } from "./firebase-config.js";
-import { setupSettingsMenuClose } from "./ui-common.js?v=80";
+import { auth, db, functions } from "./firebase-config.js";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
 
-const FUNCTIONS_REGION = "asia-northeast1";
-const functions = getFunctions(app, FUNCTIONS_REGION);
 const getChatworkConsoleData = httpsCallable(functions, "getChatworkConsoleData");
 const getChatworkWeeklyReportMissingGroup = httpsCallable(functions, "getChatworkWeeklyReportMissingGroup");
 const saveChatworkIntegrationConfig = httpsCallable(functions, "saveChatworkIntegrationConfig");
@@ -752,6 +751,7 @@ async function loadChatworkConsole() {
 
   const result = await getChatworkConsoleData({ includeConfig: true });
   consoleData = result.data || {};
+  await applyOfficeBrandName({ officeId: consoleData.officeId });
   renderPage();
 }
 
@@ -1205,6 +1205,18 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
 
   try {
+    const userDocSnap = await getDoc(doc(db, "users", user.uid));
+
+    if (!userDocSnap.exists()) {
+      throw new Error("ユーザー情報が登録されていません。");
+    }
+
+    const userData = userDocSnap.data() || {};
+
+    if (!await enforceMaintenanceAccess(userData)) {
+      return;
+    }
+
     if (chatworkUserInfo) {
       chatworkUserInfo.textContent = `${currentUser.email || ""}｜確認中...`;
     }

@@ -12,6 +12,7 @@ const DEFAULT_OFFICE_ID = "enzine_chiba";
 const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const CHATWORK_PROVIDER = "chatwork";
+const MAINTENANCE_DOC_ID = "maintenanceMode";
 const CHATWORK_INTEGRATIONS_COLLECTION = "officeIntegrations";
 const CHATWORK_LOGS_COLLECTION = "chatworkSendLogs";
 const OFFICE_SETTINGS_COLLECTION = "officeSettings";
@@ -96,7 +97,12 @@ function officeIdsMatch(a, b) {
 
 function getCompatibleOfficeIds(officeId) {
   const currentOfficeId = normalizeOfficeId(officeId);
-  return [currentOfficeId, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
+
+  if (currentOfficeId !== DEFAULT_OFFICE_ID) {
+    return [currentOfficeId];
+  }
+
+  return [DEFAULT_OFFICE_ID, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
     return value && list.indexOf(value) === index;
   });
 }
@@ -207,6 +213,14 @@ async function assertCallerCanUseChatwork(request) {
 
   if (callerData.active !== true || !VALID_CHATWORK_ROLES.has(role)) {
     throw new HttpsError("permission-denied", "Only active staff or admins can use Chatwork.");
+  }
+
+  if (role !== "admin") {
+    const maintenanceSnap = await db.collection("system").doc(MAINTENANCE_DOC_ID).get();
+
+    if (maintenanceSnap.exists && maintenanceSnap.data()?.active === true) {
+      throw new HttpsError("permission-denied", "The site is currently under maintenance.");
+    }
   }
 
   return {

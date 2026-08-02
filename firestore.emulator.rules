@@ -1,0 +1,352 @@
+rules_version = '2';
+
+// ローカル検証元。本番firebase.jsonからは参照せず、監査済み候補へ複製して使用する。
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function callerPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasActiveProfile() {
+      return signedIn()
+        && exists(callerPath())
+        && get(callerPath()).data.active == true;
+    }
+
+    function caller() {
+      return get(callerPath()).data;
+    }
+
+    function maintenancePath() {
+      return /databases/$(database)/documents/system/maintenanceMode;
+    }
+
+    function maintenanceActive() {
+      return exists(maintenancePath())
+        && get(maintenancePath()).data.active == true;
+    }
+
+    function maintenanceAllowsAccess() {
+      return !maintenanceActive()
+        || (hasActiveProfile() && caller().role == 'admin');
+    }
+
+    function organizationIdOf(data) {
+      return 'organizationId' in data
+        ? data.organizationId
+        : ('groupId' in data ? data.groupId : '');
+    }
+
+    function officeIdOf(data) {
+      return 'officeId' in data ? data.officeId : '';
+    }
+
+    function callerOrganizationId() {
+      return organizationIdOf(caller());
+    }
+
+    function callerOfficeId() {
+      return officeIdOf(caller());
+    }
+
+    function officeMatches(officeId) {
+      return officeId == callerOfficeId()
+        || (callerOfficeId() == 'enzine_chiba' && officeId == 'engine_chiba')
+        || (callerOfficeId() == 'engine_chiba' && officeId == 'enzine_chiba');
+    }
+
+    function sameMembership(data) {
+      return organizationIdOf(data) == callerOrganizationId()
+        && officeMatches(officeIdOf(data));
+    }
+
+    function isGlobalAdmin() {
+      return hasActiveProfile()
+        && caller().role == 'admin'
+        && 'accessScope' in caller()
+        && caller().accessScope == 'global';
+    }
+
+    function isOfficeAdmin() {
+      return hasActiveProfile()
+        && caller().role == 'admin'
+        && (!('accessScope' in caller()) || caller().accessScope == 'office');
+    }
+
+    function isStaff() {
+      return hasActiveProfile()
+        && caller().role == 'staff'
+        && maintenanceAllowsAccess();
+    }
+
+    function isUser() {
+      return hasActiveProfile()
+        && caller().role == 'user'
+        && maintenanceAllowsAccess();
+    }
+
+    function isOfficeOperator() {
+      return isOfficeAdmin() || isStaff();
+    }
+
+    function isManagedUser(data) {
+      return data.role == 'staff' || data.role == 'user';
+    }
+
+    function validManagedUserForCaller(data) {
+      return isManagedUser(data)
+        && sameMembership(data)
+        && 'accessScope' in data
+        && (
+          (data.role == 'staff' && data.accessScope == 'office')
+          || (data.role == 'user' && data.accessScope == 'self')
+        );
+    }
+
+    function selfOwned(data) {
+      return data.userId == request.auth.uid;
+    }
+
+    function selfDocumentId(documentId) {
+      return documentId.matches('^' + request.auth.uid + '(_.*)?$');
+    }
+
+    function callerOfficeDocumentId(documentId) {
+      return documentId.matches('^' + callerOfficeId() + '_.*$')
+        || (callerOfficeId() == 'enzine_chiba' && documentId.matches('^engine_chiba_.*$'))
+        || (callerOfficeId() == 'engine_chiba' && documentId.matches('^enzine_chiba_.*$'));
+    }
+
+    match /organizations/{organizationId} {
+      allow get: if maintenanceAllowsAccess()
+        && hasActiveProfile()
+        && (isGlobalAdmin() || organizationId == callerOrganizationId());
+      allow list: if isGlobalAdmin();
+      // 会社・事業所の変更は全体管理者を再確認するCallableだけを使用する。
+      allow create, update, delete: if false;
+    }
+
+    match /offices/{officeId} {
+      allow get: if maintenanceAllowsAccess()
+        && hasActiveProfile()
+        && (
+          isGlobalAdmin()
+          || (
+            organizationIdOf(resource.data) == callerOrganizationId()
+            && officeMatches(officeId)
+          )
+        );
+      allow list: if isGlobalAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if hasActiveProfile()
+        && (
+          userId == request.auth.uid
+          || (
+            maintenanceAllowsAccess()
+            && (
+              isGlobalAdmin()
+              || (isOfficeAdmin() && isManagedUser(resource.data) && sameMembership(resource.data))
+              || (isStaff() && resource.data.role == 'user' && sameMembership(resource.data))
+            )
+          )
+        );
+      allow list: if maintenanceAllowsAccess()
+        && hasActiveProfile()
+        && (
+          isGlobalAdmin()
+          || (isOfficeAdmin() && isManagedUser(resource.data) && sameMembership(resource.data))
+          || (isStaff() && resource.data.role == 'user' && sameMembership(resource.data))
+        );
+      allow create: if isGlobalAdmin()
+        || (isOfficeAdmin() && validManagedUserForCaller(request.resource.data));
+      allow update: if isGlobalAdmin()
+        || (
+          isOfficeAdmin()
+          && isManagedUser(resource.data)
+          && sameMembership(resource.data)
+          && validManagedUserForCaller(request.resource.data)
+        );
+      allow delete: if false;
+    }
+
+    match /monthlySchedules/{scheduleId} {
+      allow get: if maintenanceAllowsAccess()
+        && hasActiveProfile()
+        && (
+          isGlobalAdmin()
+          || (resource == null && (isOfficeOperator() || selfDocumentId(scheduleId)))
+          || (resource != null && selfOwned(resource.data))
+          || (resource != null && isOfficeOperator() && sameMembership(resource.data))
+        );
+      allow list: if isGlobalAdmin()
+        || (isOfficeOperator() && sameMembership(resource.data));
+      allow create: if isGlobalAdmin()
+        || (isUser() && selfOwned(request.resource.data) && sameMembership(request.resource.data))
+        || (isOfficeOperator() && sameMembership(request.resource.data));
+      allow update: if isGlobalAdmin()
+        || (
+          isUser()
+          && selfOwned(resource.data)
+          && selfOwned(request.resource.data)
+          && sameMembership(resource.data)
+          && sameMembership(request.resource.data)
+        )
+        || (
+          isOfficeOperator()
+          && sameMembership(resource.data)
+          && sameMembership(request.resource.data)
+        );
+      allow delete: if false;
+    }
+
+    match /weeklyReports/{reportId} {
+      allow get: if maintenanceAllowsAccess()
+        && hasActiveProfile()
+        && (
+          isGlobalAdmin()
+          || (resource == null && (isOfficeOperator() || selfDocumentId(reportId)))
+          || (resource != null && selfOwned(resource.data))
+          || (resource != null && isOfficeOperator() && sameMembership(resource.data))
+        );
+      allow list: if isGlobalAdmin()
+        || (isOfficeOperator() && sameMembership(resource.data));
+      allow create: if isGlobalAdmin()
+        || (isUser() && selfOwned(request.resource.data) && sameMembership(request.resource.data))
+        || (isOfficeOperator() && sameMembership(request.resource.data));
+      allow update: if isGlobalAdmin()
+        || (
+          isUser()
+          && selfOwned(resource.data)
+          && selfOwned(request.resource.data)
+          && sameMembership(resource.data)
+          && sameMembership(request.resource.data)
+        )
+        || (
+          isOfficeOperator()
+          && sameMembership(resource.data)
+          && sameMembership(request.resource.data)
+        );
+      allow delete: if false;
+    }
+
+    match /weeklyReportUserStatus/{userId} {
+      allow get: if maintenanceAllowsAccess()
+        && hasActiveProfile()
+        && (
+          isGlobalAdmin()
+          || userId == request.auth.uid
+          || (resource == null && isOfficeOperator())
+          || (resource != null && isOfficeOperator() && sameMembership(resource.data))
+        );
+      allow list: if isGlobalAdmin()
+        || (isOfficeOperator() && sameMembership(resource.data));
+      allow create: if isGlobalAdmin()
+        || (isUser() && userId == request.auth.uid && selfOwned(request.resource.data) && sameMembership(request.resource.data))
+        || (isOfficeOperator() && sameMembership(request.resource.data));
+      allow update: if isGlobalAdmin()
+        || (
+          isUser()
+          && userId == request.auth.uid
+          && selfOwned(resource.data)
+          && selfOwned(request.resource.data)
+          && sameMembership(resource.data)
+          && sameMembership(request.resource.data)
+        )
+        || (
+          isOfficeOperator()
+          && sameMembership(resource.data)
+          && sameMembership(request.resource.data)
+        );
+      allow delete: if false;
+    }
+
+    match /monthlyAnnouncements/{announcementId} {
+      allow get: if maintenanceAllowsAccess()
+        && hasActiveProfile()
+        && (
+          isGlobalAdmin()
+          || (resource == null && isOfficeOperator())
+          || (resource == null && isUser() && callerOfficeDocumentId(announcementId))
+          || (resource != null && sameMembership(resource.data))
+        );
+      allow list: if maintenanceAllowsAccess()
+        && (
+          isGlobalAdmin()
+          || (hasActiveProfile() && sameMembership(resource.data))
+        );
+      allow create: if isGlobalAdmin()
+        || (isOfficeOperator() && sameMembership(request.resource.data));
+      allow update: if isGlobalAdmin()
+        || (
+          isOfficeOperator()
+          && sameMembership(resource.data)
+          && sameMembership(request.resource.data)
+        );
+      allow delete: if isGlobalAdmin()
+        || (isOfficeOperator() && sameMembership(resource.data));
+    }
+
+    match /system/{systemId} {
+      allow get: if systemId == 'maintenanceMode'
+        || (
+          maintenanceAllowsAccess()
+          && hasActiveProfile()
+          && (
+            isGlobalAdmin()
+            || (
+              systemId == 'activeUsers_' + callerOfficeId()
+              && (isOfficeAdmin() || isStaff())
+            )
+            || (
+              callerOfficeId() == 'enzine_chiba'
+              && systemId == 'activeUsers_engine_chiba'
+              && (isOfficeAdmin() || isStaff())
+            )
+            || (
+              callerOfficeId() == 'engine_chiba'
+              && systemId == 'activeUsers_enzine_chiba'
+              && (isOfficeAdmin() || isStaff())
+            )
+            || (
+              systemId == 'workshopResources_' + callerOfficeId()
+            )
+            || (
+              callerOfficeId() == 'enzine_chiba'
+              && systemId == 'workshopResources_engine_chiba'
+            )
+            || (
+              callerOfficeId() == 'engine_chiba'
+              && systemId == 'workshopResources_enzine_chiba'
+            )
+          )
+        );
+      allow list: if isGlobalAdmin();
+      allow create, update: if systemId != 'maintenanceMode'
+        && (
+          isGlobalAdmin()
+        || (
+          systemId == 'activeUsers_' + callerOfficeId()
+          && (isOfficeAdmin() || isStaff())
+          && sameMembership(request.resource.data)
+        )
+        || (
+          systemId == 'workshopResources_' + callerOfficeId()
+          && isOfficeOperator()
+          && sameMembership(request.resource.data)
+        )
+      );
+      allow delete: if systemId != 'maintenanceMode' && isGlobalAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "enzine-schedule-local-development",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --test tests/*.test.mjs && npm --prefix functions run lint",
+    "firebase:emulators": "node scripts/start-local-emulators.mjs",
+    "firebase:seed": "node scripts/seed-local-emulators.mjs",
+    "firebase:test": "node scripts/start-local-emulators.mjs --verify",
+    "firebase:verify": "node scripts/verify-local-emulators.mjs",
+    "hosting:prepare:candidate": "node scripts/prepare-production-hosting.mjs",
+    "hosting:audit:candidate": "node scripts/audit-production-hosting.mjs",
+    "functions:prepare:candidate": "node scripts/prepare-production-functions.mjs",
+    "functions:install:candidate": "npm --prefix .firebase-deploy/functions ci --omit=dev --ignore-scripts",
+    "functions:audit:candidate": "node scripts/audit-production-functions-candidate.mjs",
+    "functions:prepare:rollback": "node scripts/prepare-production-functions-rollback.mjs",
+    "functions:install:rollback": "npm --prefix .firebase-deploy/functions-rollback ci --omit=dev --ignore-scripts",
+    "rules:prepare:candidate": "node scripts/prepare-production-rules.mjs",
+    "rules:audit:candidate": "node scripts/audit-production-rules.mjs",
+    "production:rules:fetch-current": "node --use-system-ca scripts/fetch-production-firestore-rules-readonly.mjs",
+    "production:rules:verify-current": "node --use-system-ca scripts/fetch-production-firestore-rules-readonly.mjs --verify-only",
+    "production:rules:audit:preflight": "node scripts/audit-production-firestore-rules-preflight.mjs",
+    "production:rules:data:readonly": "node --use-system-ca scripts/audit-production-firestore-rules-data-readonly.mjs",
+    "production:rules:smoke:unauthenticated": "node --use-system-ca scripts/smoke-production-firestore-rules-unauthenticated.mjs",
+    "production:prepare:candidate": "npm run hosting:prepare:candidate && npm run functions:prepare:candidate && npm run functions:prepare:rollback && npm run functions:install:candidate && npm run functions:install:rollback && npm run rules:prepare:candidate && npm run hosting:audit:candidate && npm run functions:audit:candidate && npm run rules:audit:candidate",
+    "production:access:check": "node scripts/check-production-firebase-access.mjs",
+    "production:readiness:readonly": "node --use-system-ca scripts/audit-production-readiness-readonly.mjs",
+    "production:backup:inspect": "node --use-system-ca scripts/inspect-production-backup-readiness.mjs",
+    "production:backup:create": "node --use-system-ca scripts/create-production-backup.mjs --confirm-project=enzine-schedule",
+    "production:backup:verify": "node --use-system-ca scripts/verify-production-backup.mjs",
+    "production:data:plan:readonly": "node --use-system-ca scripts/plan-production-data-supplement-readonly.mjs",
+    "production:functions:audit": "node --use-system-ca scripts/audit-production-functions-readonly.mjs",
+    "production:functions:smoke:unauthenticated": "node --use-system-ca scripts/smoke-production-functions-unauthenticated.mjs",
+    "production:hosting:audit": "node --use-system-ca scripts/audit-production-hosting-readonly.mjs",
+    "production:readiness:local": "node scripts/audit-local-production-readiness.mjs",
+    "production:preflight:local": "npm run check && npm run production:prepare:candidate && npm run firebase:verify && npm run production:readiness:local"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.25.1"
+  }
+}

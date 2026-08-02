@@ -10,10 +10,12 @@
 // STEP42_ADMIN_ROLE_FILTER_AND_NAV_20260622_V72：登録ユーザーの権限フィルターと管理者導線整理
 // STEP41_ADMIN_USER_MANAGEMENT_20260622_V71：無料枠向けの利用者管理Adminページ
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-functions.js";
 
 import {
   collection,
+  query,
+  where,
   getDocs,
   doc,
   getDoc,
@@ -21,28 +23,47 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { app, auth, db } from "./firebase-config.js";
-import { setupSettingsMenuClose } from "./ui-common.js?v=80";
+import { auth, db, functions } from "./firebase-config.js";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
 
 const DEFAULT_OFFICE_ID = "enzine_chiba";
 const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
-const FUNCTIONS_REGION = "asia-northeast1";
+const MAINTENANCE_DOC_ID = "maintenanceMode";
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const JST_OFFSET_MINUTES = 9 * 60;
 const ADMIN_USER_MANUAL_SAVE_TEXT = "保存";
 const ADMIN_USER_AUTH_SAVE_TEXT = "新規ユーザーを登録";
-const functions = getFunctions(app, FUNCTIONS_REGION);
 const createAuthUserAndProfile = httpsCallable(functions, "createAuthUserAndProfile");
-const migrateLegacyOfficeIdToEnzineChiba = httpsCallable(functions, "migrateLegacyOfficeIdToEnzineChiba");
 const getChatworkConsoleData = httpsCallable(functions, "getChatworkConsoleData");
+const getOrganizationManagementData = httpsCallable(functions, "getOrganizationManagementData");
+const upsertOrganization = httpsCallable(functions, "upsertOrganization");
+const upsertOffice = httpsCallable(functions, "upsertOffice");
+const createOfficeAdminAccount = httpsCallable(functions, "createOfficeAdminAccount");
+const setMaintenanceMode = httpsCallable(functions, "setMaintenanceMode");
+const getAdminAuditLogs = httpsCallable(functions, "getAdminAuditLogs");
+
+function getActiveUsersDocId(officeId) {
+  return `${ACTIVE_USERS_DOC_ID}_${normalizeOfficeId(officeId)}`;
+}
 
 const adminInfo = document.getElementById("adminInfo");
 const logoutButton = document.getElementById("logoutButton");
 const openStaffPageButton = document.getElementById("openStaffPageButton");
 const openChatworkPageButton = document.getElementById("openChatworkPageButton");
+const maintenanceControlSection = document.getElementById("maintenanceControlSection");
+const maintenanceControlStatus = document.getElementById("maintenanceControlStatus");
+const maintenanceMessageInput = document.getElementById("maintenanceMessageInput");
+const startMaintenanceButton = document.getElementById("startMaintenanceButton");
+const stopMaintenanceButton = document.getElementById("stopMaintenanceButton");
+const maintenanceControlMessage = document.getElementById("maintenanceControlMessage");
+const adminAuditLogSection = document.getElementById("adminAuditLogSection");
+const reloadAdminAuditLogsButton = document.getElementById("reloadAdminAuditLogsButton");
+const adminAuditLogList = document.getElementById("adminAuditLogList");
+const adminAuditLogMessage = document.getElementById("adminAuditLogMessage");
+const adminBillingSafetySection = document.getElementById("adminBillingSafetySection");
 const billingSafetyStatus = document.getElementById("billingSafetyStatus");
 const reloadBillingSafetyButton = document.getElementById("reloadBillingSafetyButton");
 const resetBillingSafetyButton = document.getElementById("resetBillingSafetyButton");
@@ -52,6 +73,8 @@ const adminUserSummary = document.getElementById("adminUserSummary");
 const adminUserList = document.getElementById("adminUserList");
 const adminUserRoleFilterButtons = document.querySelectorAll("[data-admin-role-filter]");
 const adminUserCreateModeButtons = document.querySelectorAll("[data-admin-create-mode]");
+const adminUserFormGuide = document.getElementById("adminUserFormGuide");
+const adminUserCreateModeToggle = document.getElementById("adminUserCreateModeToggle");
 const adminUserCreateModeNote = document.getElementById("adminUserCreateModeNote");
 const adminUserForm = document.getElementById("adminUserForm");
 const adminUserFormTitle = document.getElementById("adminUserFormTitle");
@@ -71,7 +94,35 @@ const resetAdminUserFormButton = document.getElementById("resetAdminUserFormButt
 const adminUserMessage = document.getElementById("adminUserMessage");
 const reloadAdminUsersButton = document.getElementById("reloadAdminUsersButton");
 const rebuildActiveUsersButton = document.getElementById("rebuildActiveUsersButton");
-const normalizeOfficeIdButton = document.getElementById("normalizeOfficeIdButton");
+const adminUserMembershipFilters = document.getElementById("adminUserMembershipFilters");
+const adminUserOrganizationFilter = document.getElementById("adminUserOrganizationFilter");
+const adminUserOfficeFilter = document.getElementById("adminUserOfficeFilter");
+const organizationManagementSection = document.getElementById("organizationManagementSection");
+const organizationForm = document.getElementById("organizationForm");
+const organizationIdInput = document.getElementById("organizationIdInput");
+const organizationNameInput = document.getElementById("organizationNameInput");
+const organizationActiveInput = document.getElementById("organizationActiveInput");
+const saveOrganizationButton = document.getElementById("saveOrganizationButton");
+const resetOrganizationButton = document.getElementById("resetOrganizationButton");
+const officeForm = document.getElementById("officeForm");
+const officeOrganizationSelect = document.getElementById("officeOrganizationSelect");
+const officeIdInput = document.getElementById("officeIdInput");
+const officeNameInput = document.getElementById("officeNameInput");
+const officeActiveInput = document.getElementById("officeActiveInput");
+const saveOfficeButton = document.getElementById("saveOfficeButton");
+const resetOfficeButton = document.getElementById("resetOfficeButton");
+const officeAdminForm = document.getElementById("officeAdminForm");
+const officeAdminOrganizationSelect = document.getElementById("officeAdminOrganizationSelect");
+const officeAdminOfficeSelect = document.getElementById("officeAdminOfficeSelect");
+const officeAdminNameInput = document.getElementById("officeAdminNameInput");
+const officeAdminNameKanaInput = document.getElementById("officeAdminNameKanaInput");
+const officeAdminEmailInput = document.getElementById("officeAdminEmailInput");
+const officeAdminPasswordInput = document.getElementById("officeAdminPasswordInput");
+const createOfficeAdminButton = document.getElementById("createOfficeAdminButton");
+const organizationManagementMessage = document.getElementById("organizationManagementMessage");
+const organizationList = document.getElementById("organizationList");
+const officeList = document.getElementById("officeList");
+const adminUserScopeNote = document.getElementById("adminUserScopeNote");
 
 let currentUser = null;
 let currentAdminData = null;
@@ -79,6 +130,12 @@ let adminUsersCache = [];
 let editingAdminUserId = "";
 let adminUserRoleFilter = "all";
 let adminUserCreateMode = "auth";
+let maintenanceControlState = { active: false, message: "", scheduledEndText: "" };
+let organizationManagementState = {
+  organizations: [],
+  offices: [],
+  officeAdmins: []
+};
 
 setupSettingsMenuClose();
 
@@ -88,6 +145,23 @@ function getCurrentOfficeId() {
 
 function getCurrentGroupId() {
   return currentAdminData?.groupId || DEFAULT_GROUP_ID;
+}
+
+function getCurrentOrganizationId() {
+  return currentAdminData?.organizationId || getCurrentGroupId();
+}
+
+function isCurrentAdminGlobal() {
+  return currentAdminData?.accessScope === "global";
+}
+
+function setGlobalOnlyElementVisibility(element, shouldShow) {
+  if (!element) {
+    return;
+  }
+
+  element.hidden = !shouldShow;
+  element.classList.toggle("hidden", !shouldShow);
 }
 
 function normalizeOfficeId(officeId) {
@@ -168,6 +242,439 @@ function setButtonLoading(button, isLoading, loadingText, defaultText) {
   button.textContent = isLoading ? loadingText : defaultText;
 }
 
+function setOrganizationManagementMessage(text, color = "#555") {
+  if (!organizationManagementMessage) {
+    return;
+  }
+
+  organizationManagementMessage.style.color = color;
+  organizationManagementMessage.textContent = text;
+}
+
+function resetOrganizationForm() {
+  if (!organizationForm) {
+    return;
+  }
+
+  organizationIdInput.readOnly = false;
+  organizationIdInput.value = "";
+  organizationNameInput.value = "";
+  organizationActiveInput.checked = true;
+}
+
+function resetOfficeForm() {
+  if (!officeForm) {
+    return;
+  }
+
+  officeIdInput.readOnly = false;
+  officeIdInput.value = "";
+  officeNameInput.value = "";
+  officeActiveInput.checked = true;
+}
+
+function replaceSelectOptions(select, items, placeholder, selectedValue = "") {
+  if (!select) {
+    return;
+  }
+
+  const previousValue = selectedValue || select.value;
+  select.textContent = "";
+
+  const placeholderOption = document.createElement("option");
+  placeholderOption.value = "";
+  placeholderOption.textContent = placeholder;
+  select.appendChild(placeholderOption);
+
+  items.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = `${item.name}（${item.id}）${item.active ? "" : "［停止中］"}`;
+    select.appendChild(option);
+  });
+
+  if (items.some((item) => item.id === previousValue)) {
+    select.value = previousValue;
+  }
+}
+
+function replaceAdminUserFilterOptions(select, items, allLabel, selectedValue = "all") {
+  if (!select) {
+    return;
+  }
+
+  select.textContent = "";
+
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = allLabel;
+  select.appendChild(allOption);
+
+  items.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = item.name && item.name !== item.id
+      ? `${item.name}（${item.id}）`
+      : item.id;
+    select.appendChild(option);
+  });
+
+  select.value = items.some((item) => item.id === selectedValue)
+    ? selectedValue
+    : "all";
+}
+
+function getAdminUserOrganizationId(user) {
+  return String(user?.organizationId || user?.groupId || "").trim();
+}
+
+function getAdminUserOfficeId(user) {
+  return normalizeOfficeId(user?.officeId || "");
+}
+
+function getAdminUserFilterOrganizations() {
+  const organizations = new Map();
+
+  organizationManagementState.organizations.forEach((organization) => {
+    organizations.set(organization.id, organization);
+  });
+
+  adminUsersCache.forEach((user) => {
+    const organizationId = getAdminUserOrganizationId(user);
+
+    if (organizationId && !organizations.has(organizationId)) {
+      organizations.set(organizationId, {
+        id: organizationId,
+        name: organizationId,
+        active: true
+      });
+    }
+  });
+
+  return [...organizations.values()].sort((a, b) =>
+    (a.name || a.id).localeCompare(b.name || b.id, "ja")
+  );
+}
+
+function getAdminUserFilterOffices(organizationId = "all") {
+  const offices = new Map();
+
+  organizationManagementState.offices.forEach((office) => {
+    if (organizationId === "all" || office.organizationId === organizationId) {
+      offices.set(office.id, office);
+    }
+  });
+
+  adminUsersCache.forEach((user) => {
+    const userOrganizationId = getAdminUserOrganizationId(user);
+    const officeId = getAdminUserOfficeId(user);
+
+    if (
+      officeId
+      && (organizationId === "all" || userOrganizationId === organizationId)
+      && !offices.has(officeId)
+    ) {
+      offices.set(officeId, {
+        id: officeId,
+        name: officeId,
+        organizationId: userOrganizationId,
+        active: true
+      });
+    }
+  });
+
+  return [...offices.values()].sort((a, b) =>
+    (a.name || a.id).localeCompare(b.name || b.id, "ja")
+  );
+}
+
+function syncAdminUserMembershipFilters({ resetOffice = false } = {}) {
+  const isGlobalAdmin = isCurrentAdminGlobal();
+  setGlobalOnlyElementVisibility(adminUserMembershipFilters, isGlobalAdmin);
+
+  if (!isGlobalAdmin || !adminUserOrganizationFilter || !adminUserOfficeFilter) {
+    return;
+  }
+
+  const selectedOrganizationId = adminUserOrganizationFilter.value || "all";
+  const selectedOfficeId = resetOffice ? "all" : adminUserOfficeFilter.value || "all";
+  const organizations = getAdminUserFilterOrganizations();
+
+  replaceAdminUserFilterOptions(
+    adminUserOrganizationFilter,
+    organizations,
+    "すべての会社",
+    selectedOrganizationId
+  );
+
+  const effectiveOrganizationId = adminUserOrganizationFilter.value || "all";
+  replaceAdminUserFilterOptions(
+    adminUserOfficeFilter,
+    getAdminUserFilterOffices(effectiveOrganizationId),
+    "すべての事業所",
+    selectedOfficeId
+  );
+}
+
+function syncOfficeAdminOfficeOptions(selectedOfficeId = "") {
+  if (!officeAdminOfficeSelect) {
+    return;
+  }
+
+  const organizationId = officeAdminOrganizationSelect?.value || "";
+  const offices = organizationManagementState.offices.filter(
+    (office) => office.organizationId === organizationId
+  );
+  replaceSelectOptions(officeAdminOfficeSelect, offices, "事業所を選択", selectedOfficeId);
+}
+
+function syncOrganizationManagementSelects() {
+  const organizations = organizationManagementState.organizations;
+  replaceSelectOptions(officeOrganizationSelect, organizations, "運営会社を選択");
+  replaceSelectOptions(officeAdminOrganizationSelect, organizations, "運営会社を選択");
+  syncOfficeAdminOfficeOptions();
+}
+
+function buildManagementItem({ title, meta, active, onEdit }) {
+  const item = document.createElement("article");
+  item.className = active ? "organization-management-item" : "organization-management-item inactive";
+
+  const header = document.createElement("div");
+  header.className = "organization-management-item-header";
+
+  const titleElement = document.createElement("div");
+  titleElement.className = "organization-management-item-title";
+  titleElement.textContent = title;
+
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "small-button";
+  editButton.textContent = "編集";
+  editButton.addEventListener("click", onEdit);
+
+  const metaElement = document.createElement("div");
+  metaElement.className = "organization-management-item-meta";
+  metaElement.textContent = meta;
+
+  header.appendChild(titleElement);
+  header.appendChild(editButton);
+  item.appendChild(header);
+  item.appendChild(metaElement);
+  return item;
+}
+
+function renderOrganizationManagementLists() {
+  if (!organizationList || !officeList) {
+    return;
+  }
+
+  organizationList.textContent = "";
+  officeList.textContent = "";
+
+  if (!organizationManagementState.organizations.length) {
+    organizationList.textContent = "運営会社が登録されていません。";
+  }
+
+  organizationManagementState.organizations.forEach((organization) => {
+    organizationList.appendChild(buildManagementItem({
+      title: organization.name,
+      meta: `ID: ${organization.id} / ${organization.active ? "Active" : "停止中"}`,
+      active: organization.active,
+      onEdit: () => {
+        organizationIdInput.readOnly = true;
+        organizationIdInput.value = organization.id;
+        organizationNameInput.value = organization.name;
+        organizationActiveInput.checked = organization.active;
+        organizationNameInput.focus();
+      }
+    }));
+  });
+
+  if (!organizationManagementState.offices.length) {
+    officeList.textContent = "事業所が登録されていません。";
+  }
+
+  organizationManagementState.offices.forEach((office) => {
+    const organization = organizationManagementState.organizations.find(
+      (item) => item.id === office.organizationId
+    );
+    const admins = organizationManagementState.officeAdmins.filter(
+      (adminUser) => adminUser.officeId === office.id
+    );
+    const adminText = admins.length
+      ? admins.map((adminUser) => `${adminUser.name}${adminUser.active ? "" : "［停止中］"}`).join("、")
+      : "未登録";
+
+    officeList.appendChild(buildManagementItem({
+      title: office.name,
+      meta: `ID: ${office.id} / 会社: ${organization?.name || office.organizationId || "-"} / 管理者: ${adminText}`,
+      active: office.active,
+      onEdit: () => {
+        officeIdInput.readOnly = true;
+        officeIdInput.value = office.id;
+        officeNameInput.value = office.name;
+        officeActiveInput.checked = office.active;
+        officeOrganizationSelect.value = office.organizationId;
+        officeNameInput.focus();
+      }
+    }));
+  });
+}
+
+async function loadOrganizationManagement(options = {}) {
+  if (!isCurrentAdminGlobal()) {
+    setGlobalOnlyElementVisibility(organizationManagementSection, false);
+    return null;
+  }
+
+  setGlobalOnlyElementVisibility(organizationManagementSection, true);
+
+  if (!options.silent) {
+    organizationList.textContent = "読み込み中...";
+    officeList.textContent = "読み込み中...";
+  }
+
+  const result = await getOrganizationManagementData({});
+  organizationManagementState = {
+    organizations: Array.isArray(result?.data?.organizations) ? result.data.organizations : [],
+    offices: Array.isArray(result?.data?.offices) ? result.data.offices : [],
+    officeAdmins: Array.isArray(result?.data?.officeAdmins) ? result.data.officeAdmins : []
+  };
+  syncOrganizationManagementSelects();
+  syncAdminUserMembershipFilters();
+  renderOrganizationManagementLists();
+  renderFilteredAdminUserList();
+  return organizationManagementState;
+}
+
+async function saveOrganization(event) {
+  event.preventDefault();
+  const organizationId = organizationIdInput.value.trim().toLowerCase();
+  const name = organizationNameInput.value.trim();
+  const active = organizationActiveInput.checked;
+
+  if (!organizationId || !name) {
+    setOrganizationManagementMessage("運営会社IDと運営会社名を入力してください。", "red");
+    return;
+  }
+
+  try {
+    setButtonLoading(saveOrganizationButton, true, "保存中...", "会社を保存");
+    await upsertOrganization({ organizationId, name, active });
+    await loadOrganizationManagement({ silent: true });
+    resetOrganizationForm();
+    setOrganizationManagementMessage(`運営会社 ${name} を保存しました。`, "green");
+  } catch (error) {
+    console.error("運営会社保存エラー:", error);
+    setOrganizationManagementMessage(`運営会社の保存に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
+  } finally {
+    setButtonLoading(saveOrganizationButton, false, "保存中...", "会社を保存");
+  }
+}
+
+async function saveOffice(event) {
+  event.preventDefault();
+  const organizationId = officeOrganizationSelect.value;
+  const officeId = officeIdInput.value.trim().toLowerCase();
+  const name = officeNameInput.value.trim();
+  const active = officeActiveInput.checked;
+
+  if (!organizationId || !officeId || !name) {
+    setOrganizationManagementMessage("運営会社、事業所ID、事業所名を入力してください。", "red");
+    return;
+  }
+
+  try {
+    setButtonLoading(saveOfficeButton, true, "保存中...", "事業所を保存");
+    await upsertOffice({ organizationId, officeId, name, active });
+    await loadOrganizationManagement({ silent: true });
+    resetOfficeForm();
+    setOrganizationManagementMessage(`事業所 ${name} を保存しました。`, "green");
+  } catch (error) {
+    console.error("事業所保存エラー:", error);
+    setOrganizationManagementMessage(`事業所の保存に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
+  } finally {
+    setButtonLoading(saveOfficeButton, false, "保存中...", "事業所を保存");
+  }
+}
+
+async function createOfficeAdmin(event) {
+  event.preventDefault();
+  const organizationId = officeAdminOrganizationSelect.value;
+  const officeId = officeAdminOfficeSelect.value;
+  const name = officeAdminNameInput.value.trim();
+  const nameKana = cleanNameKana(officeAdminNameKanaInput.value);
+  const email = officeAdminEmailInput.value.trim();
+  const password = officeAdminPasswordInput.value;
+
+  if (!organizationId || !officeId || !name || !email || password.length < 6) {
+    setOrganizationManagementMessage("会社、事業所、名前、メール、6文字以上の初期パスワードを入力してください。", "red");
+    return;
+  }
+
+  try {
+    setButtonLoading(createOfficeAdminButton, true, "発行中...", "事業所管理者を発行");
+    const result = await createOfficeAdminAccount({
+      organizationId,
+      officeId,
+      name,
+      nameKana,
+      email,
+      password
+    });
+    await loadOrganizationManagement({ silent: true });
+    officeAdminNameInput.value = "";
+    officeAdminNameKanaInput.value = "";
+    officeAdminEmailInput.value = "";
+    officeAdminPasswordInput.value = "";
+    setOrganizationManagementMessage(
+      `事業所管理者を発行しました。UID: ${result?.data?.uid || "確認中"}`,
+      "green"
+    );
+  } catch (error) {
+    console.error("事業所管理者発行エラー:", error);
+    setOrganizationManagementMessage(`事業所管理者の発行に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
+  } finally {
+    setButtonLoading(createOfficeAdminButton, false, "発行中...", "事業所管理者を発行");
+  }
+}
+
+function applyAdminScopeToUserForm() {
+  const isGlobalAdmin = isCurrentAdminGlobal();
+  const adminRoleOption = adminUserRole?.querySelector('option[value="admin"]');
+
+  setGlobalOnlyElementVisibility(organizationManagementSection, isGlobalAdmin);
+  setGlobalOnlyElementVisibility(maintenanceControlSection, isGlobalAdmin);
+  setGlobalOnlyElementVisibility(adminAuditLogSection, isGlobalAdmin);
+  setGlobalOnlyElementVisibility(adminBillingSafetySection, isGlobalAdmin);
+  setGlobalOnlyElementVisibility(adminUserCreateModeToggle, isGlobalAdmin);
+  adminUserOfficeId.readOnly = !isGlobalAdmin;
+  adminUserGroupId.readOnly = !isGlobalAdmin;
+
+  if (!isGlobalAdmin) {
+    adminUserOfficeId.value = getCurrentOfficeId();
+    adminUserGroupId.value = getCurrentOrganizationId();
+  }
+
+  if (adminRoleOption) {
+    adminRoleOption.disabled = !isGlobalAdmin && !editingAdminUserId;
+  }
+
+  if (adminUserScopeNote) {
+    adminUserScopeNote.textContent = isGlobalAdmin
+      ? "全体管理者として会社・事業所IDを指定できます。事業所管理者の発行は上の専用フォームを使ってください。"
+      : `事業所管理者のため、運営会社ID ${getCurrentOrganizationId()}・事業所ID ${getCurrentOfficeId()} に固定されます。登録できる権限は支援員・利用者です。`;
+  }
+
+  if (adminUserFormGuide) {
+    adminUserFormGuide.textContent = isGlobalAdmin
+      ? "新規ユーザー登録を基本にし、移行・復旧時だけFirebase Authで作成済みのUIDを紐づけます。"
+      : "支援員・利用者のログインアカウントを新規登録します。所属先は管理者の会社・事業所に固定されます。";
+  }
+
+  syncAdminUserMembershipFilters();
+}
+
 function getAdminUserSaveText() {
   if (editingAdminUserId || adminUserCreateMode !== "auth") {
     return ADMIN_USER_MANUAL_SAVE_TEXT;
@@ -214,7 +721,7 @@ function renderAdminUserCreateMode() {
 }
 
 function setAdminUserCreateMode(mode) {
-  adminUserCreateMode = mode === "uid" ? "uid" : "auth";
+  adminUserCreateMode = mode === "uid" && isCurrentAdminGlobal() ? "uid" : "auth";
   renderAdminUserCreateMode();
 }
 
@@ -451,7 +958,9 @@ function normalizeAdminUser(docId, data) {
     sortName: data?.sortName || buildUserSortName(nameKana, fallbackName),
     email: data?.email || "",
     role: data?.role || "user",
+    accessScope: data?.accessScope || (data?.role === "admin" ? "office" : data?.role === "user" ? "self" : "office"),
     active: data?.active === true,
+    organizationId: data?.organizationId || data?.groupId || getCurrentOrganizationId(),
     officeId: normalizeOfficeId(data?.officeId || getCurrentOfficeId()),
     groupId: data?.groupId || getCurrentGroupId(),
     createdAt: data?.createdAt || null,
@@ -534,6 +1043,212 @@ function renderAdminUserSummary(users) {
   appendSummaryCard(grid, "管理者", `${adminUsers.length}人`, "Activeな管理者");
 
   adminUserSummary.appendChild(grid);
+}
+
+function setMaintenanceControlMessage(text, color = "#555") {
+  if (!maintenanceControlMessage) {
+    return;
+  }
+
+  maintenanceControlMessage.style.color = color;
+  maintenanceControlMessage.textContent = text;
+}
+
+function setAdminAuditLogMessage(text, color = "#555") {
+  if (!adminAuditLogMessage) {
+    return;
+  }
+  adminAuditLogMessage.style.color = color;
+  adminAuditLogMessage.textContent = text;
+}
+
+function getAdminAuditActionLabel(action) {
+  const labels = {
+    "maintenance.started": "メンテナンス開始",
+    "maintenance.ended": "メンテナンス解除",
+    "organization.created": "運営会社作成",
+    "organization.updated": "運営会社更新",
+    "office.created": "事業所作成",
+    "office.updated": "事業所更新",
+    "office_id.migrated": "事業所ID移行",
+    "user.create": "ユーザー作成",
+    "user.update": "ユーザー更新",
+    "user.delete": "ユーザー削除",
+    "billing_safety.create": "課金安全状態作成",
+    "billing_safety.update": "課金安全状態更新",
+    "billing_safety.delete": "課金安全状態削除"
+  };
+  return labels[action] || action || "管理操作";
+}
+
+function formatAdminAuditTimestamp(value) {
+  const date = new Date(value || "");
+  return Number.isNaN(date.getTime()) ? "時刻確認中" : date.toLocaleString("ja-JP");
+}
+
+function renderAdminAuditLogs(logs) {
+  if (!adminAuditLogList) {
+    return;
+  }
+
+  adminAuditLogList.textContent = "";
+  if (!logs.length) {
+    adminAuditLogList.textContent = "監査ログはまだありません。";
+    return;
+  }
+
+  logs.forEach((log) => {
+    const item = document.createElement("article");
+    item.className = "admin-audit-log-item";
+
+    const header = document.createElement("div");
+    header.className = "admin-audit-log-item-header";
+
+    const title = document.createElement("strong");
+    title.textContent = getAdminAuditActionLabel(log.action);
+    const timestamp = document.createElement("span");
+    timestamp.textContent = formatAdminAuditTimestamp(log.createdAt);
+    header.appendChild(title);
+    header.appendChild(timestamp);
+
+    const targetParts = [
+      log.targetType ? `対象: ${log.targetType}` : "",
+      log.targetId ? `ID: ${log.targetId}` : "",
+      log.targetRole ? `権限: ${getRoleLabel(log.targetRole)}` : "",
+      log.targetState ? `状態: ${log.targetState}` : ""
+    ].filter(Boolean);
+    const target = document.createElement("div");
+    target.className = "admin-audit-log-item-meta";
+    target.textContent = targetParts.join(" / ") || "対象情報なし";
+
+    const actorScope = log.actorAccessScope === "global" ? "全体管理者" : "事業所管理者";
+    const actor = document.createElement("div");
+    actor.className = "admin-audit-log-item-meta";
+    actor.textContent = `操作者: ${actorScope}${log.actorUid ? ` / UID: ${log.actorUid}` : ""}`;
+
+    const changes = document.createElement("div");
+    changes.className = "admin-audit-log-item-changes";
+    changes.textContent = Array.isArray(log.changedFields) && log.changedFields.length
+      ? `変更項目: ${log.changedFields.join("、")}`
+      : "変更項目: 記録なし";
+
+    item.appendChild(header);
+    item.appendChild(target);
+    item.appendChild(actor);
+    item.appendChild(changes);
+    adminAuditLogList.appendChild(item);
+  });
+}
+
+async function loadAdminAuditLogs(options = {}) {
+  if (!isCurrentAdminGlobal()) {
+    setGlobalOnlyElementVisibility(adminAuditLogSection, false);
+    return [];
+  }
+
+  setGlobalOnlyElementVisibility(adminAuditLogSection, true);
+  if (!options.silent && adminAuditLogList) {
+    adminAuditLogList.textContent = "読み込み中...";
+  }
+  setAdminAuditLogMessage("");
+
+  try {
+    const result = await getAdminAuditLogs({ limit: 50 });
+    const logs = Array.isArray(result?.data?.logs) ? result.data.logs : [];
+    renderAdminAuditLogs(logs);
+    if (result?.data?.hasMore === true) {
+      setAdminAuditLogMessage("直近50件を表示しています。", "#555");
+    }
+    return logs;
+  } catch (error) {
+    console.error("管理監査ログ読み込みエラー:", error);
+    if (adminAuditLogList) {
+      adminAuditLogList.textContent = "監査ログを読み込めませんでした。";
+    }
+    setAdminAuditLogMessage(`読み込みに失敗しました：${getAdminUserErrorMessage(error)}`, "red");
+    return [];
+  }
+}
+
+function renderMaintenanceControlStatus(data = {}) {
+  if (!maintenanceControlStatus) {
+    return;
+  }
+
+  const active = data.active === true;
+  const updatedText = formatAdminTimestamp(data.updatedAt);
+  const updatedBy = data.updatedByName ? ` / 操作: ${data.updatedByName}` : "";
+
+  maintenanceControlStatus.className = `maintenance-control-status ${active ? "active" : "normal"}`;
+  maintenanceControlStatus.textContent = active
+    ? `メンテナンス中 / 更新: ${updatedText}${updatedBy}`
+    : `通常公開中 / 更新: ${updatedText}${updatedBy}`;
+
+  startMaintenanceButton.disabled = active;
+  stopMaintenanceButton.disabled = !active;
+}
+
+async function loadMaintenanceControlStatus() {
+  if (!isCurrentAdminGlobal()) {
+    setGlobalOnlyElementVisibility(maintenanceControlSection, false);
+    return null;
+  }
+
+  setGlobalOnlyElementVisibility(maintenanceControlSection, true);
+  const maintenanceSnap = await getDoc(doc(db, "system", MAINTENANCE_DOC_ID));
+  maintenanceControlState = maintenanceSnap.exists()
+    ? maintenanceSnap.data() || {}
+    : { active: false, message: "", scheduledEndText: "" };
+
+  // 旧「終了予定」の入力値が残っている場合も、新しい自由文入力へ引き継ぐ。
+  maintenanceMessageInput.value = maintenanceControlState.scheduledEndText
+    || maintenanceControlState.message
+    || "";
+  renderMaintenanceControlStatus(maintenanceControlState);
+  return maintenanceControlState;
+}
+
+async function updateMaintenanceMode(active) {
+  const actionLabel = active ? "メンテナンスを開始" : "メンテナンスを解除";
+  const confirmationLines = active
+    ? [
+        "支援員・利用者はメンテナンス画面へ移動し、業務データへアクセスできなくなります。",
+        "全体管理者・事業所管理者はメンテナンス中もアクセスできます。",
+        "作業完了後は必ずメンテナンスを解除してください。"
+      ]
+    : [
+        "支援員・利用者のアクセスを再開します。",
+        "本番作業と確認が完了していることを確認してください。"
+      ];
+
+  if (!confirmImportantAction(`${actionLabel}します`, confirmationLines)) {
+    setMaintenanceControlMessage(`${actionLabel}をキャンセルしました。`);
+    return;
+  }
+
+  const targetButton = active ? startMaintenanceButton : stopMaintenanceButton;
+
+  try {
+    setButtonLoading(targetButton, true, "更新中...", actionLabel);
+    await setMaintenanceMode({
+      active,
+      message: maintenanceMessageInput.value.trim(),
+      scheduledEndText: ""
+    });
+    await loadMaintenanceControlStatus();
+    setMaintenanceControlMessage(
+      active
+        ? "メンテナンスを開始しました。管理者以外のアクセスは停止されています。"
+        : "メンテナンスを解除し、通常公開へ戻しました。",
+      "green"
+    );
+  } catch (error) {
+    console.error("メンテナンス切り替えエラー:", error);
+    setMaintenanceControlMessage(`切り替えに失敗しました：${getAdminUserErrorMessage(error)}`, "red");
+  } finally {
+    setButtonLoading(targetButton, false, "更新中...", actionLabel);
+    renderMaintenanceControlStatus(maintenanceControlState);
+  }
 }
 
 function renderBillingSafetyStatus(data, options = {}) {
@@ -658,7 +1373,9 @@ async function updateBillingSafetyStatus(nextState, successMessage) {
 function buildRoleBadge(user) {
   const badge = document.createElement("span");
   badge.className = `admin-role-badge role-${user.role || "user"}`;
-  badge.textContent = getRoleLabel(user.role);
+  badge.textContent = user.role === "admin"
+    ? user.accessScope === "global" ? "全体管理者" : "事業所管理者"
+    : getRoleLabel(user.role);
   return badge;
 }
 
@@ -727,7 +1444,7 @@ function renderAdminUserCard(user) {
 
   const detail = document.createElement("div");
   detail.className = "admin-user-card-detail";
-  detail.textContent = `UID: ${user.id} / ${user.officeId || "-"} / ${user.groupId || "-"}`;
+  detail.textContent = `UID: ${user.id} / 会社: ${user.organizationId || user.groupId || "-"} / 事業所: ${user.officeId || "-"}`;
 
   const kanaRow = document.createElement("div");
   kanaRow.className = "admin-user-kana-row";
@@ -802,9 +1519,13 @@ function renderAdminUserList(users) {
   if (!users.length) {
     const empty = document.createElement("div");
     empty.className = "calendar-filter-empty";
-    empty.textContent = adminUserRoleFilter === "all"
+    const hasMembershipFilter = isCurrentAdminGlobal() && (
+      (adminUserOrganizationFilter?.value || "all") !== "all"
+      || (adminUserOfficeFilter?.value || "all") !== "all"
+    );
+    empty.textContent = adminUserRoleFilter === "all" && !hasMembershipFilter
       ? "登録ユーザーがいません。"
-      : `${getAdminUserRoleFilterLabel(adminUserRoleFilter)}に該当する登録ユーザーがいません。`;
+      : "選択した条件に該当する登録ユーザーがいません。";
     adminUserList.appendChild(empty);
     return;
   }
@@ -815,15 +1536,30 @@ function renderAdminUserList(users) {
 }
 
 function getFilteredAdminUsers() {
+  let users = adminUsersCache;
+
+  if (isCurrentAdminGlobal()) {
+    const organizationId = adminUserOrganizationFilter?.value || "all";
+    const officeId = adminUserOfficeFilter?.value || "all";
+
+    if (organizationId !== "all") {
+      users = users.filter((user) => getAdminUserOrganizationId(user) === organizationId);
+    }
+
+    if (officeId !== "all") {
+      users = users.filter((user) => officeIdsMatch(getAdminUserOfficeId(user), officeId));
+    }
+  }
+
   if (adminUserRoleFilter === "all") {
-    return adminUsersCache;
+    return users;
   }
 
   if (adminUserRoleFilter === "inactive") {
-    return adminUsersCache.filter((user) => user.active !== true);
+    return users.filter((user) => user.active !== true);
   }
 
-  return adminUsersCache.filter((user) => user.role === adminUserRoleFilter);
+  return users.filter((user) => user.role === adminUserRoleFilter);
 }
 
 function renderFilteredAdminUserList() {
@@ -848,14 +1584,31 @@ async function loadAdminUsers(options = {}) {
     adminUserList.textContent = "読み込み中...";
   }
 
-  const snapshot = await getDocs(collection(db, "users"));
+  const usersSource = isCurrentAdminGlobal()
+    ? collection(db, "users")
+    : query(
+        collection(db, "users"),
+        where("groupId", "==", getCurrentOrganizationId()),
+        where("officeId", "==", getCurrentOfficeId()),
+        where("role", "in", ["staff", "user"])
+      );
+  const snapshot = await getDocs(usersSource);
   const users = [];
 
   snapshot.forEach((docSnap) => {
-    users.push(normalizeAdminUser(docSnap.id, docSnap.data() || {}));
+    const normalizedUser = normalizeAdminUser(docSnap.id, docSnap.data() || {});
+    const sameOffice = officeIdsMatch(normalizedUser.officeId, getCurrentOfficeId());
+    const sameOrganization = !normalizedUser.organizationId
+      || normalizedUser.organizationId === getCurrentOrganizationId();
+    const isOfficeManageableRole = normalizedUser.role === "staff" || normalizedUser.role === "user";
+
+    if (isCurrentAdminGlobal() || (isOfficeManageableRole && sameOffice && sameOrganization)) {
+      users.push(normalizedUser);
+    }
   });
 
   adminUsersCache = sortAdminUsers(users);
+  syncAdminUserMembershipFilters();
   renderAdminUserSummary(adminUsersCache);
   renderFilteredAdminUserList();
 
@@ -874,8 +1627,9 @@ function resetAdminUserForm() {
   adminUserRole.value = "user";
   adminUserActive.checked = true;
   adminUserOfficeId.value = getCurrentOfficeId();
-  adminUserGroupId.value = getCurrentGroupId();
+  adminUserGroupId.value = getCurrentOrganizationId();
   setAdminUserCreateMode("auth");
+  applyAdminScopeToUserForm();
   setAdminUserMessage("");
 }
 
@@ -891,8 +1645,9 @@ function setAdminUserForm(user) {
   adminUserRole.value = user.role || "user";
   adminUserActive.checked = user.active === true;
   adminUserOfficeId.value = normalizeOfficeId(user.officeId || getCurrentOfficeId());
-  adminUserGroupId.value = user.groupId || getCurrentGroupId();
+  adminUserGroupId.value = user.organizationId || user.groupId || getCurrentOrganizationId();
   setAdminUserCreateMode("uid");
+  applyAdminScopeToUserForm();
   setAdminUserMessage("編集中です。保存すると users の情報を更新します。", "#555");
 }
 
@@ -916,14 +1671,52 @@ async function rebuildActiveUsersFromUsersCollection(options = {}) {
     .filter(Boolean)
     .sort(compareUsersBySortName);
 
-  await setDoc(doc(db, "system", ACTIVE_USERS_DOC_ID), {
-    officeId: getCurrentOfficeId(),
-    groupId: getCurrentGroupId(),
+  const officeId = getCurrentOfficeId();
+  const organizationId = getCurrentOrganizationId();
+  const isGlobalAdmin = isCurrentAdminGlobal();
+  const officeCachePayload = {
+    schemaVersion: 1,
+    officeId,
+    organizationId,
+    groupId: organizationId,
     users: activeUsers,
     updatedAt: serverTimestamp(),
     updatedByUid: currentUser?.uid || "",
     updatedByName: currentAdminData?.name || currentUser?.email || ""
-  }, { merge: true });
+  };
+
+  await setDoc(doc(db, "system", getActiveUsersDocId(officeId)), officeCachePayload, { merge: true });
+
+  if (isGlobalAdmin) {
+    const cacheRef = doc(db, "system", ACTIVE_USERS_DOC_ID);
+    const cacheSnap = await getDoc(cacheRef);
+    const currentData = cacheSnap.exists() ? cacheSnap.data() || {} : {};
+    const currentOffices = currentData.offices && typeof currentData.offices === "object"
+      ? currentData.offices
+      : {};
+    const cachePayload = {
+      // 既存画面との互換用。事業所別画面は下の offices を優先して参照する。
+      officeId,
+      groupId: organizationId,
+      users: activeUsers,
+      offices: {
+        ...currentOffices,
+        [officeId]: {
+          officeId,
+          organizationId,
+          groupId: organizationId,
+          users: activeUsers,
+          updatedAt: serverTimestamp(),
+          updatedByUid: currentUser?.uid || "",
+          updatedByName: currentAdminData?.name || currentUser?.email || ""
+        }
+      },
+      updatedAt: serverTimestamp(),
+      updatedByUid: currentUser?.uid || "",
+      updatedByName: currentAdminData?.name || currentUser?.email || ""
+    };
+    await setDoc(cacheRef, cachePayload, { merge: true });
+  }
 
   if (!options.silent) {
     setAdminUserMessage(`利用者一覧キャッシュを更新しました。Activeな利用者 ${activeUsers.length}人。`, "green");
@@ -975,6 +1768,7 @@ async function saveAdminUserWithAuth({ name, nameKana, sortName, email, role, ac
       password,
       role,
       active,
+      organizationId: groupId,
       officeId,
       groupId,
       weeklyReportStartWeek
@@ -1017,9 +1811,18 @@ async function saveAdminUser(event) {
   const email = adminUserEmail.value.trim();
   const role = adminUserRole.value;
   const active = adminUserActive.checked;
-  const officeId = normalizeOfficeId(adminUserOfficeId.value || getCurrentOfficeId());
-  const groupId = adminUserGroupId.value.trim() || getCurrentGroupId();
+  const officeId = isCurrentAdminGlobal()
+    ? normalizeOfficeId(adminUserOfficeId.value || getCurrentOfficeId())
+    : getCurrentOfficeId();
+  const groupId = isCurrentAdminGlobal()
+    ? adminUserGroupId.value.trim() || getCurrentOrganizationId()
+    : getCurrentOrganizationId();
   const sortName = buildUserSortName(nameKana, name || email || uid);
+
+  if (!isCurrentAdminGlobal() && role === "admin" && !editingAdminUserId) {
+    setAdminUserMessage("事業所管理者が登録できる権限は支援員・利用者です。", "red");
+    return;
+  }
 
   if (!editingAdminUserId && adminUserCreateMode === "auth") {
     await saveAdminUserWithAuth({
@@ -1086,7 +1889,9 @@ async function saveAdminUser(event) {
       sortName: sortName,
       email: email,
       role: role,
+      accessScope: role === "admin" ? "office" : role === "user" ? "self" : "office",
       active: active,
+      organizationId: groupId,
       officeId: officeId,
       groupId: groupId,
       updatedAt: serverTimestamp(),
@@ -1141,6 +1946,7 @@ async function toggleAdminUserActive(user) {
   try {
     await setDoc(doc(db, "users", user.id), {
       active: nextActive,
+      organizationId: user.organizationId || user.groupId || getCurrentOrganizationId(),
       officeId: normalizeOfficeId(user.officeId || getCurrentOfficeId()),
       updatedAt: serverTimestamp(),
       updatedByUid: currentUser?.uid || "",
@@ -1188,12 +1994,23 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    adminInfo.textContent = `管理者｜${userData.name || user.email}`;
+    if (!await enforceMaintenanceAccess(userData)) {
+      return;
+    }
+
+    const adminScopeLabel = userData.accessScope === "global" ? "全体管理者" : "事業所管理者";
+    adminInfo.textContent = userData.accessScope === "global"
+      ? `${adminScopeLabel}｜${userData.name || user.email}`
+      : adminScopeLabel;
+    await applyOfficeBrandName(userData);
     resetAdminUserForm();
     await Promise.all([
-      loadBillingSafetyStatus(),
+      isCurrentAdminGlobal() ? loadMaintenanceControlStatus() : Promise.resolve(null),
+      isCurrentAdminGlobal() ? loadBillingSafetyStatus() : Promise.resolve(null),
       loadAdminUsers(),
-      loadChatworkNavVisibility()
+      loadChatworkNavVisibility(),
+      isCurrentAdminGlobal() ? loadOrganizationManagement() : Promise.resolve(null),
+      isCurrentAdminGlobal() ? loadAdminAuditLogs() : Promise.resolve(null)
     ]);
   } catch (error) {
     console.error("Admin初期化エラー:", error);
@@ -1202,6 +2019,40 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 adminUserForm.addEventListener("submit", saveAdminUser);
+
+if (organizationForm) {
+  organizationForm.addEventListener("submit", saveOrganization);
+}
+
+if (officeForm) {
+  officeForm.addEventListener("submit", saveOffice);
+}
+
+if (officeAdminForm) {
+  officeAdminForm.addEventListener("submit", createOfficeAdmin);
+}
+
+if (reloadAdminAuditLogsButton) {
+  reloadAdminAuditLogsButton.addEventListener("click", async () => {
+    setButtonLoading(reloadAdminAuditLogsButton, true, "読み込み中...", "監査ログを再読み込み");
+    await loadAdminAuditLogs();
+    setButtonLoading(reloadAdminAuditLogsButton, false, "読み込み中...", "監査ログを再読み込み");
+  });
+}
+
+if (officeAdminOrganizationSelect) {
+  officeAdminOrganizationSelect.addEventListener("change", () => {
+    syncOfficeAdminOfficeOptions();
+  });
+}
+
+if (resetOrganizationButton) {
+  resetOrganizationButton.addEventListener("click", resetOrganizationForm);
+}
+
+if (resetOfficeButton) {
+  resetOfficeButton.addEventListener("click", resetOfficeForm);
+}
 
 resetAdminUserFormButton.addEventListener("click", () => {
   resetAdminUserForm();
@@ -1330,7 +2181,9 @@ if (testBillingLockedButton) {
 
 rebuildActiveUsersButton.addEventListener("click", async () => {
   const ok = confirmImportantAction("利用者一覧キャッシュを更新します", [
-    "users のActiveな利用者をもとに system/activeUsers を再作成します。",
+    isCurrentAdminGlobal()
+      ? "users のActiveな利用者をもとに全体・事業所別キャッシュを再作成します。"
+      : `自分の事業所 ${getCurrentOfficeId()} の利用者一覧キャッシュだけを再作成します。`,
     "停止中の利用者はActiveな利用者一覧から外れます。"
   ]);
 
@@ -1350,40 +2203,6 @@ rebuildActiveUsersButton.addEventListener("click", async () => {
   }
 });
 
-if (normalizeOfficeIdButton) {
-  normalizeOfficeIdButton.addEventListener("click", async () => {
-    const ok = confirmImportantAction("事業所IDを修正します", [
-      "旧ID engine_chiba の既存データを正しいID enzine_chiba に寄せます。",
-      "対象: users / monthlySchedules / weeklyReportUserStatus / monthlyAnnouncements / workshopResources / activeUsers",
-      "旧データは安全のためすぐには削除せず、新ID側へコピー・更新します。",
-      "実行後、利用者一覧キャッシュも更新されます。"
-    ]);
-
-    if (!ok) {
-      setAdminUserMessage("事業所ID修正をキャンセルしました。", "#555");
-      return;
-    }
-
-    try {
-      setButtonLoading(normalizeOfficeIdButton, true, "修正中...", "事業所ID修正");
-      const result = await migrateLegacyOfficeIdToEnzineChiba({});
-      await loadAdminUsers({ silent: true });
-      await rebuildActiveUsersFromUsersCollection({ silent: true });
-
-      const counts = result?.data?.counts || {};
-      setAdminUserMessage(
-        `事業所IDを修正しました。users ${counts.users || 0}件 / 月間予定 ${counts.monthlySchedules || 0}件 / 週一報告本文 ${counts.weeklyReports || 0}件 / 週一報告状態 ${counts.weeklyReportStatus || 0}件 / アナウンス ${counts.monthlyAnnouncements || 0}件 / ワークショップ ${counts.workshopResources || 0}件`,
-        "green"
-      );
-    } catch (error) {
-      console.error("事業所ID修正エラー:", error);
-      setAdminUserMessage(`事業所ID修正に失敗しました：${getAdminUserErrorMessage(error)}`, "red");
-    } finally {
-      setButtonLoading(normalizeOfficeIdButton, false, "修正中...", "事業所ID修正");
-    }
-  });
-}
-
 adminUserRoleFilterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setAdminUserRoleFilter(button.dataset.adminRoleFilter || "all");
@@ -1395,6 +2214,31 @@ adminUserCreateModeButtons.forEach((button) => {
     setAdminUserCreateMode(button.dataset.adminCreateMode || "uid");
   });
 });
+
+if (adminUserOrganizationFilter) {
+  adminUserOrganizationFilter.addEventListener("change", () => {
+    syncAdminUserMembershipFilters({ resetOffice: true });
+    renderFilteredAdminUserList();
+  });
+}
+
+if (startMaintenanceButton) {
+  startMaintenanceButton.addEventListener("click", () => {
+    updateMaintenanceMode(true);
+  });
+}
+
+if (stopMaintenanceButton) {
+  stopMaintenanceButton.addEventListener("click", () => {
+    updateMaintenanceMode(false);
+  });
+}
+
+if (adminUserOfficeFilter) {
+  adminUserOfficeFilter.addEventListener("change", () => {
+    renderFilteredAdminUserList();
+  });
+}
 
 if (openStaffPageButton) {
   openStaffPageButton.addEventListener("click", () => {
