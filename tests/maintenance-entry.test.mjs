@@ -34,15 +34,15 @@ test("maintenance admin entrance is hidden until active and checks the admin pro
   assert.match(portalJs, /onSnapshot\(/);
 });
 
-test("office login logo uses a validated display-only office id and hides missing images", async () => {
-  const [indexHtml, authJs] = await Promise.all([
+test("login and app use the single shared logo asset", async () => {
+  const [indexHtml, authJs, prepareScript] = await Promise.all([
     readSource("../index.html"),
-    readSource("../auth.js")
+    readSource("../auth.js"),
+    readSource("../scripts/prepare-production-hosting.mjs")
   ]);
 
-  assert.match(indexHtml, /id="loginBrandLogo"/);
-  assert.match(authJs, /\^\[a-z0-9\]\[a-z0-9_-\]\{0,79\}\$/i);
-  assert.match(authJs, /office-logos\/\$\{officeId\}\.png/);
-  assert.match(authJs, /addEventListener\("error", \(\) => setElementHidden\(loginBrandLogo, true\)/);
-  assert.doesNotMatch(authJs, /userData\.(?:officeId|organizationId)\s*=/);
+  assert.match(indexHtml, /src="enzine_icon\.png"/);
+  assert.doesNotMatch(indexHtml, /id="loginBrandLogo"|[?&]office=/);
+  assert.doesNotMatch(authJs, /office-logos|applyOfficeLoginLogo|loginBrandLogo|URLSearchParams/);
+  assert.doesNotMatch(prepareScript, /office-logos|getOfficeLogoFiles|readdir/);
 });

@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>利用者ページ | enzine Schedule</title>
+  <script src="ui-mode-bootstrap.js?v=1"></script>
   <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
-  <link rel="stylesheet" href="style.css?v=83">
+  <link rel="stylesheet" href="style.css?v=124">
 </head>
 <body class="app-shell-body">
   <!-- STEP2_FIXED_20260620_V30 -->
@@ -39,7 +40,6 @@
           <div class="app-settings-panel">
             <div class="app-settings-panel-title">設定</div>
             <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
-            <div class="app-settings-note">表示設定などは今後追加予定です。</div>
           </div>
         </details>
       </div>
@@ -47,7 +47,7 @@
 
     <nav class="page-tab-nav user-page-tab-nav" aria-label="利用者メニュー">
       <a class="page-tab-button active" href="user.html">予定</a>
-      <a class="page-tab-button" href="weekly-report.html">週一報告</a>
+      <a class="page-tab-button user-weekly-report-nav-link" href="weekly-report.html">週一報告<span class="user-nav-notification-badge hidden" data-weekly-report-nav-badge hidden>0</span></a>
       <a class="page-tab-button" href="workshops.html">ワークショップ・教材</a>
     </nav>
 
@@ -106,20 +106,60 @@
         <button id="nextWeekButton" type="button" class="sub-button">次週 ＞</button>
       </div>
 
-      <div class="calendar-filter-box">
-        <div class="calendar-filter-title">表示する日</div>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showAllDaysCheckbox" checked>
-          全体
-        </label>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showUseDaysCheckbox">
-          利用日
-        </label>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showAnnouncementDaysCheckbox">
-          アナウンス
-        </label>
+      <div id="calendarFilterBox" class="calendar-filter-box calendar-filter-box-with-action">
+        <div class="calendar-filter-heading-row">
+          <div id="calendarFilterTitle" class="calendar-filter-title">表示する日</div>
+          <button id="calendarBulkRegisterButton" type="button" class="small-button calendar-bulk-register-button">一括登録</button>
+        </div>
+        <div id="calendarDisplayFilterControls" class="calendar-filter-options">
+          <label class="calendar-filter-label">
+            <input type="checkbox" id="showAllDaysCheckbox" checked>
+            全体
+          </label>
+          <label class="calendar-filter-label">
+            <input type="checkbox" id="showUseDaysCheckbox">
+            利用日
+          </label>
+          <label class="calendar-filter-label">
+            <input type="checkbox" id="showAnnouncementDaysCheckbox">
+            アナウンス
+          </label>
+        </div>
+        <div id="calendarBulkControls" class="calendar-bulk-controls hidden" hidden>
+          <div class="calendar-bulk-choice-groups">
+            <fieldset class="calendar-bulk-choice-group">
+              <legend>予定</legend>
+              <label class="calendar-bulk-choice-label">
+                <input type="checkbox" id="calendarBulkStatusComing" value="通所">
+                通所
+              </label>
+              <label class="calendar-bulk-choice-label">
+                <input type="checkbox" id="calendarBulkStatusHome" value="在宅">
+                在宅
+              </label>
+            </fieldset>
+            <fieldset class="calendar-bulk-choice-group">
+              <legend>時間帯</legend>
+              <label class="calendar-bulk-choice-label">
+                <input type="checkbox" id="calendarBulkTimeAll" value="終日">
+                終日
+              </label>
+              <label class="calendar-bulk-choice-label">
+                <input type="checkbox" id="calendarBulkTimeMorning" value="午前">
+                午前
+              </label>
+              <label class="calendar-bulk-choice-label">
+                <input type="checkbox" id="calendarBulkTimeAfternoon" value="午後">
+                午後
+              </label>
+            </fieldset>
+          </div>
+          <div class="calendar-bulk-footer">
+            <div id="calendarBulkSelectedCount" class="calendar-bulk-selected-count" aria-live="polite">選択中：0日</div>
+            <button id="calendarBulkCancelButton" type="button" class="sub-button calendar-bulk-cancel-button">キャンセル</button>
+          </div>
+        </div>
+        <div id="calendarBulkAlert" class="calendar-action-toast hidden" role="alert" aria-live="assertive" hidden></div>
       </div>
 
       <div id="calendarWeekHeader" class="calendar-week-header weekday-calendar-header">
@@ -133,23 +173,6 @@
       <div id="monthlyCalendar" class="monthly-calendar weekday-calendar">
         読み込み中...
       </div>
-    </section>
-
-    <section class="quick-link-box weekly-report-entry-box">
-      <div class="section-heading-row">
-        <h2>週一報告</h2>
-      </div>
-      <div id="weeklyReportHomeStatus" class="weekly-report-home-status">
-        週一報告の未記入状況を確認中...
-      </div>
-      <a class="resource-page-button weekly-report-page-button" href="weekly-report.html">週一報告を書く</a>
-    </section>
-
-    <section class="quick-link-box resource-link-entry-box">
-      <div class="section-heading-row">
-        <h2>ワークショップ・教材</h2>
-      </div>
-      <a class="resource-page-button" href="workshops.html">ワークショップ・教材を見る</a>
     </section>
 
     <p id="message"></p>
@@ -211,6 +234,6 @@
     </div>
   </div>
 
-  <script type="module" src="schedule.js?v=90"></script>
+  <script type="module" src="schedule.js?v=97"></script>
 </body>
 </html>

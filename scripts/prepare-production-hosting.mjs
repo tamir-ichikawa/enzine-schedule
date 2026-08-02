@@ -3,7 +3,6 @@ import {
   copyFile,
   lstat,
   mkdir,
-  readdir,
   readFile,
   rm,
   unlink,
@@ -34,6 +33,7 @@ const publicFiles = [
   "staff.html",
   "staff.js",
   "style.css",
+  "ui-mode-bootstrap.js",
   "ui-common.js",
   "user.html",
   "weekly-report.html",
@@ -79,16 +79,6 @@ async function copyPublicFile(relativePath, manifest) {
   });
 }
 
-async function getOfficeLogoFiles() {
-  const logosRoot = path.join(projectRoot, "office-logos");
-  const entries = await readdir(logosRoot, { withFileTypes: true });
-
-  return entries
-    .filter((entry) => entry.isFile() && /^[a-z0-9][a-z0-9_-]{0,79}\.png$/i.test(entry.name))
-    .map((entry) => path.join("office-logos", entry.name))
-    .sort((a, b) => a.localeCompare(b, "en"));
-}
-
 const publicRootRelative = path.relative(projectRoot, publicRoot);
 
 if (publicRootRelative.startsWith("..") || path.isAbsolute(publicRootRelative)) {
@@ -104,9 +94,8 @@ await unlink(path.join(deployRoot, "hosting-manifest.json")).catch((error) => {
 await mkdir(publicRoot, { recursive: true });
 
 const manifest = [];
-const officeLogoFiles = await getOfficeLogoFiles();
 
-for (const relativePath of [...publicFiles, ...officeLogoFiles]) {
+for (const relativePath of publicFiles) {
   await copyPublicFile(relativePath, manifest);
 }
 

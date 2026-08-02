@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>管理者ページ | Enzine Schedule</title>
+  <script src="ui-mode-bootstrap.js?v=1"></script>
   <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
-  <link rel="stylesheet" href="style.css?v=98">
+  <link rel="stylesheet" href="style.css?v=124">
 </head>
 <body class="app-shell-body">
   <!-- STEP41_ADMIN_USER_MANAGEMENT_20260622_V71 -->
@@ -32,34 +33,51 @@
       <div class="app-topbar-actions admin-topbar-actions">
         <div class="app-current-section" aria-label="現在のページ">管理者</div>
         <div class="admin-top-nav" aria-label="管理者用ページ切り替え">
-          <button type="button" class="admin-top-nav-button active" aria-current="page">利用者管理</button>
+          <button type="button" class="admin-top-nav-button active" aria-current="page">管理画面</button>
           <button id="openStaffPageButton" type="button" class="admin-top-nav-button">支援員ページ</button>
           <button id="openChatworkPageButton" type="button" class="admin-top-nav-button hidden">Chatwork</button>
         </div>
+        <nav id="adminSectionNav" class="admin-section-nav" aria-label="管理画面メニュー">
+          <div class="admin-section-nav-group">
+            <button type="button" class="admin-section-nav-button active" data-admin-section="manage" aria-expanded="true">登録・編集</button>
+            <div id="adminManageSubnav" class="admin-manage-subnav" aria-label="登録・編集メニュー">
+              <button type="button" class="admin-manage-subnav-button active" data-admin-manage-panel="user">ユーザー</button>
+              <button type="button" class="admin-manage-subnav-button hidden" data-admin-manage-panel="organization" data-global-admin-only hidden>運営会社</button>
+              <button type="button" class="admin-manage-subnav-button hidden" data-admin-manage-panel="office" data-global-admin-only hidden>事業所</button>
+              <button type="button" class="admin-manage-subnav-button hidden" data-admin-manage-panel="office-admin" data-global-admin-only hidden>管理者発行</button>
+            </div>
+          </div>
+          <button type="button" class="admin-section-nav-button" data-admin-section="summary">ユーザー数</button>
+          <button type="button" class="admin-section-nav-button hidden" data-admin-section="maintenance" data-global-admin-only hidden>メンテナンス設定</button>
+          <button type="button" class="admin-section-nav-button hidden" data-admin-section="billing" data-global-admin-only hidden>課金安全チェック</button>
+          <button type="button" class="admin-section-nav-button hidden" data-admin-section="audit" data-global-admin-only hidden>管理監査ログ</button>
+        </nav>
         <details class="app-settings-menu">
           <summary class="app-settings-button" aria-label="設定メニュー">⚙</summary>
           <div class="app-settings-panel">
             <div class="app-settings-panel-title">設定</div>
             <button id="logoutButton" type="button" class="app-settings-logout-button">ログアウト</button>
-            <div class="app-settings-note">管理者だけが開ける利用者管理ページです。</div>
+            <div class="app-settings-note">管理者だけが開ける管理画面です。</div>
           </div>
         </details>
       </div>
     </header>
 
-    <section id="organizationManagementSection" class="monthly-calendar-box organization-management-box hidden" hidden>
+    <section id="organizationManagementSection" class="monthly-calendar-box organization-management-box admin-content-panel hidden" data-admin-manage-content="organization" hidden>
       <div class="section-heading-row">
-        <h2>運営会社・事業所管理</h2>
-        <p class="calendar-guide">全体管理者だけが、運営会社、所属事業所、事業所管理者アカウントを設定できます。</p>
+        <h2>運営会社</h2>
+        <p class="calendar-guide">登録済みの会社を選んで編集するか、新しい運営会社を登録できます。</p>
       </div>
-
       <div class="organization-management-notice">
-        IDは所属を表す固定値です。運営会社名・事業所名は後から変更しても、既存ユーザーの所属IDは変わりません。
+        運営会社IDは所属を表す固定値です。運営会社名は後から変更しても、既存ユーザーの所属IDは変わりません。
       </div>
-
-      <div class="organization-management-grid">
+      <div class="organization-editor-layout">
+        <div class="organization-management-list-pane">
+          <h3>登録済み運営会社</h3>
+          <div id="organizationList" class="organization-management-list">読み込み中...</div>
+        </div>
         <form id="organizationForm" class="organization-management-card">
-          <h3>運営会社</h3>
+          <h3>編集・新規入力</h3>
           <label>
             運営会社ID
             <input id="organizationIdInput" type="text" autocomplete="off" placeholder="例：enzine" pattern="[a-z0-9][a-z0-9_-]{1,79}">
@@ -72,7 +90,7 @@
             利用状態
             <span class="admin-active-toggle">
               <input id="organizationActiveInput" type="checkbox" checked>
-              Active
+              利用中
             </span>
           </label>
           <div class="admin-form-actions">
@@ -80,9 +98,25 @@
             <button id="resetOrganizationButton" type="button" class="sub-button">新規入力</button>
           </div>
         </form>
+      </div>
+      <p id="organizationManagementMessage" class="user-schedule-message" aria-live="polite"></p>
+    </section>
 
+    <section id="officeManagementSection" class="monthly-calendar-box organization-management-box admin-content-panel hidden" data-admin-manage-content="office" hidden>
+      <div class="section-heading-row">
+        <h2>事業所</h2>
+        <p class="calendar-guide">登録済みの事業所を選んで編集するか、新しい事業所を登録できます。</p>
+      </div>
+      <div class="organization-management-notice">
+        事業所IDは所属を表す固定値です。事業所名は後から変更しても、既存ユーザーの所属IDは変わりません。
+      </div>
+      <div class="organization-editor-layout">
+        <div class="organization-management-list-pane">
+          <h3>登録済み事業所</h3>
+          <div id="officeList" class="organization-management-list">読み込み中...</div>
+        </div>
         <form id="officeForm" class="organization-management-card">
-          <h3>事業所</h3>
+          <h3>編集・新規入力</h3>
           <label>
             運営会社
             <select id="officeOrganizationSelect"></select>
@@ -99,7 +133,7 @@
             利用状態
             <span class="admin-active-toggle">
               <input id="officeActiveInput" type="checkbox" checked>
-              Active
+              利用中
             </span>
           </label>
           <div class="admin-form-actions">
@@ -107,7 +141,20 @@
             <button id="resetOfficeButton" type="button" class="sub-button">新規入力</button>
           </div>
         </form>
+      </div>
+      <p id="officeManagementMessage" class="user-schedule-message" aria-live="polite"></p>
+    </section>
 
+    <section id="officeAdminManagementSection" class="monthly-calendar-box organization-management-box admin-content-panel hidden" data-admin-manage-content="office-admin" hidden>
+      <div class="section-heading-row">
+        <h2>管理者発行</h2>
+        <p class="calendar-guide">事業所管理者はここから新規発行します。</p>
+      </div>
+      <div class="organization-editor-layout">
+        <div class="organization-management-list-pane">
+          <h3>登録済み管理者</h3>
+          <div id="officeAdminList" class="organization-management-list">読み込み中...</div>
+        </div>
         <form id="officeAdminForm" class="organization-management-card">
           <h3>事業所管理者を発行</h3>
           <label>
@@ -137,22 +184,10 @@
           <button id="createOfficeAdminButton" type="submit">事業所管理者を発行</button>
         </form>
       </div>
-
-      <p id="organizationManagementMessage" class="user-schedule-message" aria-live="polite"></p>
-
-      <div class="organization-management-lists">
-        <div>
-          <h3>登録済み運営会社</h3>
-          <div id="organizationList" class="organization-management-list">読み込み中...</div>
-        </div>
-        <div>
-          <h3>登録済み事業所・管理者</h3>
-          <div id="officeList" class="organization-management-list">読み込み中...</div>
-        </div>
-      </div>
+      <p id="officeAdminManagementMessage" class="user-schedule-message" aria-live="polite"></p>
     </section>
 
-    <section id="maintenanceControlSection" class="monthly-calendar-box admin-maintenance-box hidden" hidden>
+    <section id="maintenanceControlSection" class="monthly-calendar-box admin-maintenance-box admin-content-panel hidden" data-admin-section-content="maintenance" hidden>
       <div class="section-heading-row">
         <h2>サイトメンテナンス</h2>
         <p class="calendar-guide">全体管理者だけが切り替えできます。メンテナンス中も管理者は通常どおりアクセスできます。</p>
@@ -174,7 +209,7 @@
       <p id="maintenanceControlMessage" class="user-schedule-message" aria-live="polite"></p>
     </section>
 
-    <section id="adminAuditLogSection" class="monthly-calendar-box admin-audit-log-box hidden" hidden>
+    <section id="adminAuditLogSection" class="monthly-calendar-box admin-audit-log-box admin-content-panel hidden" data-admin-section-content="audit" hidden>
       <div class="section-heading-row">
         <h2>管理監査ログ</h2>
         <p class="calendar-guide">全体管理者だけが直近の管理操作を確認できます。氏名・メール・パスワード・入力文章は保存しません。</p>
@@ -187,7 +222,7 @@
       <p id="adminAuditLogMessage" class="user-schedule-message" aria-live="polite"></p>
     </section>
 
-    <section id="adminBillingSafetySection" class="monthly-calendar-box admin-billing-safety-box hidden" hidden>
+    <section id="adminBillingSafetySection" class="monthly-calendar-box admin-billing-safety-box admin-content-panel hidden" data-admin-section-content="billing" hidden>
       <div class="section-heading-row">
         <h2>課金安全チェック</h2>
         <p class="calendar-guide">予算アラート連携用の安全状態を確認します。現時点では表示のみで、既存機能は止めません。</p>
@@ -205,10 +240,25 @@
       </div>
     </section>
 
-    <section class="monthly-calendar-box admin-summary-box">
+    <section id="adminUserSummarySection" class="monthly-calendar-box admin-summary-box admin-content-panel hidden" data-admin-section-content="summary" hidden>
       <div class="section-heading-row">
-        <h2>利用者管理</h2>
-        <p class="calendar-guide">Authユーザーの新規作成、または作成済みUIDの登録で、表示名・権限・利用可否を管理します。</p>
+        <h2>ユーザー数</h2>
+        <p class="calendar-guide">ユーザー数と利用状況を確認できます。</p>
+      </div>
+
+      <div id="adminUserMembershipFilters" class="admin-user-membership-filters hidden" aria-label="会社と事業所の表示フィルター" hidden>
+        <label>
+          運営会社
+          <select id="adminUserOrganizationFilter">
+            <option value="all">すべての会社</option>
+          </select>
+        </label>
+        <label>
+          事業所
+          <select id="adminUserOfficeFilter">
+            <option value="all">すべての事業所</option>
+          </select>
+        </label>
       </div>
 
       <div id="adminUserSummary" class="operation-check-result admin-user-summary">
@@ -216,23 +266,22 @@
       </div>
     </section>
 
-    <div class="admin-user-layout">
+    <div class="admin-user-layout admin-content-panel" data-admin-manage-content="user">
       <section class="login-box admin-user-form-box">
         <div class="section-heading-row">
-          <h2 id="adminUserFormTitle">利用者を追加</h2>
-          <p id="adminUserFormGuide" class="calendar-guide">新規ユーザー登録を基本にし、Firebase Authで作成済みの利用者だけ既存UIDを紐づけます。</p>
+          <h2 id="adminUserFormTitle">ユーザー追加</h2>
         </div>
 
         <div id="adminUserCreateModeToggle" class="calendar-view-toggle admin-create-mode-toggle hidden" aria-label="登録方法の切り替え" hidden>
           <button type="button" class="view-toggle-button active" data-admin-create-mode="auth">新規ユーザー登録</button>
-          <button type="button" class="view-toggle-button" data-admin-create-mode="uid">既存UIDを紐づけ</button>
+          <button type="button" class="view-toggle-button" data-admin-create-mode="uid">既存アカウント</button>
         </div>
         <p id="adminUserCreateModeNote" class="admin-create-mode-note">メールアドレスと初期パスワードでログインアカウントを作成し、利用者情報も同時に登録します。</p>
 
         <form id="adminUserForm" class="admin-user-form">
           <label id="adminUserUidLabel">
-            既存UID
-            <input type="text" id="adminUserUid" autocomplete="off" placeholder="Firebase Auth の UID">
+            アカウントID
+            <input type="text" id="adminUserUid" autocomplete="off" placeholder="既存アカウントのID">
           </label>
 
           <label>
@@ -269,7 +318,7 @@
               利用状態
               <span class="admin-active-toggle">
                 <input type="checkbox" id="adminUserActive" checked>
-                Active
+                利用中
               </span>
             </label>
           </div>
@@ -281,7 +330,7 @@
             </label>
 
             <label id="adminUserGroupIdLabel">
-              運営会社ID（互換groupId）
+              運営会社ID
               <input type="text" id="adminUserGroupId" autocomplete="off">
             </label>
           </div>
@@ -300,27 +349,12 @@
       <section class="monthly-calendar-box admin-user-list-box">
         <div class="section-heading-row">
           <h2>登録ユーザー</h2>
-          <p class="calendar-guide">名前を選ぶと左のフォームで編集できます。</p>
+          <p class="calendar-guide">「編集」から登録内容を変更できます。</p>
         </div>
 
         <div class="admin-user-list-tools">
           <button id="reloadAdminUsersButton" type="button" class="small-button">再読み込み</button>
-          <button id="rebuildActiveUsersButton" type="button" class="small-button">利用者一覧キャッシュ更新</button>
-        </div>
-
-        <div id="adminUserMembershipFilters" class="admin-user-membership-filters hidden" aria-label="会社と事業所の表示フィルター" hidden>
-          <label>
-            運営会社
-            <select id="adminUserOrganizationFilter">
-              <option value="all">すべての会社</option>
-            </select>
-          </label>
-          <label>
-            事業所
-            <select id="adminUserOfficeFilter">
-              <option value="all">すべての事業所</option>
-            </select>
-          </label>
+          <button id="rebuildActiveUsersButton" type="button" class="small-button">利用者一覧を更新</button>
         </div>
 
         <div class="calendar-view-toggle admin-role-filter-toggle" aria-label="登録ユーザーの表示フィルター">
@@ -338,6 +372,6 @@
     </div>
   </main>
 
-  <script type="module" src="admin.js?v=103"></script>
+  <script type="module" src="admin.js?v=109"></script>
 </body>
 </html>

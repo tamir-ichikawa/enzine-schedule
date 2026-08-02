@@ -14,7 +14,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
-import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
+import { applyOfficeBrandName, enforceMaintenanceAccess, restoreWeeklyReportNavPendingCount, setupSettingsMenuClose } from "./ui-common.js?v=89";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読・ロック表示を安定化
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
@@ -995,6 +995,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     await applyOfficeBrandName(currentUserData);
+    restoreWeeklyReportNavPendingCount(user.uid);
     weeklyReportUserInfo.textContent = `${currentUserData.name || user.email}さん`;
 
     baseLastWeekStartDate = getLastCompletedWeekStartDate();

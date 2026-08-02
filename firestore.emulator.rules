@@ -282,15 +282,24 @@ service cloud.firestore {
           || (hasActiveProfile() && sameMembership(resource.data))
         );
       allow create: if isGlobalAdmin()
-        || (isOfficeOperator() && sameMembership(request.resource.data));
+        || (
+          isOfficeOperator()
+          && callerOfficeDocumentId(announcementId)
+          && sameMembership(request.resource.data)
+        );
       allow update: if isGlobalAdmin()
         || (
           isOfficeOperator()
+          && callerOfficeDocumentId(announcementId)
           && sameMembership(resource.data)
           && sameMembership(request.resource.data)
         );
       allow delete: if isGlobalAdmin()
-        || (isOfficeOperator() && sameMembership(resource.data));
+        || (
+          isOfficeOperator()
+          && callerOfficeDocumentId(announcementId)
+          && sameMembership(resource.data)
+        );
     }
 
     match /system/{systemId} {

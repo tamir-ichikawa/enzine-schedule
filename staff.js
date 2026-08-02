@@ -32,7 +32,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db, functions } from "./firebase-config.js";
-import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=89";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：週一報告の既読互換と表示漏れ修正
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告の対象期間を月〜金に調整
@@ -48,6 +48,8 @@ const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
+const STAFF_OFFICE_SCOPE_PARAM = "officeId";
+const STAFF_OFFICE_SCOPE_STORAGE_KEY = "enzineGlobalStaffOfficeId";
 const WEEKLY_REPORT_START_WEEK = "2026-06-15";
 const WEEKLY_REPORT_STATUS_COLLECTION = "weeklyReportUserStatus";
 const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
@@ -59,6 +61,7 @@ const DAILY_TIME_SLOT_ORDER = {
   "終日": 3
 };
 const getChatworkConsoleData = httpsCallable(functions, "getChatworkConsoleData");
+const getOrganizationManagementData = httpsCallable(functions, "getOrganizationManagementData");
 
 function getActiveUsersDocId(officeId) {
   return `${ACTIVE_USERS_DOC_ID}_${String(officeId || "").trim()}`;
@@ -144,6 +147,9 @@ const openAdminPageButton = document.getElementById("openAdminPageButton");
 const openChatworkPageButton = document.getElementById("openChatworkPageButton");
 const staffAdminTopNav = document.getElementById("staffAdminTopNav");
 const staffChatworkTopNav = document.getElementById("staffChatworkTopNav");
+const staffOfficeScopeBar = document.getElementById("staffOfficeScopeBar");
+const staffOfficeScopeSelect = document.getElementById("staffOfficeScopeSelect");
+const staffOfficeScopeStatus = document.getElementById("staffOfficeScopeStatus");
 const message = document.getElementById("message");
 const billingSafetyNotice = document.getElementById("billingSafetyNotice");
 const loadStaffDashboardButton = document.getElementById("loadStaffDashboardButton");
@@ -201,6 +207,8 @@ const nextUserScheduleMonthButton = document.getElementById("nextUserScheduleMon
 const userScheduleMonthLabel = document.getElementById("userScheduleMonthLabel");
 const userScheduleSelect = document.getElementById("userScheduleSelect");
 const userScheduleUserList = document.getElementById("userScheduleUserList");
+const userScheduleUserSearchInput = document.getElementById("userScheduleUserSearchInput");
+const clearUserScheduleUserSearchButton = document.getElementById("clearUserScheduleUserSearchButton");
 const userScheduleCalendarViewButton = document.getElementById("userScheduleCalendarViewButton");
 const userScheduleListViewButton = document.getElementById("userScheduleListViewButton");
 const userScheduleWeekViewButton = document.getElementById("userScheduleWeekViewButton");
@@ -212,6 +220,24 @@ const userScheduleCalendarWeekHeader = document.getElementById("userScheduleCale
 const userScheduleCalendar = document.getElementById("userScheduleCalendar");
 const userScheduleMessage = document.getElementById("userScheduleMessage");
 const showOnlyUseDaysUserScheduleCheckbox = document.getElementById("showOnlyUseDaysUserScheduleCheckbox");
+const showAnnouncementsUserScheduleCheckbox = document.getElementById("showAnnouncementsUserScheduleCheckbox");
+const userScheduleFilterBox = document.getElementById("userScheduleFilterBox");
+const userScheduleFilterTitle = document.getElementById("userScheduleFilterTitle");
+const userScheduleDisplayFilterControls = document.getElementById("userScheduleDisplayFilterControls");
+const userScheduleBulkControls = document.getElementById("userScheduleBulkControls");
+const userScheduleBulkRegisterButton = document.getElementById("userScheduleBulkRegisterButton");
+const userScheduleBulkCancelButton = document.getElementById("userScheduleBulkCancelButton");
+const userScheduleBulkStatusCheckboxes = [
+  document.getElementById("userScheduleBulkStatusComing"),
+  document.getElementById("userScheduleBulkStatusHome")
+].filter(Boolean);
+const userScheduleBulkTimeCheckboxes = [
+  document.getElementById("userScheduleBulkTimeAll"),
+  document.getElementById("userScheduleBulkTimeMorning"),
+  document.getElementById("userScheduleBulkTimeAfternoon")
+].filter(Boolean);
+const userScheduleBulkSelectedCount = document.getElementById("userScheduleBulkSelectedCount");
+const userScheduleBulkAlert = document.getElementById("userScheduleBulkAlert");
 const refreshActiveUsersButton = document.getElementById("refreshActiveUsersButton");
 
 
@@ -311,6 +337,7 @@ const resetAnnouncementFormButton = document.getElementById("resetAnnouncementFo
 const announcementFormTitle = document.getElementById("announcementFormTitle");
 
 let currentStaffData = null;
+let selectedStaffOfficeContext = null;
 let selectedAnnouncementDate = null;
 let announcementsByDate = {};
 let currentEditingAnnouncementId = "";
@@ -332,6 +359,7 @@ let displayedAnnouncementMonth = new Date().getMonth();
 
 // 利用者別 月間予定表示
 let activeUserListCache = null;
+let userScheduleUserSearchQuery = "";
 let selectedUserScheduleId = "";
 let selectedUserScheduleData = null;
 let individualUserMonthlyScheduleCache = {};
@@ -342,6 +370,10 @@ let displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUs
 let currentEditingUserMonthlySchedule = null;
 let selectedUserScheduleEditDate = "";
 let shouldRefreshDailySchedulesAfterEdit = false;
+let isUserScheduleBulkRegistrationActive = false;
+let userScheduleBulkSelectedDateIds = new Set();
+let userScheduleFilterStateBeforeBulkRegistration = null;
+let userScheduleBulkAlertTimer = null;
 
 // STEP3_FIXED_20260620_V31：週一報告管理用の状態
 let displayedStaffWeeklyReportWeekStartDate = null;
@@ -457,12 +489,16 @@ function weekIntersectsMonth(weekStartDate, year, month) {
 
 function getDefaultWeekStartForMonth(year, month) {
   const today = new Date();
+  const baseDate = today.getFullYear() === year && today.getMonth() === month
+    ? today
+    : new Date(year, month, 1);
+  const weekStart = getWeekStartDate(baseDate);
 
-  if (today.getFullYear() === year && today.getMonth() === month) {
-    return getWeekStartDate(today);
+  if (weekIntersectsMonth(weekStart, year, month)) {
+    return weekStart;
   }
 
-  return getWeekStartDate(new Date(year, month, 1));
+  return new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7);
 }
 
 function getWeekRangeLabel(weekStartDate) {
@@ -508,6 +544,45 @@ function isUseDay(dayData) {
   return dayData?.status === "通所" || dayData?.status === "在宅";
 }
 
+function shouldShowUserScheduleAnnouncements() {
+  return showAnnouncementsUserScheduleCheckbox?.checked !== false;
+}
+
+function getUserScheduleAnnouncementsForDate(dateId) {
+  if (!shouldShowUserScheduleAnnouncements()) {
+    return [];
+  }
+
+  return sortAnnouncements(announcementsByDate[dateId] || [])
+    .filter((announcement) => announcement.active !== false);
+}
+
+function appendUserScheduleAnnouncements(container, dateId, options = {}) {
+  const dayAnnouncements = getUserScheduleAnnouncementsForDate(dateId);
+
+  if (dayAnnouncements.length === 0) {
+    return 0;
+  }
+
+  const listMode = options.listMode === true;
+  const announcementArea = document.createElement("div");
+  announcementArea.className = listMode
+    ? "calendar-list-announcements staff-user-schedule-announcements"
+    : "calendar-announcement-area staff-user-schedule-announcements";
+
+  dayAnnouncements.forEach((announcement) => {
+    const category = announcement.category || "notice";
+    const title = announcement.title || "お知らせ";
+    const item = document.createElement("div");
+    item.className = `${listMode ? "calendar-list-announcement" : "calendar-announcement-title"} category-${category}`;
+    item.textContent = `${getAnnouncementIcon(category)} ${listMode ? title : shortenText(title, options.maxLength || 8)}`;
+    announcementArea.appendChild(item);
+  });
+
+  container.appendChild(announcementArea);
+  return dayAnnouncements.length;
+}
+
 function calculateWorkDayCountFromDays(days = {}) {
   return Object.values(days).filter((dayData) => isUseDay(dayData)).length;
 }
@@ -526,10 +601,311 @@ function updateUserScheduleViewButtons() {
   }
 
   updateUserScheduleWeekNavigationVisibility();
+  updateUserScheduleBulkRegistrationUi();
 }
 
 function isUserScheduleUseOnlyMode() {
   return showOnlyUseDaysUserScheduleCheckbox?.checked === true;
+}
+
+function setUserScheduleBulkControlVisibility(element, isHidden) {
+  if (!element) {
+    return;
+  }
+
+  element.hidden = isHidden;
+  element.classList.toggle("hidden", isHidden);
+}
+
+function hideUserScheduleBulkAlert() {
+  if (userScheduleBulkAlertTimer) {
+    window.clearTimeout(userScheduleBulkAlertTimer);
+    userScheduleBulkAlertTimer = null;
+  }
+
+  if (!userScheduleBulkAlert) {
+    return;
+  }
+
+  userScheduleBulkAlert.textContent = "";
+  userScheduleBulkAlert.classList.remove("error", "success");
+  setUserScheduleBulkControlVisibility(userScheduleBulkAlert, true);
+}
+
+function showUserScheduleBulkAlert(text, type = "error", autoHideMs = 0) {
+  if (!userScheduleBulkAlert) {
+    return;
+  }
+
+  if (userScheduleBulkAlertTimer) {
+    window.clearTimeout(userScheduleBulkAlertTimer);
+    userScheduleBulkAlertTimer = null;
+  }
+
+  userScheduleBulkAlert.textContent = text;
+  userScheduleBulkAlert.classList.remove("error", "success");
+  userScheduleBulkAlert.classList.add(type === "success" ? "success" : "error");
+  setUserScheduleBulkControlVisibility(userScheduleBulkAlert, false);
+
+  if (autoHideMs > 0) {
+    userScheduleBulkAlertTimer = window.setTimeout(() => {
+      hideUserScheduleBulkAlert();
+    }, autoHideMs);
+  }
+}
+
+function getCheckedUserScheduleBulkValue(checkboxes) {
+  return checkboxes.find((checkbox) => checkbox.checked)?.value || "";
+}
+
+function clearUserScheduleBulkChoices() {
+  [...userScheduleBulkStatusCheckboxes, ...userScheduleBulkTimeCheckboxes].forEach((checkbox) => {
+    checkbox.checked = false;
+  });
+}
+
+function updateUserScheduleBulkSelectedCount() {
+  if (userScheduleBulkSelectedCount) {
+    userScheduleBulkSelectedCount.textContent = `選択中：${userScheduleBulkSelectedDateIds.size}日`;
+  }
+}
+
+function updateUserScheduleBulkRegistrationUi() {
+  const canUseBulkRegistration = currentUserScheduleViewMode === "calendar" && Boolean(selectedUserScheduleId);
+
+  if (userScheduleBulkRegisterButton) {
+    setUserScheduleBulkControlVisibility(userScheduleBulkRegisterButton, !canUseBulkRegistration);
+    userScheduleBulkRegisterButton.textContent = isUserScheduleBulkRegistrationActive ? "登録完了" : "一括登録";
+  }
+
+  if (userScheduleFilterTitle) {
+    userScheduleFilterTitle.textContent = isUserScheduleBulkRegistrationActive
+      ? "勤務する日を複数選択してください"
+      : "表示する日";
+  }
+
+  setUserScheduleBulkControlVisibility(userScheduleDisplayFilterControls, isUserScheduleBulkRegistrationActive);
+  setUserScheduleBulkControlVisibility(userScheduleBulkControls, !isUserScheduleBulkRegistrationActive);
+  userScheduleFilterBox?.classList.toggle("bulk-registration-active", isUserScheduleBulkRegistrationActive);
+  updateUserScheduleBulkSelectedCount();
+}
+
+async function startUserScheduleBulkRegistration() {
+  if (currentUserScheduleViewMode !== "calendar" || !selectedUserScheduleId) {
+    return;
+  }
+
+  userScheduleFilterStateBeforeBulkRegistration = {
+    showOnlyUseDays: showOnlyUseDaysUserScheduleCheckbox?.checked === true,
+    showAnnouncements: showAnnouncementsUserScheduleCheckbox?.checked !== false
+  };
+
+  if (showOnlyUseDaysUserScheduleCheckbox) {
+    showOnlyUseDaysUserScheduleCheckbox.checked = false;
+  }
+
+  isUserScheduleBulkRegistrationActive = true;
+  userScheduleBulkSelectedDateIds = new Set();
+  clearUserScheduleBulkChoices();
+  hideUserScheduleBulkAlert();
+  updateUserScheduleBulkRegistrationUi();
+  await loadUserMonthlyScheduleView();
+}
+
+function exitUserScheduleBulkRegistration(options = {}) {
+  const restoreFilters = options.restoreFilters !== false;
+  const hideAlert = options.hideAlert !== false;
+
+  if (restoreFilters && userScheduleFilterStateBeforeBulkRegistration) {
+    if (showOnlyUseDaysUserScheduleCheckbox) {
+      showOnlyUseDaysUserScheduleCheckbox.checked = userScheduleFilterStateBeforeBulkRegistration.showOnlyUseDays;
+    }
+    if (showAnnouncementsUserScheduleCheckbox) {
+      showAnnouncementsUserScheduleCheckbox.checked = userScheduleFilterStateBeforeBulkRegistration.showAnnouncements;
+    }
+  }
+
+  isUserScheduleBulkRegistrationActive = false;
+  userScheduleBulkSelectedDateIds = new Set();
+  userScheduleFilterStateBeforeBulkRegistration = null;
+  clearUserScheduleBulkChoices();
+  if (hideAlert) {
+    hideUserScheduleBulkAlert();
+  }
+  updateUserScheduleBulkRegistrationUi();
+}
+
+function toggleUserScheduleBulkDate(dateId, dayCell) {
+  hideUserScheduleBulkAlert();
+
+  if (userScheduleBulkSelectedDateIds.has(dateId)) {
+    userScheduleBulkSelectedDateIds.delete(dateId);
+    dayCell.classList.remove("bulk-registration-selected");
+    dayCell.setAttribute("aria-pressed", "false");
+  } else {
+    userScheduleBulkSelectedDateIds.add(dateId);
+    dayCell.classList.add("bulk-registration-selected");
+    dayCell.setAttribute("aria-pressed", "true");
+  }
+
+  updateUserScheduleBulkSelectedCount();
+}
+
+function applyUserScheduleBulkDayState(dayCell, dateId) {
+  if (!isUserScheduleBulkRegistrationActive) {
+    return;
+  }
+
+  dayCell.classList.add("bulk-registration-selectable");
+  dayCell.setAttribute("role", "button");
+  dayCell.setAttribute("tabindex", "0");
+  dayCell.setAttribute("aria-label", `${formatJapaneseDate(dateId)}を一括登録の対象にする`);
+  dayCell.setAttribute("aria-pressed", userScheduleBulkSelectedDateIds.has(dateId) ? "true" : "false");
+  dayCell.classList.toggle("bulk-registration-selected", userScheduleBulkSelectedDateIds.has(dateId));
+
+  dayCell.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    toggleUserScheduleBulkDate(dateId, dayCell);
+  });
+}
+
+function bindExclusiveUserScheduleBulkCheckboxes(checkboxes) {
+  checkboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      if (!checkbox.checked) {
+        return;
+      }
+
+      checkboxes.forEach((otherCheckbox) => {
+        if (otherCheckbox !== checkbox) {
+          otherCheckbox.checked = false;
+        }
+      });
+
+      hideUserScheduleBulkAlert();
+
+      if (userScheduleMessage) {
+        userScheduleMessage.textContent = "";
+      }
+    });
+  });
+}
+
+async function saveUserScheduleBulkRegistration() {
+  const status = getCheckedUserScheduleBulkValue(userScheduleBulkStatusCheckboxes);
+  const timeSlot = getCheckedUserScheduleBulkValue(userScheduleBulkTimeCheckboxes);
+
+  if (!status) {
+    userScheduleMessage.textContent = "通所または在宅を選択してください。";
+    showUserScheduleBulkAlert(userScheduleMessage.textContent, "error");
+    return;
+  }
+
+  if (!timeSlot) {
+    userScheduleMessage.textContent = "終日・午前・午後のいずれかを選択してください。";
+    showUserScheduleBulkAlert(userScheduleMessage.textContent, "error");
+    return;
+  }
+
+  if (userScheduleBulkSelectedDateIds.size === 0) {
+    userScheduleMessage.textContent = "勤務する日を1日以上選択してください。";
+    showUserScheduleBulkAlert(userScheduleMessage.textContent, "error");
+    return;
+  }
+
+  if (!selectedUserScheduleId) {
+    userScheduleMessage.textContent = "一括登録する利用者を選択してください。";
+    showUserScheduleBulkAlert(userScheduleMessage.textContent, "error");
+    return;
+  }
+
+  const monthId = formatMonthId(displayedUserScheduleYear, displayedUserScheduleMonth);
+  const selectedDateIds = [...userScheduleBulkSelectedDateIds].sort();
+
+  try {
+    userScheduleBulkRegisterButton.disabled = true;
+    if (userScheduleBulkCancelButton) {
+      userScheduleBulkCancelButton.disabled = true;
+    }
+    userScheduleBulkRegisterButton.textContent = "登録中...";
+
+    const monthlySchedule = await getSelectedUserMonthlySchedule(displayedUserScheduleYear, displayedUserScheduleMonth);
+
+    if (!monthlySchedule) {
+      throw new Error("保存対象の月間予定が見つかりません。");
+    }
+
+    const days = { ...(monthlySchedule.days || {}) };
+    const updatedAt = new Date().toISOString();
+
+    selectedDateIds.forEach((dateId) => {
+      days[dateId] = {
+        status: status,
+        timeSlot: timeSlot,
+        memo: days[dateId]?.memo || "",
+        updatedAt: updatedAt
+      };
+    });
+
+    const selectedUser = selectedUserScheduleData || {
+      id: monthlySchedule.userId || selectedUserScheduleId,
+      name: monthlySchedule.userName || "名前未設定",
+      email: monthlySchedule.userEmail || "",
+      officeId: normalizeOfficeId(monthlySchedule.officeId || getCurrentOfficeId()),
+      groupId: monthlySchedule.groupId || getCurrentGroupId()
+    };
+    const updatedMonthlySchedule = {
+      id: monthlySchedule.id || `${selectedUser.id}_${monthId}`,
+      _missingDoc: false,
+      userId: selectedUser.id,
+      userName: selectedUser.name || monthlySchedule.userName || "名前未設定",
+      userEmail: selectedUser.email || monthlySchedule.userEmail || "",
+      officeId: normalizeOfficeId(selectedUser.officeId || monthlySchedule.officeId || getCurrentOfficeId()),
+      groupId: selectedUser.groupId || monthlySchedule.groupId || getCurrentGroupId(),
+      month: monthId,
+      days: days,
+      workDayCount: calculateWorkDayCountFromDays(days)
+    };
+
+    await setDoc(doc(db, "monthlySchedules", updatedMonthlySchedule.id), {
+      userId: updatedMonthlySchedule.userId,
+      userName: updatedMonthlySchedule.userName,
+      userEmail: updatedMonthlySchedule.userEmail,
+      officeId: updatedMonthlySchedule.officeId,
+      groupId: updatedMonthlySchedule.groupId,
+      month: updatedMonthlySchedule.month,
+      days: updatedMonthlySchedule.days,
+      workDayCount: updatedMonthlySchedule.workDayCount,
+      updatedAt: serverTimestamp(),
+      updatedByUid: currentUser?.uid || "",
+      updatedByName: currentStaffData?.name || currentUser?.email || ""
+    });
+
+    const cacheKey = `${updatedMonthlySchedule.userId}_${monthId}`;
+    individualUserMonthlyScheduleCache[cacheKey] = updatedMonthlySchedule;
+    currentEditingUserMonthlySchedule = updatedMonthlySchedule;
+    syncSingleMonthlyScheduleIntoStaffMonthlyCache(updatedMonthlySchedule);
+
+    exitUserScheduleBulkRegistration({ restoreFilters: true, hideAlert: false });
+    await loadUserMonthlyScheduleView();
+    userScheduleMessage.textContent = `${updatedMonthlySchedule.userName}さんの予定を${selectedDateIds.length}日分、一括登録しました。勤務日数：${updatedMonthlySchedule.workDayCount}日`;
+    showUserScheduleBulkAlert(`${selectedDateIds.length}日分の予定を一括登録しました。`, "success", 4500);
+    console.log(`[Read節約] ${updatedMonthlySchedule.id} の予定を${selectedDateIds.length}日分、monthlySchedules 1 writeで一括登録しました。`);
+  } catch (error) {
+    console.error("支援員による利用者予定の一括登録エラー:", error);
+    userScheduleMessage.textContent = `一括登録に失敗しました：${error.code || error.message}`;
+    showUserScheduleBulkAlert(userScheduleMessage.textContent, "error");
+  } finally {
+    userScheduleBulkRegisterButton.disabled = false;
+    if (userScheduleBulkCancelButton) {
+      userScheduleBulkCancelButton.disabled = false;
+    }
+    updateUserScheduleBulkRegistrationUi();
+  }
 }
 
 
@@ -550,12 +926,24 @@ function formatJapaneseDate(dateId) {
   return `${Number(parts[1])}月${Number(parts[2])}日`;
 }
 
+function isCurrentStaffGlobalAdmin() {
+  return currentStaffData?.role === "admin" && currentStaffData?.accessScope === "global";
+}
+
 function getCurrentOfficeId() {
+  if (isCurrentStaffGlobalAdmin() && selectedStaffOfficeContext?.officeId) {
+    return normalizeOfficeId(selectedStaffOfficeContext.officeId);
+  }
+
   return normalizeOfficeId(currentStaffData?.officeId);
 }
 
 function getCurrentGroupId() {
-  return currentStaffData?.groupId || DEFAULT_GROUP_ID;
+  if (isCurrentStaffGlobalAdmin() && selectedStaffOfficeContext?.organizationId) {
+    return selectedStaffOfficeContext.organizationId;
+  }
+
+  return currentStaffData?.organizationId || currentStaffData?.groupId || DEFAULT_GROUP_ID;
 }
 
 function normalizeOfficeId(officeId) {
@@ -576,6 +964,135 @@ function getCompatibleOfficeIds(officeId = getCurrentOfficeId()) {
   return [DEFAULT_OFFICE_ID, ...LEGACY_OFFICE_IDS].filter((value, index, list) => {
     return value && list.indexOf(value) === index;
   });
+}
+
+function getStoredStaffOfficeId() {
+  try {
+    return sessionStorage.getItem(STAFF_OFFICE_SCOPE_STORAGE_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function storeStaffOfficeId(officeId) {
+  try {
+    sessionStorage.setItem(STAFF_OFFICE_SCOPE_STORAGE_KEY, officeId);
+  } catch (error) {
+    console.warn("操作対象事業所をこのタブに保存できませんでした。", error);
+  }
+}
+
+function setStaffOfficeScopeUrl(officeId, options = {}) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(STAFF_OFFICE_SCOPE_PARAM, officeId);
+
+  const activeTab = document.querySelector("[data-staff-tab].active")?.dataset.staffTab;
+  if (activeTab) {
+    url.searchParams.set("tab", activeTab);
+  }
+
+  if (options.reload) {
+    window.location.assign(url.toString());
+    return;
+  }
+
+  window.history.replaceState({}, "", url.toString());
+}
+
+function renderStaffOfficeScope(offices) {
+  if (!staffOfficeScopeBar || !staffOfficeScopeSelect || !staffOfficeScopeStatus) {
+    return;
+  }
+
+  staffOfficeScopeSelect.replaceChildren();
+
+  offices.forEach((office) => {
+    const option = document.createElement("option");
+    option.value = office.officeId;
+    option.textContent = office.name;
+    option.selected = office.officeId === selectedStaffOfficeContext?.officeId;
+    staffOfficeScopeSelect.appendChild(option);
+  });
+
+  staffOfficeScopeSelect.disabled = offices.length < 2;
+  staffOfficeScopeStatus.textContent = selectedStaffOfficeContext
+    ? `${selectedStaffOfficeContext.name} のデータを表示・保存します。`
+    : "操作できる事業所がありません。";
+  staffOfficeScopeBar.classList.remove("hidden");
+}
+
+async function initializeGlobalAdminOfficeScope() {
+  if (!isCurrentStaffGlobalAdmin()) {
+    selectedStaffOfficeContext = null;
+    staffOfficeScopeBar?.classList.add("hidden");
+    return;
+  }
+
+  const profileOfficeId = normalizeOfficeId(currentStaffData?.officeId);
+  const profileOrganizationId = currentStaffData?.organizationId
+    || currentStaffData?.groupId
+    || DEFAULT_GROUP_ID;
+  selectedStaffOfficeContext = {
+    officeId: profileOfficeId,
+    organizationId: profileOrganizationId,
+    name: currentStaffData?.officeName || currentStaffData?.officeDisplayName || ""
+  };
+
+  try {
+    const result = await getOrganizationManagementData({});
+    const officeMap = new Map();
+
+    (Array.isArray(result?.data?.offices) ? result.data.offices : [])
+      .filter((office) => office?.active === true)
+      .forEach((office) => {
+        const officeId = normalizeOfficeId(office.id);
+        officeMap.set(officeId, {
+          officeId,
+          organizationId: office.organizationId || office.groupId || DEFAULT_GROUP_ID,
+          name: String(office.name || officeId).trim() || officeId
+        });
+      });
+
+    const offices = Array.from(officeMap.values())
+      .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+
+    if (!offices.length) {
+      renderStaffOfficeScope([]);
+      return;
+    }
+
+    const urlOfficeId = new URLSearchParams(window.location.search).get(STAFF_OFFICE_SCOPE_PARAM) || "";
+    const requestedOfficeId = normalizeOfficeId(urlOfficeId || getStoredStaffOfficeId() || profileOfficeId);
+    selectedStaffOfficeContext = offices.find((office) => office.officeId === requestedOfficeId)
+      || offices.find((office) => office.officeId === profileOfficeId)
+      || offices[0];
+
+    storeStaffOfficeId(selectedStaffOfficeContext.officeId);
+    setStaffOfficeScopeUrl(selectedStaffOfficeContext.officeId);
+    renderStaffOfficeScope(offices);
+
+    staffOfficeScopeSelect.onchange = () => {
+      const selectedOffice = offices.find((office) => office.officeId === staffOfficeScopeSelect.value);
+      if (!selectedOffice || selectedOffice.officeId === selectedStaffOfficeContext?.officeId) {
+        return;
+      }
+
+      storeStaffOfficeId(selectedOffice.officeId);
+      setStaffOfficeScopeUrl(selectedOffice.officeId, { reload: true });
+    };
+  } catch (error) {
+    console.error("操作対象事業所の読み込みに失敗しました。", error);
+
+    if (staffOfficeScopeBar && staffOfficeScopeSelect && staffOfficeScopeStatus) {
+      const option = document.createElement("option");
+      option.value = profileOfficeId;
+      option.textContent = currentStaffData?.officeName || currentStaffData?.officeDisplayName || profileOfficeId;
+      staffOfficeScopeSelect.replaceChildren(option);
+      staffOfficeScopeSelect.disabled = true;
+      staffOfficeScopeStatus.textContent = "事業所一覧を読み込めないため、現在の所属事業所を表示します。";
+      staffOfficeScopeBar.classList.remove("hidden");
+    }
+  }
 }
 
 function officeIdsMatch(a, b) {
@@ -1952,12 +2469,26 @@ function renderUserScheduleUserList(users) {
 
   userScheduleUserList.innerHTML = "";
 
-  if (users.length === 0) {
-    userScheduleUserList.innerHTML = `<div class="staff-user-button-empty">表示できる利用者がいません。</div>`;
+  const normalizedQuery = String(userScheduleUserSearchQuery || "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("ja")
+    .replace(/\s+/g, "");
+  const visibleUsers = normalizedQuery
+    ? users.filter((user) => {
+      const searchableName = `${user.name || ""}${user.nameKana || ""}`
+        .normalize("NFKC")
+        .toLocaleLowerCase("ja")
+        .replace(/\s+/g, "");
+      return searchableName.includes(normalizedQuery);
+    })
+    : users;
+
+  if (visibleUsers.length === 0) {
+    userScheduleUserList.innerHTML = `<div class="staff-user-button-empty">${users.length > 0 ? "検索に一致する利用者がいません。" : "表示できる利用者がいません。"}</div>`;
     return;
   }
 
-  users.forEach((user) => {
+  visibleUsers.forEach((user) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "staff-user-name-button";
@@ -1969,6 +2500,10 @@ function renderUserScheduleUserList(users) {
     }
 
     button.addEventListener("click", async () => {
+      if (isUserScheduleBulkRegistrationActive) {
+        exitUserScheduleBulkRegistration({ restoreFilters: true });
+      }
+
       selectedUserScheduleId = user.id;
       selectedUserScheduleData = user;
 
@@ -1985,9 +2520,25 @@ function renderUserScheduleUserList(users) {
   });
 }
 
+function setUserScheduleUserSearchQuery(value) {
+  userScheduleUserSearchQuery = String(value || "");
+  const hasQuery = Boolean(userScheduleUserSearchQuery.trim());
+
+  if (clearUserScheduleUserSearchButton) {
+    clearUserScheduleUserSearchButton.hidden = !hasQuery;
+    clearUserScheduleUserSearchButton.classList.toggle("hidden", !hasQuery);
+  }
+
+  renderUserScheduleUserList(activeUserListCache || []);
+}
+
 function renderUserSchedulePlaceholder(text = "利用者を選択すると、月間予定が表示されます。") {
   if (!userScheduleCalendar) {
     return;
+  }
+
+  if (isUserScheduleBulkRegistrationActive) {
+    exitUserScheduleBulkRegistration({ restoreFilters: true });
   }
 
   updateUserScheduleViewButtons();
@@ -2109,7 +2660,12 @@ async function loadUserMonthlyScheduleView() {
   userScheduleCalendar.textContent = "読み込み中...";
 
   try {
-    const monthlySchedule = await getSelectedUserMonthlySchedule(displayedUserScheduleYear, displayedUserScheduleMonth);
+    const [monthlySchedule] = await Promise.all([
+      getSelectedUserMonthlySchedule(displayedUserScheduleYear, displayedUserScheduleMonth),
+      shouldShowUserScheduleAnnouncements()
+        ? loadMonthlyAnnouncements(displayedUserScheduleYear, displayedUserScheduleMonth)
+        : Promise.resolve(null)
+    ]);
 
     if (currentUserScheduleViewMode === "list") {
       renderUserMonthlyScheduleList(monthlySchedule, displayedUserScheduleYear, displayedUserScheduleMonth);
@@ -2216,7 +2772,16 @@ function renderUserMonthlyScheduleCalendar(monthlySchedule, year, month) {
       dayCell.appendChild(memoEl);
     }
 
+    appendUserScheduleAnnouncements(dayCell, dateId, { maxLength: 8 });
+
+    applyUserScheduleBulkDayState(dayCell, dateId);
+
     dayCell.addEventListener("click", () => {
+      if (isUserScheduleBulkRegistrationActive) {
+        toggleUserScheduleBulkDate(dateId, dayCell);
+        return;
+      }
+
       openUserScheduleEditModal(dateId);
     });
 
@@ -2297,6 +2862,8 @@ function renderUserMonthlyScheduleWeek(monthlySchedule, year, month) {
       dayCell.appendChild(memoEl);
     }
 
+    appendUserScheduleAnnouncements(dayCell, dateId, { maxLength: 12 });
+
     dayCell.addEventListener("click", () => {
       openUserScheduleEditModal(dateId);
     });
@@ -2359,7 +2926,16 @@ function renderUserMonthlyScheduleList(monthlySchedule, year, month) {
 
     const dateText = document.createElement("div");
     dateText.className = "staff-user-schedule-list-date";
-    dateText.textContent = `${month + 1}月${day}日（${getJapaneseWeekday(targetDateObj)}）`;
+    const dateLabel = document.createElement("span");
+    dateLabel.textContent = `${month + 1}月${day}日（${getJapaneseWeekday(targetDateObj)}）`;
+    dateText.appendChild(dateLabel);
+
+    if (dayData?.timeSlot) {
+      const timeSlotText = document.createElement("span");
+      timeSlotText.className = "calendar-list-time-slot";
+      timeSlotText.textContent = `時間帯：${dayData.timeSlot}`;
+      dateText.appendChild(timeSlotText);
+    }
     header.appendChild(dateText);
 
     const statusText = document.createElement("div");
@@ -2369,25 +2945,19 @@ function renderUserMonthlyScheduleList(monthlySchedule, year, month) {
 
     dayItem.appendChild(header);
 
-    if (dayData?.timeSlot || dayData?.memo) {
+    if (dayData?.memo) {
       const detail = document.createElement("div");
       detail.className = "staff-user-schedule-list-detail";
 
-      if (dayData.timeSlot) {
-        const time = document.createElement("div");
-        time.textContent = `時間帯：${dayData.timeSlot}`;
-        detail.appendChild(time);
-      }
-
-      if (dayData.memo) {
-        const memo = document.createElement("div");
-        memo.className = "staff-user-schedule-list-memo";
-        memo.textContent = `メモ：${dayData.memo}`;
-        detail.appendChild(memo);
-      }
+      const memo = document.createElement("div");
+      memo.className = "staff-user-schedule-list-memo";
+      memo.textContent = `メモ：${dayData.memo}`;
+      detail.appendChild(memo);
 
       dayItem.appendChild(detail);
     }
+
+    appendUserScheduleAnnouncements(dayItem, dateId, { listMode: true });
 
     dayItem.addEventListener("click", () => {
       openUserScheduleEditModal(dateId);
@@ -4074,20 +4644,6 @@ function renderAnnouncementListViewFromCache(year, month) {
 
         card.appendChild(title);
 
-        if (announcement.timeText) {
-          const time = document.createElement("div");
-          time.className = "staff-announcement-list-card-time";
-          time.textContent = announcement.timeText;
-          card.appendChild(time);
-        }
-
-        if (announcement.body) {
-          const body = document.createElement("div");
-          body.className = "staff-announcement-list-card-body";
-          body.textContent = announcement.body;
-          card.appendChild(body);
-        }
-
         announcementArea.appendChild(card);
       });
 
@@ -5540,8 +6096,22 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    await applyOfficeBrandName(userData);
-    staffInfo.textContent = `支援員｜${userData.name}`;
+    await initializeGlobalAdminOfficeScope();
+    await applyOfficeBrandName({
+      ...userData,
+      officeId: getCurrentOfficeId(),
+      organizationId: getCurrentGroupId(),
+      groupId: getCurrentGroupId(),
+      officeName: selectedStaffOfficeContext?.name || ""
+    });
+
+    if (isCurrentStaffGlobalAdmin()) {
+      staffInfo.textContent = `全体管理者｜${userData.name || user.email}`;
+    } else if (userData.role === "admin") {
+      staffInfo.textContent = "事業所管理者";
+    } else {
+      staffInfo.textContent = `支援員｜${userData.name || user.email}`;
+    }
 
     if (staffAdminTopNav && userData.role === "admin") {
       staffAdminTopNav.classList.remove("hidden");
@@ -5762,12 +6332,18 @@ if (userScheduleCalendarViewButton) {
 
 if (userScheduleListViewButton) {
   userScheduleListViewButton.addEventListener("click", async () => {
+    if (isUserScheduleBulkRegistrationActive) {
+      exitUserScheduleBulkRegistration({ restoreFilters: true });
+    }
     currentUserScheduleViewMode = "list";
     await loadUserMonthlyScheduleView();
   });
 }
 if (userScheduleWeekViewButton) {
   userScheduleWeekViewButton.addEventListener("click", async () => {
+    if (isUserScheduleBulkRegistrationActive) {
+      exitUserScheduleBulkRegistration({ restoreFilters: true });
+    }
     currentUserScheduleViewMode = "week";
 
     // 週間表示へ切り替えた最初の表示は、必ずその月の基準週に戻す。
@@ -5786,9 +6362,8 @@ async function changeDisplayedUserScheduleWeek(weekOffset) {
     displayedUserScheduleWeekStartDate.getDate() + weekOffset * 7
   );
 
-  // Read節約のため、週移動は現在読み込んでいる月の範囲内だけで行う。
   if (!weekIntersectsMonth(nextWeekStart, displayedUserScheduleYear, displayedUserScheduleMonth)) {
-    return;
+    setDisplayedUserScheduleMonth(nextWeekStart.getFullYear(), nextWeekStart.getMonth());
   }
 
   displayedUserScheduleWeekStartDate = nextWeekStart;
@@ -5810,6 +6385,9 @@ if (nextUserScheduleWeekButton) {
 
 if (prevUserScheduleMonthButton) {
   prevUserScheduleMonthButton.addEventListener("click", async () => {
+    if (isUserScheduleBulkRegistrationActive) {
+      exitUserScheduleBulkRegistration({ restoreFilters: true });
+    }
     setDisplayedUserScheduleMonth(displayedUserScheduleYear, displayedUserScheduleMonth - 1);
     displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
     await loadUserMonthlyScheduleView();
@@ -5818,6 +6396,9 @@ if (prevUserScheduleMonthButton) {
 
 if (nextUserScheduleMonthButton) {
   nextUserScheduleMonthButton.addEventListener("click", async () => {
+    if (isUserScheduleBulkRegistrationActive) {
+      exitUserScheduleBulkRegistration({ restoreFilters: true });
+    }
     setDisplayedUserScheduleMonth(displayedUserScheduleYear, displayedUserScheduleMonth + 1);
     displayedUserScheduleWeekStartDate = getDefaultWeekStartForMonth(displayedUserScheduleYear, displayedUserScheduleMonth);
     await loadUserMonthlyScheduleView();
@@ -5826,6 +6407,39 @@ if (nextUserScheduleMonthButton) {
 
 if (showOnlyUseDaysUserScheduleCheckbox) {
   showOnlyUseDaysUserScheduleCheckbox.addEventListener("change", async () => {
+    await loadUserMonthlyScheduleView();
+  });
+}
+
+if (showAnnouncementsUserScheduleCheckbox) {
+  showAnnouncementsUserScheduleCheckbox.addEventListener("change", async () => {
+    await loadUserMonthlyScheduleView();
+  });
+}
+
+bindExclusiveUserScheduleBulkCheckboxes(userScheduleBulkStatusCheckboxes);
+bindExclusiveUserScheduleBulkCheckboxes(userScheduleBulkTimeCheckboxes);
+
+if (userScheduleBulkRegisterButton) {
+  userScheduleBulkRegisterButton.addEventListener("click", async () => {
+    if (isUserScheduleBulkRegistrationActive) {
+      await saveUserScheduleBulkRegistration();
+    } else {
+      await startUserScheduleBulkRegistration();
+    }
+  });
+}
+
+if (userScheduleBulkCancelButton) {
+  userScheduleBulkCancelButton.addEventListener("click", async () => {
+    if (!isUserScheduleBulkRegistrationActive) {
+      return;
+    }
+
+    if (userScheduleMessage) {
+      userScheduleMessage.textContent = "";
+    }
+    exitUserScheduleBulkRegistration({ restoreFilters: true });
     await loadUserMonthlyScheduleView();
   });
 }
@@ -5867,6 +6481,22 @@ if (refreshActiveUsersButton) {
       refreshActiveUsersButton.disabled = false;
       refreshActiveUsersButton.textContent = "利用者一覧を更新";
     }
+  });
+}
+
+if (userScheduleUserSearchInput) {
+  userScheduleUserSearchInput.addEventListener("input", () => {
+    setUserScheduleUserSearchQuery(userScheduleUserSearchInput.value);
+  });
+}
+
+if (clearUserScheduleUserSearchButton) {
+  clearUserScheduleUserSearchButton.addEventListener("click", () => {
+    if (userScheduleUserSearchInput) {
+      userScheduleUserSearchInput.value = "";
+      userScheduleUserSearchInput.focus();
+    }
+    setUserScheduleUserSearchQuery("");
   });
 }
 

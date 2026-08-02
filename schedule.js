@@ -20,7 +20,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
-import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setWeeklyReportNavPendingCount, setupSettingsMenuClose } from "./ui-common.js?v=89";
 
 // STEP7_WEEKLY_REPORT_STABILITY_20260620_V36：返信既読フィールドの互換対応
 // STEP9_WEEKLY_REPORT_WEEKDAY_START_20260620_V38：週一報告は2026-06-15週の月〜金から開始
@@ -83,6 +83,23 @@ const currentWeekLabel = document.getElementById("currentWeekLabel");
 const showAllDaysCheckbox = document.getElementById("showAllDaysCheckbox");
 const showUseDaysCheckbox = document.getElementById("showUseDaysCheckbox");
 const showAnnouncementDaysCheckbox = document.getElementById("showAnnouncementDaysCheckbox");
+const calendarFilterBox = document.getElementById("calendarFilterBox");
+const calendarFilterTitle = document.getElementById("calendarFilterTitle");
+const calendarDisplayFilterControls = document.getElementById("calendarDisplayFilterControls");
+const calendarBulkControls = document.getElementById("calendarBulkControls");
+const calendarBulkRegisterButton = document.getElementById("calendarBulkRegisterButton");
+const calendarBulkCancelButton = document.getElementById("calendarBulkCancelButton");
+const calendarBulkStatusCheckboxes = [
+  document.getElementById("calendarBulkStatusComing"),
+  document.getElementById("calendarBulkStatusHome")
+].filter(Boolean);
+const calendarBulkTimeCheckboxes = [
+  document.getElementById("calendarBulkTimeAll"),
+  document.getElementById("calendarBulkTimeMorning"),
+  document.getElementById("calendarBulkTimeAfternoon")
+].filter(Boolean);
+const calendarBulkSelectedCount = document.getElementById("calendarBulkSelectedCount");
+const calendarBulkAlert = document.getElementById("calendarBulkAlert");
 const todayAnnouncements = document.getElementById("todayAnnouncements");
 const todayScheduleBox = document.getElementById("todayScheduleBox");
 const todayScheduleText = document.getElementById("todayScheduleText");
@@ -119,6 +136,10 @@ let currentMonth = initialDate.getMonth();
 // calendar = 7列カレンダー / list = 1日ごとの縦リスト
 let currentViewMode = "calendar";
 let currentWeekStartDate = getDefaultWeekStartForMonth(currentYear, currentMonth);
+let isCalendarBulkRegistrationActive = false;
+let calendarBulkSelectedDateIds = new Set();
+let calendarFilterStateBeforeBulkRegistration = null;
+let calendarBulkAlertTimer = null;
 
 // Step 2：一度読んだ月はここに保存する。
 // 同じ月に戻ったときは Firestore を再読み込みしない。
@@ -209,12 +230,16 @@ function weekIntersectsMonth(weekStartDate, year, month) {
 
 function getDefaultWeekStartForMonth(year, month) {
   const today = new Date();
+  const baseDate = today.getFullYear() === year && today.getMonth() === month
+    ? today
+    : new Date(year, month, 1);
+  const weekStart = getWeekStartDate(baseDate);
 
-  if (today.getFullYear() === year && today.getMonth() === month) {
-    return getWeekStartDate(today);
+  if (weekIntersectsMonth(weekStart, year, month)) {
+    return weekStart;
   }
 
-  return getWeekStartDate(new Date(year, month, 1));
+  return new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7);
 }
 
 function getWeekRangeLabel(weekStartDate) {
@@ -392,6 +417,7 @@ function updateViewModeButtons() {
   }
 
   updateWeekNavigationVisibility();
+  updateCalendarBulkRegistrationUi();
 }
 
 function renderCurrentCalendarView(year, month) {
@@ -1279,6 +1305,302 @@ function refreshCalendarByFilter(changedCheckbox) {
   renderCurrentCalendarView(currentYear, currentMonth);
 }
 
+function setBulkControlVisibility(element, isHidden) {
+  if (!element) {
+    return;
+  }
+
+  element.hidden = isHidden;
+  element.classList.toggle("hidden", isHidden);
+}
+
+function hideCalendarBulkAlert() {
+  if (calendarBulkAlertTimer) {
+    window.clearTimeout(calendarBulkAlertTimer);
+    calendarBulkAlertTimer = null;
+  }
+
+  if (!calendarBulkAlert) {
+    return;
+  }
+
+  calendarBulkAlert.textContent = "";
+  calendarBulkAlert.classList.remove("error", "success");
+  setBulkControlVisibility(calendarBulkAlert, true);
+}
+
+function showCalendarBulkAlert(text, type = "error", autoHideMs = 0) {
+  if (!calendarBulkAlert) {
+    return;
+  }
+
+  if (calendarBulkAlertTimer) {
+    window.clearTimeout(calendarBulkAlertTimer);
+    calendarBulkAlertTimer = null;
+  }
+
+  calendarBulkAlert.textContent = text;
+  calendarBulkAlert.classList.remove("error", "success");
+  calendarBulkAlert.classList.add(type === "success" ? "success" : "error");
+  setBulkControlVisibility(calendarBulkAlert, false);
+
+  if (autoHideMs > 0) {
+    calendarBulkAlertTimer = window.setTimeout(() => {
+      hideCalendarBulkAlert();
+    }, autoHideMs);
+  }
+}
+
+function getCheckedBulkValue(checkboxes) {
+  return checkboxes.find((checkbox) => checkbox.checked)?.value || "";
+}
+
+function clearCalendarBulkChoices() {
+  [...calendarBulkStatusCheckboxes, ...calendarBulkTimeCheckboxes].forEach((checkbox) => {
+    checkbox.checked = false;
+  });
+}
+
+function updateCalendarBulkSelectedCount() {
+  if (calendarBulkSelectedCount) {
+    calendarBulkSelectedCount.textContent = `選択中：${calendarBulkSelectedDateIds.size}日`;
+  }
+}
+
+function updateCalendarBulkRegistrationUi() {
+  const isMonthlyView = currentViewMode === "calendar";
+
+  if (calendarBulkRegisterButton) {
+    setBulkControlVisibility(calendarBulkRegisterButton, !isMonthlyView);
+    calendarBulkRegisterButton.textContent = isCalendarBulkRegistrationActive ? "登録完了" : "一括登録";
+  }
+
+  if (calendarFilterTitle) {
+    calendarFilterTitle.textContent = isCalendarBulkRegistrationActive
+      ? "勤務する日を複数選択してください"
+      : "表示する日";
+  }
+
+  setBulkControlVisibility(calendarDisplayFilterControls, isCalendarBulkRegistrationActive);
+  setBulkControlVisibility(calendarBulkControls, !isCalendarBulkRegistrationActive);
+  calendarFilterBox?.classList.toggle("bulk-registration-active", isCalendarBulkRegistrationActive);
+  updateCalendarBulkSelectedCount();
+}
+
+function startCalendarBulkRegistration() {
+  if (currentViewMode !== "calendar" || !currentUser) {
+    return;
+  }
+
+  calendarFilterStateBeforeBulkRegistration = {
+    showAll: showAllDaysCheckbox?.checked === true,
+    showUse: showUseDaysCheckbox?.checked === true,
+    showAnnouncements: showAnnouncementDaysCheckbox?.checked === true
+  };
+
+  if (showAllDaysCheckbox) {
+    showAllDaysCheckbox.checked = true;
+  }
+  if (showUseDaysCheckbox) {
+    showUseDaysCheckbox.checked = false;
+  }
+  if (showAnnouncementDaysCheckbox) {
+    showAnnouncementDaysCheckbox.checked = false;
+  }
+
+  isCalendarBulkRegistrationActive = true;
+  calendarBulkSelectedDateIds = new Set();
+  clearCalendarBulkChoices();
+  hideCalendarBulkAlert();
+  selectedDateId = null;
+  message.textContent = "";
+  updateCalendarBulkRegistrationUi();
+  renderCurrentCalendarView(currentYear, currentMonth);
+}
+
+function exitCalendarBulkRegistration(options = {}) {
+  const restoreFilters = options.restoreFilters !== false;
+  const rerender = options.rerender !== false;
+  const hideAlert = options.hideAlert !== false;
+
+  if (restoreFilters && calendarFilterStateBeforeBulkRegistration) {
+    if (showAllDaysCheckbox) {
+      showAllDaysCheckbox.checked = calendarFilterStateBeforeBulkRegistration.showAll;
+    }
+    if (showUseDaysCheckbox) {
+      showUseDaysCheckbox.checked = calendarFilterStateBeforeBulkRegistration.showUse;
+    }
+    if (showAnnouncementDaysCheckbox) {
+      showAnnouncementDaysCheckbox.checked = calendarFilterStateBeforeBulkRegistration.showAnnouncements;
+    }
+  }
+
+  isCalendarBulkRegistrationActive = false;
+  calendarBulkSelectedDateIds = new Set();
+  calendarFilterStateBeforeBulkRegistration = null;
+  clearCalendarBulkChoices();
+  if (hideAlert) {
+    hideCalendarBulkAlert();
+  }
+  updateCalendarBulkRegistrationUi();
+
+  if (rerender) {
+    renderCurrentCalendarView(currentYear, currentMonth);
+  }
+}
+
+function toggleCalendarBulkDate(dateId, dayCell) {
+  hideCalendarBulkAlert();
+
+  if (calendarBulkSelectedDateIds.has(dateId)) {
+    calendarBulkSelectedDateIds.delete(dateId);
+    dayCell.classList.remove("bulk-registration-selected");
+    dayCell.setAttribute("aria-pressed", "false");
+  } else {
+    calendarBulkSelectedDateIds.add(dateId);
+    dayCell.classList.add("bulk-registration-selected");
+    dayCell.setAttribute("aria-pressed", "true");
+  }
+
+  updateCalendarBulkSelectedCount();
+}
+
+function applyCalendarBulkDayState(dayCell, dateId) {
+  if (!isCalendarBulkRegistrationActive) {
+    return;
+  }
+
+  dayCell.classList.add("bulk-registration-selectable");
+  dayCell.setAttribute("role", "button");
+  dayCell.setAttribute("tabindex", "0");
+  dayCell.setAttribute("aria-label", `${formatJapaneseDate(dateId)}を一括登録の対象にする`);
+  dayCell.setAttribute("aria-pressed", calendarBulkSelectedDateIds.has(dateId) ? "true" : "false");
+  dayCell.classList.toggle("bulk-registration-selected", calendarBulkSelectedDateIds.has(dateId));
+
+  dayCell.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    toggleCalendarBulkDate(dateId, dayCell);
+  });
+}
+
+async function saveCalendarBulkRegistration() {
+  const status = getCheckedBulkValue(calendarBulkStatusCheckboxes);
+  const timeSlot = getCheckedBulkValue(calendarBulkTimeCheckboxes);
+
+  if (!status) {
+    message.style.color = "red";
+    message.textContent = "通所または在宅を選択してください。";
+    showCalendarBulkAlert(message.textContent, "error");
+    return;
+  }
+
+  if (!timeSlot) {
+    message.style.color = "red";
+    message.textContent = "終日・午前・午後のいずれかを選択してください。";
+    showCalendarBulkAlert(message.textContent, "error");
+    return;
+  }
+
+  if (calendarBulkSelectedDateIds.size === 0) {
+    message.style.color = "red";
+    message.textContent = "勤務する日を1日以上選択してください。";
+    showCalendarBulkAlert(message.textContent, "error");
+    return;
+  }
+
+  if (!currentUser) {
+    message.style.color = "red";
+    message.textContent = "ログイン情報が確認できません。再ログインしてください。";
+    showCalendarBulkAlert(message.textContent, "error");
+    return;
+  }
+
+  const monthId = formatMonthId(currentYear, currentMonth);
+  const selectedDateIds = [...calendarBulkSelectedDateIds].sort();
+  const currentMonthSchedules = monthlyScheduleCache[monthId] || {};
+  const updatedAt = new Date().toISOString();
+  const days = {};
+
+  selectedDateIds.forEach((dateId) => {
+    days[dateId] = {
+      status: status,
+      timeSlot: timeSlot,
+      memo: currentMonthSchedules[dateId]?.memo || "",
+      updatedAt: updatedAt
+    };
+  });
+
+  try {
+    calendarBulkRegisterButton.disabled = true;
+    if (calendarBulkCancelButton) {
+      calendarBulkCancelButton.disabled = true;
+    }
+    calendarBulkRegisterButton.textContent = "登録中...";
+
+    await setDoc(doc(db, "monthlySchedules", getMonthlyScheduleId(currentUser.uid, monthId)), {
+      userId: currentUser.uid,
+      userName: currentUserData?.name || currentUser.email,
+      userEmail: currentUser.email,
+      officeId: getCurrentOfficeId(),
+      groupId: getCurrentGroupId(),
+      month: monthId,
+      days: days,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    if (!monthlyScheduleCache[monthId]) {
+      monthlyScheduleCache[monthId] = {};
+    }
+
+    Object.entries(days).forEach(([dateId, dayData]) => {
+      monthlyScheduleCache[monthId][dateId] = dayData;
+    });
+    schedulesByDate = monthlyScheduleCache[monthId];
+
+    exitCalendarBulkRegistration({ restoreFilters: true, rerender: false, hideAlert: false });
+    renderCurrentCalendarView(currentYear, currentMonth);
+    renderTodaySchedule();
+
+    message.style.color = "green";
+    message.textContent = `${selectedDateIds.length}日分の予定を一括登録しました。`;
+    showCalendarBulkAlert(message.textContent, "success", 4500);
+    console.log(`[Read節約] ${monthId} の予定を${selectedDateIds.length}日分、monthlySchedules 1 writeで一括登録しました。`);
+  } catch (error) {
+    console.error("予定の一括登録エラー:", error);
+    message.style.color = "red";
+    message.textContent = `一括登録に失敗しました：${error.code || error.message}`;
+    showCalendarBulkAlert(message.textContent, "error");
+  } finally {
+    calendarBulkRegisterButton.disabled = false;
+    if (calendarBulkCancelButton) {
+      calendarBulkCancelButton.disabled = false;
+    }
+    updateCalendarBulkRegistrationUi();
+  }
+}
+
+function bindExclusiveBulkCheckboxes(checkboxes) {
+  checkboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      if (!checkbox.checked) {
+        return;
+      }
+
+      checkboxes.forEach((otherCheckbox) => {
+        if (otherCheckbox !== checkbox) {
+          otherCheckbox.checked = false;
+        }
+      });
+      hideCalendarBulkAlert();
+      message.textContent = "";
+    });
+  });
+}
+
 function renderMonthlyCalendarGrid(year, month) {
   monthlyCalendar.innerHTML = "";
   monthlyCalendar.classList.remove("monthly-calendar-list");
@@ -1398,7 +1720,14 @@ function renderMonthlyCalendarGrid(year, month) {
       dayCell.appendChild(announcementArea);
     }
 
+    applyCalendarBulkDayState(dayCell, dateId);
+
     dayCell.addEventListener("click", () => {
+      if (isCalendarBulkRegistrationActive) {
+        toggleCalendarBulkDate(dateId, dayCell);
+        return;
+      }
+
       openScheduleModal(dateId);
     });
 
@@ -1585,7 +1914,16 @@ function renderMonthlyCalendarList(year, month) {
 
     const dateText = document.createElement("div");
     dateText.className = "calendar-list-date";
-    dateText.textContent = `${month + 1}月${day}日（${getJapaneseWeekday(targetDate)}）`;
+    const dateLabel = document.createElement("span");
+    dateLabel.textContent = `${month + 1}月${day}日（${getJapaneseWeekday(targetDate)}）`;
+    dateText.appendChild(dateLabel);
+
+    if (timeSlot) {
+      const timeSlotText = document.createElement("span");
+      timeSlotText.className = "calendar-list-time-slot";
+      timeSlotText.textContent = `時間帯：${timeSlot}`;
+      dateText.appendChild(timeSlotText);
+    }
 
     header.appendChild(dateText);
     if (status) {
@@ -1596,23 +1934,14 @@ function renderMonthlyCalendarList(year, month) {
     }
     dayItem.appendChild(header);
 
-    if (status || timeSlot || memo) {
+    if (memo) {
       const scheduleArea = document.createElement("div");
       scheduleArea.className = "calendar-list-schedule";
 
-      if (status && status !== "休み") {
-        const scheduleMain = document.createElement("div");
-        scheduleMain.className = "calendar-list-schedule-main";
-        scheduleMain.textContent = timeSlot ? `予定：${status}　${timeSlot}` : `予定：${status}`;
-        scheduleArea.appendChild(scheduleMain);
-      }
-
-      if (memo) {
-        const memoText = document.createElement("div");
-        memoText.className = "calendar-list-memo";
-        memoText.textContent = `メモ：${memo}`;
-        scheduleArea.appendChild(memoText);
-      }
+      const memoText = document.createElement("div");
+      memoText.className = "calendar-list-memo";
+      memoText.textContent = `メモ：${memo}`;
+      scheduleArea.appendChild(memoText);
 
       dayItem.appendChild(scheduleArea);
     }
@@ -1631,20 +1960,6 @@ function renderMonthlyCalendarList(year, month) {
         announcementTitle.className = "calendar-list-announcement-title";
         announcementTitle.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${announcement.title || "お知らせ"}`;
         announcementCard.appendChild(announcementTitle);
-
-        if (announcement.timeText) {
-          const announcementTime = document.createElement("div");
-          announcementTime.className = "calendar-list-announcement-time";
-          announcementTime.textContent = announcement.timeText;
-          announcementCard.appendChild(announcementTime);
-        }
-
-        if (announcement.body) {
-          const announcementBody = document.createElement("div");
-          announcementBody.className = "calendar-list-announcement-body";
-          announcementBody.textContent = announcement.body;
-          announcementCard.appendChild(announcementBody);
-        }
 
         announcementArea.appendChild(announcementCard);
       });
@@ -1712,6 +2027,10 @@ async function changeDisplayedMonth(monthOffset) {
     return;
   }
 
+  if (isCalendarBulkRegistrationActive) {
+    exitCalendarBulkRegistration({ restoreFilters: true, rerender: false });
+  }
+
   const nextDate = new Date(currentYear, currentMonth + monthOffset, 1);
   currentYear = nextDate.getFullYear();
   currentMonth = nextDate.getMonth();
@@ -1762,6 +2081,9 @@ if (calendarViewButton) {
 
 if (listViewButton) {
   listViewButton.addEventListener("click", () => {
+    if (isCalendarBulkRegistrationActive) {
+      exitCalendarBulkRegistration({ restoreFilters: true, rerender: false });
+    }
     currentViewMode = "list";
     selectedDateId = null;
     message.textContent = "";
@@ -1770,6 +2092,9 @@ if (listViewButton) {
 }
 if (weekViewButton) {
   weekViewButton.addEventListener("click", () => {
+    if (isCalendarBulkRegistrationActive) {
+      exitCalendarBulkRegistration({ restoreFilters: true, rerender: false });
+    }
     currentViewMode = "week";
     selectedDateId = null;
     message.textContent = "";
@@ -1784,28 +2109,35 @@ if (weekViewButton) {
 }
 
 async function changeDisplayedWeek(weekOffset) {
-  const nextWeekStart = new Date(currentWeekStartDate.getFullYear(), currentWeekStartDate.getMonth(), currentWeekStartDate.getDate() + weekOffset * 7);
-
-  // Read節約のため、週移動は現在読み込んでいる月の範囲内だけで行う。
-  if (!weekIntersectsMonth(nextWeekStart, currentYear, currentMonth)) {
+  if (!currentUser) {
     return;
   }
+
+  const nextWeekStart = new Date(currentWeekStartDate.getFullYear(), currentWeekStartDate.getMonth(), currentWeekStartDate.getDate() + weekOffset * 7);
 
   currentWeekStartDate = nextWeekStart;
   selectedDateId = null;
   message.textContent = "";
+
+  if (!weekIntersectsMonth(nextWeekStart, currentYear, currentMonth)) {
+    currentYear = nextWeekStart.getFullYear();
+    currentMonth = nextWeekStart.getMonth();
+    await loadMonthlyCalendar();
+    return;
+  }
+
   renderCurrentCalendarView(currentYear, currentMonth);
 }
 
 if (prevWeekButton) {
-  prevWeekButton.addEventListener("click", () => {
-    changeDisplayedWeek(-1);
+  prevWeekButton.addEventListener("click", async () => {
+    await changeDisplayedWeek(-1);
   });
 }
 
 if (nextWeekButton) {
-  nextWeekButton.addEventListener("click", () => {
-    changeDisplayedWeek(1);
+  nextWeekButton.addEventListener("click", async () => {
+    await changeDisplayedWeek(1);
   });
 }
 
@@ -1825,6 +2157,30 @@ if (showUseDaysCheckbox) {
 if (showAnnouncementDaysCheckbox) {
   showAnnouncementDaysCheckbox.addEventListener("change", () => {
     refreshCalendarByFilter(showAnnouncementDaysCheckbox);
+  });
+}
+
+bindExclusiveBulkCheckboxes(calendarBulkStatusCheckboxes);
+bindExclusiveBulkCheckboxes(calendarBulkTimeCheckboxes);
+
+if (calendarBulkRegisterButton) {
+  calendarBulkRegisterButton.addEventListener("click", async () => {
+    if (isCalendarBulkRegistrationActive) {
+      await saveCalendarBulkRegistration();
+    } else {
+      startCalendarBulkRegistration();
+    }
+  });
+}
+
+if (calendarBulkCancelButton) {
+  calendarBulkCancelButton.addEventListener("click", () => {
+    if (!isCalendarBulkRegistrationActive) {
+      return;
+    }
+
+    message.textContent = "";
+    exitCalendarBulkRegistration({ restoreFilters: true });
   });
 }
 
@@ -2000,6 +2356,7 @@ function renderWeeklyReportReminder(pendingWeeks, unreadFeedbackReports = []) {
   weeklyReportReminderList.innerHTML = "";
 
   const totalCount = pendingWeeks.length + unreadFeedbackReports.length;
+  setWeeklyReportNavPendingCount(totalCount, currentUser?.uid);
 
   if (!totalCount) {
     hideWeeklyReportReminder();
@@ -2089,6 +2446,7 @@ async function loadWeeklyReportReminder() {
     const unreadFeedbackReports = [];
 
     if (weekItems.length === 0) {
+      setWeeklyReportNavPendingCount(0, currentUser.uid);
       hideWeeklyReportReminder();
       setWeeklyReportHomeStatus(
         startWeekDate > latestWeekStart
@@ -2176,6 +2534,7 @@ async function loadWeeklyReportReminder() {
     console.log(`[Read節約] 週一報告チェック：集約docが未整備または古い場合のみ、対象${weekItems.length}週分を直接確認します。`);
   } catch (error) {
     console.error("週一報告未記入・返信チェックエラー:", error);
+    setWeeklyReportNavPendingCount(0, currentUser?.uid);
     setWeeklyReportHomeStatus(`週一報告チェック失敗：${error.code || error.message}`, "error");
 
     if (weeklyReportReminderBox && weeklyReportReminderText && weeklyReportReminderList) {

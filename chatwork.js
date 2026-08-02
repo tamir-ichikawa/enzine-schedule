@@ -3,7 +3,7 @@ import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.0.0/firebas
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 import { auth, db, functions } from "./firebase-config.js";
-import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=84";
+import { applyOfficeBrandName, enforceMaintenanceAccess, setupSettingsMenuClose } from "./ui-common.js?v=89";
 
 const getChatworkConsoleData = httpsCallable(functions, "getChatworkConsoleData");
 const getChatworkWeeklyReportMissingGroup = httpsCallable(functions, "getChatworkWeeklyReportMissingGroup");
@@ -494,7 +494,7 @@ function renderUserRoomList() {
   if (!users.length) {
     const empty = document.createElement("div");
     empty.className = "calendar-filter-empty";
-    empty.textContent = "Activeな利用者がいません。";
+    empty.textContent = "利用中の利用者がいません。";
     chatworkUserRoomList.appendChild(empty);
     return;
   }
