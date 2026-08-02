@@ -679,7 +679,7 @@ test("weekly calendar navigation continues across month boundaries and updates t
     readSource("../staff.js")
   ]);
   const userWeekNavigationBody = scheduleSource.match(
-    /async function changeDisplayedWeek\(weekOffset\) \{[\s\S]*?(?=\n\nif \(prevWeekButton\))/
+    /async function changeDisplayedWeek\(weekOffset\) \{[\s\S]*?(?=\r?\n\r?\nif \(prevWeekButton\))/
   )?.[0] || "";
   const staffWeekNavigationStart = staffSource.indexOf("async function changeDisplayedUserScheduleWeek(weekOffset) {");
   const staffWeekNavigationEnd = staffSource.indexOf("if (prevUserScheduleWeekButton)", staffWeekNavigationStart);
@@ -706,10 +706,10 @@ test("user and staff monthly calendars support safe multi-day schedule registrat
     readSource("../style.css")
   ]);
   const userBulkSaveBody = scheduleSource.match(
-    /async function saveCalendarBulkRegistration\(\) \{[\s\S]*?(?=\nfunction bindExclusiveBulkCheckboxes)/
+    /async function saveCalendarBulkRegistration\(\) \{[\s\S]*?(?=\r?\nfunction bindExclusiveBulkCheckboxes)/
   )?.[0] || "";
   const staffBulkSaveBody = staffSource.match(
-    /async function saveUserScheduleBulkRegistration\(\) \{[\s\S]*?(?=\n\nfunction getMonthIdFromDateId)/
+    /async function saveUserScheduleBulkRegistration\(\) \{[\s\S]*?(?=\r?\n\r?\nfunction getMonthIdFromDateId)/
   )?.[0] || "";
 
   assert.match(userHtml, /id="calendarBulkRegisterButton"[^>]*>一括登録<\/button>/);
