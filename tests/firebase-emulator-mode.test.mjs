@@ -66,7 +66,46 @@ test("local explicit opt-in selects demo project and persists for navigation", (
 
   assert.equal(firstRuntime.mode, "emulator");
   assert.equal(firstRuntime.projectId, LOCAL_FIREBASE_PROJECT_ID);
+  assert.deepEqual(firstRuntime.emulatorPorts, {
+    auth: 9099,
+    firestore: 8080,
+    functions: 5001
+  });
   assert.equal(navigatedRuntime.mode, "emulator");
+});
+
+test("local emulator port overrides persist for navigation", () => {
+  const sessionStorage = createSessionStorage();
+  const firstRuntime = resolveFirebaseRuntime({
+    hostname: "127.0.0.1",
+    search: "?firebaseEmulators=1&firebaseAuthPort=19099&firebaseFirestorePort=18080&firebaseFunctionsPort=15001",
+    sessionStorage
+  });
+  const navigatedRuntime = resolveFirebaseRuntime({
+    hostname: "127.0.0.1",
+    sessionStorage
+  });
+
+  assert.deepEqual(firstRuntime.emulatorPorts, {
+    auth: 19099,
+    firestore: 18080,
+    functions: 15001
+  });
+  assert.deepEqual(navigatedRuntime.emulatorPorts, firstRuntime.emulatorPorts);
+});
+
+test("invalid local emulator ports fall back to defaults", () => {
+  const runtime = resolveFirebaseRuntime({
+    hostname: "localhost",
+    search: "?firebaseEmulators=1&firebaseAuthPort=0&firebaseFirestorePort=not-a-port&firebaseFunctionsPort=65536",
+    sessionStorage: createSessionStorage()
+  });
+
+  assert.deepEqual(runtime.emulatorPorts, {
+    auth: 9099,
+    firestore: 8080,
+    functions: 5001
+  });
 });
 
 test("local explicit opt-out clears the emulator session", () => {
@@ -79,4 +118,23 @@ test("local explicit opt-out clears the emulator session", () => {
 
   assert.equal(runtime.mode, "blocked-local");
   assert.equal(sessionStorage.getItem("enzineFirebaseEmulators"), null);
+});
+
+test("local explicit opt-out clears remembered emulator ports", () => {
+  const sessionStorage = createSessionStorage({
+    enzineFirebaseEmulators: "1",
+    enzineFirebaseAuthPort: "19099",
+    enzineFirebaseFirestorePort: "18080",
+    enzineFirebaseFunctionsPort: "15001"
+  });
+
+  resolveFirebaseRuntime({
+    hostname: "localhost",
+    search: "?firebaseEmulators=0",
+    sessionStorage
+  });
+
+  assert.equal(sessionStorage.getItem("enzineFirebaseAuthPort"), null);
+  assert.equal(sessionStorage.getItem("enzineFirebaseFirestorePort"), null);
+  assert.equal(sessionStorage.getItem("enzineFirebaseFunctionsPort"), null);
 });

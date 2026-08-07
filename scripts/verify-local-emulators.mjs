@@ -4,9 +4,12 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const PROJECT_ID = "demo-enzine-schedule-local";
-const AUTH_ORIGIN = "http://127.0.0.1:9099";
-const FUNCTIONS_ORIGIN = "http://127.0.0.1:5001";
-const FIRESTORE_ORIGIN = "http://127.0.0.1:8080";
+const AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
+const FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
+const FUNCTIONS_EMULATOR_HOST = process.env.FUNCTIONS_EMULATOR_HOST || "127.0.0.1:5001";
+const AUTH_ORIGIN = `http://${AUTH_EMULATOR_HOST}`;
+const FUNCTIONS_ORIGIN = `http://${FUNCTIONS_EMULATOR_HOST}`;
+const FIRESTORE_ORIGIN = `http://${FIRESTORE_EMULATOR_HOST}`;
 const TEST_PASSWORD = "LocalTest!2026";
 
 if (!PROJECT_ID.startsWith("demo-")) {
@@ -15,8 +18,8 @@ if (!PROJECT_ID.startsWith("demo-")) {
 
 process.env.GCLOUD_PROJECT = PROJECT_ID;
 process.env.FIREBASE_CONFIG = JSON.stringify({ projectId: PROJECT_ID });
-process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
-process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
+process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH_EMULATOR_HOST;
+process.env.FIRESTORE_EMULATOR_HOST = FIRESTORE_EMULATOR_HOST;
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -600,6 +603,33 @@ async function main() {
   await expectFirestoreDenied(officeAdminSignIn.idToken, "PATCH", "monthlyAnnouncements/demo-office-b_rules-office-admin-b", announcementB);
   await expectFirestoreAllowed(globalSignIn.idToken, "PATCH", "monthlyAnnouncements/demo-office-b_rules-global", announcementB);
 
+  const staffAnnouncementA = {
+    ...announcementA,
+    visibility: "staff",
+    days: {
+      "2026-08-07": [{
+        id: "rules-private-attendance",
+        category: "attendance",
+        visibility: "staff",
+        title: "勤怠",
+        staffAssignments: [{ staffId: "support-a", staffName: "支援員A", note: "午後" }]
+      }]
+    }
+  };
+  const staffAnnouncementB = {
+    ...staffAnnouncementA,
+    officeId: "demo-office-b"
+  };
+  await db.collection("staffMonthlyAnnouncements").doc("demo-office-a_rules-private-a").set(staffAnnouncementA);
+  await db.collection("staffMonthlyAnnouncements").doc("demo-office-b_rules-private-b").set(staffAnnouncementB);
+  await expectFirestoreAllowed(staffSignIn.idToken, "GET", "staffMonthlyAnnouncements/demo-office-a_rules-private-a");
+  await expectFirestoreDenied(userASignIn.idToken, "GET", "staffMonthlyAnnouncements/demo-office-a_rules-private-a");
+  await expectFirestoreDenied(staffSignIn.idToken, "GET", "staffMonthlyAnnouncements/demo-office-b_rules-private-b");
+  await expectFirestoreAllowed(staffSignIn.idToken, "PATCH", "staffMonthlyAnnouncements/demo-office-a_rules-staff-a", staffAnnouncementA);
+  await expectFirestoreDenied(staffSignIn.idToken, "PATCH", "staffMonthlyAnnouncements/demo-office-b_rules-staff-b", staffAnnouncementB);
+  await expectFirestoreAllowed(officeAdminSignIn.idToken, "PATCH", "staffMonthlyAnnouncements/demo-office-a_rules-office-admin-a", staffAnnouncementA);
+  await expectFirestoreAllowed(globalSignIn.idToken, "PATCH", "staffMonthlyAnnouncements/demo-office-b_rules-global", staffAnnouncementB);
+
   const workshopA = {
     officeId: "demo-office-a",
     organizationId: "demo-operator",
@@ -620,6 +650,29 @@ async function main() {
   await expectFirestoreAllowed(officeAdminSignIn.idToken, "PATCH", "system/workshopResources_demo-office-a", workshopA);
   await expectFirestoreDenied(officeAdminSignIn.idToken, "PATCH", "system/workshopResources_demo-office-b", workshopB);
   await expectFirestoreAllowed(globalSignIn.idToken, "PATCH", "system/workshopResources_demo-office-b", workshopB);
+
+  const supportStaffA = {
+    schemaVersion: 1,
+    officeId: "demo-office-a",
+    organizationId: "demo-operator",
+    groupId: "demo-operator",
+    staffMembers: [{ id: "support-a", name: "支援員A" }]
+  };
+  const supportStaffB = {
+    ...supportStaffA,
+    officeId: "demo-office-b",
+    staffMembers: [{ id: "support-b", name: "支援員B" }]
+  };
+  await db.collection("system").doc("supportStaff_demo-office-a").set(supportStaffA);
+  await db.collection("system").doc("supportStaff_demo-office-b").set(supportStaffB);
+  await expectFirestoreAllowed(staffSignIn.idToken, "GET", "system/supportStaff_demo-office-a");
+  await expectFirestoreDenied(userASignIn.idToken, "GET", "system/supportStaff_demo-office-a");
+  await expectFirestoreDenied(staffSignIn.idToken, "GET", "system/supportStaff_demo-office-b");
+  await expectFirestoreAllowed(staffSignIn.idToken, "PATCH", "system/supportStaff_demo-office-a", supportStaffA);
+  await expectFirestoreDenied(staffSignIn.idToken, "PATCH", "system/supportStaff_demo-office-b", supportStaffB);
+  await expectFirestoreAllowed(officeAdminSignIn.idToken, "PATCH", "system/supportStaff_demo-office-a", supportStaffA);
+  await expectFirestoreDenied(officeAdminSignIn.idToken, "PATCH", "system/supportStaff_demo-office-b", supportStaffB);
+  await expectFirestoreAllowed(globalSignIn.idToken, "PATCH", "system/supportStaff_demo-office-b", supportStaffB);
 
   await expectFirestoreAllowed(staffSignIn.idToken, "GET", "system/activeUsers_demo-office-a");
   await expectFirestoreDenied(staffSignIn.idToken, "GET", "system/activeUsers_demo-office-b");
@@ -773,7 +826,7 @@ async function main() {
   console.log("運営会社名変更確認済み: IDと事業所・事業所管理者の所属を変えずに表示名だけを更新");
   console.log("事業所管理者確認済み: 会社管理・admin発行・旧事業所ID移行を拒否、支援員・利用者の所属先を本人の会社・事業所へ強制固定");
   console.log("事業所分離確認済み: 利用者一覧キャッシュを事業所別に更新");
-  console.log("Firestoreルール確認済み: users・予定・週報・お知らせ・教材・事業所別キャッシュで未認証／他事業所アクセスを拒否");
+  console.log("Firestoreルール確認済み: users・予定・週報・お知らせ・支援員専用予定・支援員名簿・教材・事業所別キャッシュで未認証／他事業所アクセスを拒否");
   console.log("事業所名確認済み: 同一事業所の表示名だけを読み取り、他事業所は拒否");
   console.log("メンテナンス確認済み: 全体管理者だけが切替、管理者は継続利用、支援員・利用者は業務データとCallableを拒否");
   console.log("Firestoreクエリ確認済み: 全件取得を拒否し、会社・事業所・役割で絞った一覧だけを許可");

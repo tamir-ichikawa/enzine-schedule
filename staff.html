@@ -6,7 +6,7 @@
   <title>支援員ページ | Enzine Schedule</title>
   <script src="ui-mode-bootstrap.js?v=1"></script>
   <link rel="icon" type="image/png" href="enzine_icon.png?v=81">
-  <link rel="stylesheet" href="style.css?v=124">
+  <link rel="stylesheet" href="style.css?v=128">
 </head>
 <body class="app-shell-body">
   <!-- STEP6_READABILITY_FIX_20260620_V35：週一報告返信・コンパクトWebUI -->
@@ -76,7 +76,7 @@
     <nav id="staffTabNav" class="page-tab-nav staff-page-tab-nav" aria-label="支援員メニュー">
       <button type="button" class="page-tab-button active" data-staff-tab="daily">日別予定</button>
       <button type="button" class="page-tab-button" data-staff-tab="user-schedule">利用者別予定</button>
-      <button type="button" class="page-tab-button" data-staff-tab="announcements">アナウンス</button>
+      <button type="button" class="page-tab-button" data-staff-tab="announcements">事業所予定</button>
       <button type="button" class="page-tab-button" data-staff-tab="workshops">ワークショップ・教材</button>
       <button type="button" class="page-tab-button" data-staff-tab="weekly-reports">週一報告</button>
       <button type="button" class="page-tab-button" data-staff-tab="operation">運用チェック</button>
@@ -133,67 +133,88 @@
       </div>
     </section>
 
-    <!-- ここから追加：アナウンス管理カレンダー -->
+    <!-- 事業所予定管理カレンダー -->
     <section class="monthly-calendar-box staff-tab-panel" data-staff-panel="announcements">
-      <div class="section-heading-row"><h2 id="announcementCalendarTitle">アナウンス管理</h2><p class="calendar-guide">日付をクリックして追加・編集できます。</p></div>
+      <div class="section-heading-row"><h2 id="announcementCalendarTitle">事業所予定 管理</h2><p class="calendar-guide">日付をクリックして追加・編集できます。</p></div>
 
-      <div class="calendar-month-nav">
-        <button id="prevAnnouncementMonthButton" type="button" class="sub-button">＜ 前月</button>
-        <div id="staffAnnouncementMonthLabel" class="calendar-month-label">今月</div>
-        <button id="nextAnnouncementMonthButton" type="button" class="sub-button">次月 ＞</button>
-      </div>
+      <div class="office-schedule-workspace">
+        <aside class="support-staff-manager support-staff-sidebar" aria-labelledby="supportStaffManagerTitle">
+          <div class="support-staff-manager-header">
+            <h3 id="supportStaffManagerTitle">支援員名簿</h3>
+          </div>
+          <div class="support-staff-add-row">
+            <label class="visually-hidden" for="supportStaffNameInput">追加する支援員名</label>
+            <input id="supportStaffNameInput" type="text" maxlength="80" placeholder="支援員名を入力" autocomplete="off">
+            <button id="addSupportStaffButton" type="button" class="sub-button">追加</button>
+          </div>
+          <div id="supportStaffList" class="support-staff-list">読み込み中...</div>
+        </aside>
 
-      <div class="calendar-view-toggle">
-        <button id="staffAnnouncementCalendarViewButton" type="button" class="view-toggle-button active">カレンダー表示</button>
-        <button id="staffAnnouncementListViewButton" type="button" class="view-toggle-button">リスト表示</button>
-      </div>
+        <div class="office-schedule-main-pane">
+
+          <div class="calendar-month-nav">
+            <button id="prevAnnouncementMonthButton" type="button" class="sub-button">＜ 前月</button>
+            <div id="staffAnnouncementMonthLabel" class="calendar-month-label">今月</div>
+            <button id="nextAnnouncementMonthButton" type="button" class="sub-button">次月 ＞</button>
+          </div>
+
+          <div class="calendar-view-toggle">
+            <button id="staffAnnouncementCalendarViewButton" type="button" class="view-toggle-button active">カレンダー表示</button>
+            <button id="staffAnnouncementListViewButton" type="button" class="view-toggle-button">リスト表示</button>
+          </div>
 
 
 
-      <div class="calendar-filter-box staff-announcement-filter-box">
-        <div class="calendar-filter-title">表示するアナウンス</div>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showAllAnnouncementDaysCheckbox" checked>
-          全日表示
-        </label>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showPublicAnnouncementCheckbox">
-          全体用
-        </label>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showStaffAnnouncementCheckbox">
-          支援員用
-        </label>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showNoticeAnnouncementCheckbox">
-          通常連絡
-        </label>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showWorkshopAnnouncementCheckbox">
-          ワークショップ
-        </label>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showDeadlineAnnouncementCheckbox">
-          締切
-        </label>
-        <label class="calendar-filter-label">
-          <input type="checkbox" id="showImportantAnnouncementCheckbox">
-          重要
-        </label>
-      </div>
+          <div class="calendar-filter-box staff-announcement-filter-box">
+            <div class="calendar-filter-title">表示する事業所予定</div>
+            <label class="calendar-filter-label">
+              <input type="checkbox" id="showAllAnnouncementDaysCheckbox" checked>
+              全日表示
+            </label>
+            <label class="calendar-filter-label">
+              <input type="checkbox" id="showPublicAnnouncementCheckbox">
+              全体用
+            </label>
+            <label class="calendar-filter-label">
+              <input type="checkbox" id="showStaffAnnouncementCheckbox">
+              支援員用
+            </label>
+            <label class="calendar-filter-label">
+              <input type="checkbox" id="showNoticeAnnouncementCheckbox">
+              通常
+            </label>
+            <label class="calendar-filter-label">
+              <input type="checkbox" id="showWorkshopAnnouncementCheckbox">
+              WS
+            </label>
+            <label class="calendar-filter-label">
+              <input type="checkbox" id="showImportantAnnouncementCheckbox">
+              重要
+            </label>
+            <label class="calendar-filter-label">
+              <input type="checkbox" id="showAttendanceAnnouncementCheckbox">
+              勤怠
+            </label>
+            <label class="calendar-filter-label">
+              <input type="checkbox" id="showTaskAnnouncementCheckbox">
+              タスク
+            </label>
+          </div>
 
-      <div id="announcementCalendarWeekHeader" class="calendar-week-header">
-        <div>日</div>
-        <div>月</div>
-        <div>火</div>
-        <div>水</div>
-        <div>木</div>
-        <div>金</div>
-        <div>土</div>
-      </div>
+          <div id="announcementCalendarWeekHeader" class="calendar-week-header">
+            <div>日</div>
+            <div>月</div>
+            <div>火</div>
+            <div>水</div>
+            <div>木</div>
+            <div>金</div>
+            <div>土</div>
+          </div>
 
-      <div id="announcementCalendar" class="monthly-calendar">
-        読み込み中...
+          <div id="announcementCalendar" class="monthly-calendar">
+            読み込み中...
+          </div>
+        </div>
       </div>
     </section>
     <!-- ここまで追加 -->
@@ -520,17 +541,17 @@
   </div>
   <!-- ここまで追加 -->
 
-  <!-- ここから追加：アナウンス編集モーダル -->
+  <!-- 事業所予定編集モーダル -->
   <div id="announcementModal" class="modal-overlay hidden">
     <div class="modal-box">
       <div class="modal-header">
-        <h2 id="announcementModalTitle">アナウンス管理</h2>
+        <h2 id="announcementModalTitle">事業所予定 管理</h2>
         <button id="closeAnnouncementModalButton" class="modal-close-button">×</button>
       </div>
 
       <div class="modal-form">
         <div>
-          <h3>登録済みアナウンス</h3>
+          <h3>登録済み予定</h3>
           <div id="announcementList" class="announcement-edit-list">
             読み込み中...
           </div>
@@ -544,7 +565,7 @@
         <input type="hidden" id="announcementDate">
         <input type="hidden" id="announcementWorkshopId">
 
-        <label>
+        <label id="announcementVisibilityField">
           表示範囲
           <select id="announcementVisibility">
             <option value="all">全員に表示</option>
@@ -555,14 +576,17 @@
         <label>
           種類
           <select id="announcementCategory">
-            <option value="notice">通常連絡</option>
-            <option value="workshop">ワークショップ</option>
-            <option value="deadline">締切</option>
+            <option value="workshop">WS</option>
             <option value="important">重要</option>
+            <option value="notice">通常</option>
+            <option value="attendance">勤怠</option>
+            <option value="task">タスク</option>
           </select>
         </label>
 
-        <section id="announcementWorkshopPicker" class="announcement-workshop-picker hidden" aria-live="polite">
+        <p id="announcementStaffOnlyGuide" class="announcement-staff-only-guide hidden" hidden>勤怠・タスクは支援員のみに表示されます。</p>
+
+        <section id="announcementWorkshopPicker" class="announcement-workshop-picker hidden" aria-live="polite" hidden>
           <div class="announcement-workshop-picker-header">
             <h4>ワークショップから入力</h4>
             <button id="refreshAnnouncementWorkshopsButton" type="button" class="sub-button">一覧を更新</button>
@@ -572,12 +596,20 @@
           </div>
         </section>
 
+        <section id="announcementStaffPicker" class="announcement-staff-picker hidden" aria-labelledby="announcementStaffPickerTitle" hidden>
+          <div class="announcement-staff-picker-header">
+            <h4 id="announcementStaffPickerTitle">対象支援員</h4>
+            <span id="announcementStaffPickerGuide">複数選択できます。</span>
+          </div>
+          <div id="announcementStaffList" class="announcement-staff-list"></div>
+        </section>
+
         <label>
-          タイトル
-          <input type="text" id="announcementTitle" placeholder="例：Photoshopワークショップ">
+          <span id="announcementTitleLabel">タイトル</span>
+          <input type="text" id="announcementTitle" maxlength="120" placeholder="例：Photoshopワークショップ">
         </label>
 
-        <div class="time-select-row">
+        <div id="announcementTimeFields" class="time-select-row">
           <label>
             開始時間
             <select id="announcementStartTime">
@@ -628,7 +660,7 @@
         </div>
 
         <label>
-          本文
+          詳細
           <textarea id="announcementBody" placeholder="詳細を入力してください"></textarea>
         </label>
 
@@ -639,6 +671,6 @@
   </div>
   <!-- ここまで追加 -->
 
-  <script type="module" src="staff.js?v=104"></script>
+  <script type="module" src="staff.js?v=108"></script>
 </body>
 </html>
