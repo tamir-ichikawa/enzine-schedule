@@ -69,9 +69,12 @@ export const functions = getFunctions(app, "asia-northeast1");
 export const isFirebaseEmulator = runtime.mode === "emulator";
 
 if (isFirebaseEmulator) {
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+  connectAuthEmulator(auth, `http://127.0.0.1:${runtime.emulatorPorts.auth}`, { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", runtime.emulatorPorts.firestore);
+  connectFunctionsEmulator(functions, "127.0.0.1", runtime.emulatorPorts.functions);
   document.documentElement.dataset.firebaseEnvironment = "emulator";
-  console.info(`Firebase Emulator Suite connected: ${LOCAL_FIREBASE_PROJECT_ID}`);
+  console.info("Firebase Emulator Suite connected", {
+    projectId: LOCAL_FIREBASE_PROJECT_ID,
+    ports: runtime.emulatorPorts
+  });
 }

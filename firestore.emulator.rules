@@ -302,6 +302,40 @@ service cloud.firestore {
         );
     }
 
+    match /staffMonthlyAnnouncements/{announcementId} {
+      allow get: if maintenanceAllowsAccess()
+        && hasActiveProfile()
+        && (
+          isGlobalAdmin()
+          || (resource == null && isOfficeOperator())
+          || (resource != null && isOfficeOperator() && sameMembership(resource.data))
+        );
+      allow list: if maintenanceAllowsAccess()
+        && (
+          isGlobalAdmin()
+          || (isOfficeOperator() && sameMembership(resource.data))
+        );
+      allow create: if isGlobalAdmin()
+        || (
+          isOfficeOperator()
+          && callerOfficeDocumentId(announcementId)
+          && sameMembership(request.resource.data)
+        );
+      allow update: if isGlobalAdmin()
+        || (
+          isOfficeOperator()
+          && callerOfficeDocumentId(announcementId)
+          && sameMembership(resource.data)
+          && sameMembership(request.resource.data)
+        );
+      allow delete: if isGlobalAdmin()
+        || (
+          isOfficeOperator()
+          && callerOfficeDocumentId(announcementId)
+          && sameMembership(resource.data)
+        );
+    }
+
     match /system/{systemId} {
       allow get: if systemId == 'maintenanceMode'
         || (
@@ -334,6 +368,20 @@ service cloud.firestore {
               callerOfficeId() == 'engine_chiba'
               && systemId == 'workshopResources_enzine_chiba'
             )
+            || (
+              systemId == 'supportStaff_' + callerOfficeId()
+              && (isOfficeAdmin() || isStaff())
+            )
+            || (
+              callerOfficeId() == 'enzine_chiba'
+              && systemId == 'supportStaff_engine_chiba'
+              && (isOfficeAdmin() || isStaff())
+            )
+            || (
+              callerOfficeId() == 'engine_chiba'
+              && systemId == 'supportStaff_enzine_chiba'
+              && (isOfficeAdmin() || isStaff())
+            )
           )
         );
       allow list: if isGlobalAdmin();
@@ -347,6 +395,21 @@ service cloud.firestore {
         )
         || (
           systemId == 'workshopResources_' + callerOfficeId()
+          && isOfficeOperator()
+          && sameMembership(request.resource.data)
+        )
+        || (
+          (
+            systemId == 'supportStaff_' + callerOfficeId()
+            || (
+              callerOfficeId() == 'enzine_chiba'
+              && systemId == 'supportStaff_engine_chiba'
+            )
+            || (
+              callerOfficeId() == 'engine_chiba'
+              && systemId == 'supportStaff_enzine_chiba'
+            )
+          )
           && isOfficeOperator()
           && sameMembership(request.resource.data)
         )

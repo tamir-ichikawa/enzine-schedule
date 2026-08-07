@@ -48,6 +48,14 @@ const WEEKLY_REPORT_STATUS_SCHEMA_VERSION = 1;
 const LAST_SCHEDULE_INPUT_STORAGE_KEY = "enzineLastScheduleInput";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
 const WORKSHOP_RESOURCES_DOC_PREFIX = "workshopResources_";
+const ANNOUNCEMENT_CATEGORY_ORDER = {
+  workshop: 1,
+  important: 2,
+  notice: 3,
+  deadline: 4,
+  attendance: 5,
+  task: 6
+};
 
 
 const userInfo = document.getElementById("userInfo");
@@ -329,7 +337,7 @@ function getStatusClass(status) {
 
 function getAnnouncementIcon(category) {
   if (category === "workshop") {
-    return "🎨";
+    return "WS";
   }
 
   if (category === "deadline") {
@@ -340,11 +348,58 @@ function getAnnouncementIcon(category) {
     return "⚠️";
   }
 
+  if (category === "attendance") {
+    return "休";
+  }
+
+  if (category === "task") {
+    return "タスク";
+  }
+
   return "📢";
+}
+
+function normalizeAnnouncementStaffAssignments(rawAssignments = []) {
+  if (!Array.isArray(rawAssignments)) {
+    return [];
+  }
+
+  return rawAssignments
+    .map((assignment) => ({
+      staffName: String(assignment?.staffName || assignment?.name || "").trim(),
+      note: String(assignment?.note || assignment?.extraInfo || "").trim()
+    }))
+    .filter((assignment) => assignment.staffName);
+}
+
+function getAnnouncementDisplayTitle(announcement = {}) {
+  const category = announcement.category || "notice";
+  const assignments = normalizeAnnouncementStaffAssignments(announcement.staffAssignments);
+
+  if (category === "attendance" && assignments.length > 0) {
+    const people = assignments
+      .map((assignment) => `${assignment.staffName}${assignment.note ? `（${assignment.note}）` : ""}`)
+      .join("、");
+    const heading = announcement.title && announcement.title !== "勤怠" ? `${announcement.title}｜` : "";
+    return `${heading}${people}`;
+  }
+
+  if (category === "task" && assignments.length > 0) {
+    return `${announcement.title || "タスク"}｜${assignments.map((assignment) => assignment.staffName).join("・")}`;
+  }
+
+  return announcement.title || (category === "attendance" ? "勤怠" : "お知らせ");
 }
 
 function sortCalendarAnnouncements(list = []) {
   return [...list].sort((a, b) => {
+    const categoryA = ANNOUNCEMENT_CATEGORY_ORDER[a.category || "notice"] || 99;
+    const categoryB = ANNOUNCEMENT_CATEGORY_ORDER[b.category || "notice"] || 99;
+
+    if (categoryA !== categoryB) {
+      return categoryA - categoryB;
+    }
+
     const timeA = a.startTime || "99:99";
     const timeB = b.startTime || "99:99";
 
@@ -352,7 +407,7 @@ function sortCalendarAnnouncements(list = []) {
       return timeA.localeCompare(timeB);
     }
 
-    return (a.title || "").localeCompare(b.title || "", "ja");
+    return getAnnouncementDisplayTitle(a).localeCompare(getAnnouncementDisplayTitle(b), "ja");
   });
 }
 
@@ -640,7 +695,7 @@ function renderModalAnnouncements(dateId) {
 
     const title = document.createElement("div");
     title.className = "modal-announcement-title";
-    title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${announcement.title || "お知らせ"}`;
+    title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${getAnnouncementDisplayTitle(announcement)}`;
 
     const time = document.createElement("div");
     time.className = "modal-announcement-time";
@@ -740,12 +795,15 @@ function renderTodayAnnouncements() {
   }
 
   announcements.forEach((announcement) => {
-    const card = document.createElement("div");
-    card.className = "announcement-card";
+    const card = document.createElement("details");
+    card.className = "announcement-card today-announcement-card";
 
-    const title = document.createElement("div");
+    const title = document.createElement("summary");
     title.className = "announcement-title";
-    title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${announcement.title || "無題のお知らせ"}`;
+    title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${getAnnouncementDisplayTitle(announcement)}`;
+
+    const details = document.createElement("div");
+    details.className = "today-announcement-details";
 
     const time = document.createElement("div");
     time.className = "announcement-time";
@@ -758,14 +816,23 @@ function renderTodayAnnouncements() {
     card.appendChild(title);
 
     if (announcement.timeText) {
-      card.appendChild(time);
+      details.appendChild(time);
     }
 
     if (announcement.body) {
-      card.appendChild(body);
+      details.appendChild(body);
     }
 
-    appendAnnouncementWorkshopLink(card, announcement);
+    appendAnnouncementWorkshopLink(details, announcement);
+
+    if (details.childElementCount === 0) {
+      const emptyDetails = document.createElement("div");
+      emptyDetails.className = "announcement-empty";
+      emptyDetails.textContent = "詳細はありません。";
+      details.appendChild(emptyDetails);
+    }
+
+    card.appendChild(details);
 
     todayAnnouncements.appendChild(card);
   });
@@ -1144,7 +1211,10 @@ async function loadMonthlyAnnouncements(year, month) {
         const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
 
         const visibleList = rawList.filter((announcement) => {
-          return announcement.visibility !== "staff" && announcement.active !== false;
+          return announcement.visibility !== "staff"
+            && announcement.category !== "attendance"
+            && announcement.category !== "task"
+            && announcement.active !== false;
         });
 
         if (visibleList.length > 0) {
@@ -1711,7 +1781,7 @@ function renderMonthlyCalendarGrid(year, month) {
         item.className = `calendar-announcement-title category-${announcement.category || "notice"}`;
 
         const icon = getAnnouncementIcon(announcement.category || "notice");
-        const shortTitle = shortenText(announcement.title || "お知らせ", 8);
+        const shortTitle = shortenText(getAnnouncementDisplayTitle(announcement), 8);
 
         item.textContent = `${icon} ${shortTitle}`;
         announcementArea.appendChild(item);
@@ -1838,7 +1908,7 @@ function renderWeeklyCalendarGrid(year, month) {
         const item = document.createElement("div");
         item.className = `calendar-announcement-title category-${announcement.category || "notice"}`;
         const icon = getAnnouncementIcon(announcement.category || "notice");
-        const shortTitle = shortenText(announcement.title || "お知らせ", 8);
+        const shortTitle = shortenText(getAnnouncementDisplayTitle(announcement), 8);
         item.textContent = `${icon} ${shortTitle}`;
         announcementArea.appendChild(item);
       });
@@ -1958,7 +2028,7 @@ function renderMonthlyCalendarList(year, month) {
 
         const announcementTitle = document.createElement("div");
         announcementTitle.className = "calendar-list-announcement-title";
-        announcementTitle.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${announcement.title || "お知らせ"}`;
+        announcementTitle.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${getAnnouncementDisplayTitle(announcement)}`;
         announcementCard.appendChild(announcementTitle);
 
         announcementArea.appendChild(announcementCard);

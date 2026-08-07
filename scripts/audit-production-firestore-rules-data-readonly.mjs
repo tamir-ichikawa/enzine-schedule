@@ -4,13 +4,15 @@ import path from "node:path";
 
 const PROJECT_ID = "enzine-schedule";
 const DATABASE_ID = "(default)";
-const EXPECTED_ORGANIZATION_IDS = new Set(["enzine"]);
-const EXPECTED_OFFICE_IDS = new Set(["enzine_chiba", "engine_chiba"]);
+const LEGACY_OFFICE_ALIASES = new Map([["engine_chiba", "enzine_chiba"]]);
 const COLLECTIONS = [
+  { id: "organizations", master: "organization" },
+  { id: "offices", master: "office" },
   { id: "monthlySchedules", requireMembership: true, requireUserId: true },
   { id: "weeklyReports", requireMembership: true, requireUserId: true },
   { id: "weeklyReportUserStatus", requireMembership: true, requireUserId: true },
   { id: "monthlyAnnouncements", requireMembership: true, requireUserId: false },
+  { id: "staffMonthlyAnnouncements", requireMembership: true, requireUserId: false },
   { id: "schedules", legacy: true },
   { id: "announcements", legacy: true },
   { id: "system", system: true }
@@ -123,14 +125,24 @@ async function listDocuments(accessToken, collectionId) {
   return documents;
 }
 
-function auditMembershipDocuments(spec, documents) {
+function resolveRegisteredOfficeId(officeId, offices) {
+  if (offices.has(officeId)) {
+    return officeId;
+  }
+
+  const compatibleOfficeId = LEGACY_OFFICE_ALIASES.get(officeId);
+  return compatibleOfficeId && offices.has(compatibleOfficeId) ? compatibleOfficeId : "";
+}
+
+function auditMembershipDocuments(spec, documents, organizations, offices) {
   const result = {
     collectionId: spec.id,
     documents: documents.length,
     missingMembership: 0,
     missingUserId: 0,
     unexpectedOrganization: 0,
-    unexpectedOffice: 0
+    unexpectedOffice: 0,
+    mismatchedOfficeOrganization: 0
   };
 
   for (const document of documents) {
@@ -143,11 +155,20 @@ function auditMembershipDocuments(spec, documents) {
     if (spec.requireUserId && !userId) {
       result.missingUserId += 1;
     }
-    if (organizationId && !EXPECTED_ORGANIZATION_IDS.has(organizationId)) {
+    if (organizationId && !organizations.has(organizationId)) {
       result.unexpectedOrganization += 1;
     }
-    if (officeId && !EXPECTED_OFFICE_IDS.has(officeId)) {
+    const registeredOfficeId = resolveRegisteredOfficeId(officeId, offices);
+    if (officeId && !registeredOfficeId) {
       result.unexpectedOffice += 1;
+    }
+    if (
+      organizationId
+      && registeredOfficeId
+      && offices.get(registeredOfficeId)
+      && offices.get(registeredOfficeId) !== organizationId
+    ) {
+      result.mismatchedOfficeOrganization += 1;
     }
   }
 
@@ -174,14 +195,30 @@ async function main() {
   const documentsByCollection = await Promise.all(
     COLLECTIONS.map(async (spec) => [spec, await listDocuments(accessToken, spec.id)])
   );
+  const organizationDocuments = documentsByCollection
+    .find(([spec]) => spec.master === "organization")?.[1] || [];
+  const officeDocuments = documentsByCollection
+    .find(([spec]) => spec.master === "office")?.[1] || [];
+  const organizations = new Set(organizationDocuments.map(documentId).filter(Boolean));
+  const offices = new Map(officeDocuments.map((document) => [
+    documentId(document),
+    stringField(document, "organizationId") || stringField(document, "groupId")
+  ]).filter(([officeId]) => officeId));
   const membershipResults = documentsByCollection
     .filter(([spec]) => spec.requireMembership)
-    .map(([spec, documents]) => auditMembershipDocuments(spec, documents));
+    .map(([spec, documents]) => auditMembershipDocuments(
+      spec,
+      documents,
+      organizations,
+      offices
+    ));
   const legacyResults = documentsByCollection
     .filter(([spec]) => spec.legacy)
     .map(([spec, documents]) => auditMembershipDocuments(
       { ...spec, requireUserId: spec.id === "schedules" },
-      documents
+      documents,
+      organizations,
+      offices
     ));
   const systemDocuments = documentsByCollection.find(([spec]) => spec.system)?.[1] || [];
   const systemResult = auditSystemDocuments(systemDocuments);
@@ -191,17 +228,20 @@ async function main() {
       + result.missingMembership
       + result.missingUserId
       + result.unexpectedOrganization
-      + result.unexpectedOffice,
+      + result.unexpectedOffice
+      + result.mismatchedOfficeOrganization,
     0
   );
 
   console.log(`対象プロジェクト: ${PROJECT_ID}（Firestore GETのみ）`);
+  console.log(`所属マスター: 運営会社${organizations.size}件 / 事業所${offices.size}件`);
   console.log("ルール適用対象コレクションの必須フィールド件数監査");
   for (const result of membershipResults) {
     console.log(
       `- ${result.collectionId}: 全${result.documents} / 所属不足${result.missingMembership}`
       + ` / userId不足${result.missingUserId} / 想定外会社${result.unexpectedOrganization}`
       + ` / 想定外事業所${result.unexpectedOffice}`
+      + ` / 会社・事業所不一致${result.mismatchedOfficeOrganization}`
     );
   }
   console.log("旧コレクション（現在の画面コードから参照なし）");

@@ -47,6 +47,8 @@ const DEFAULT_OFFICE_ID = "enzine_chiba";
 const LEGACY_OFFICE_IDS = ["engine_chiba"];
 const DEFAULT_GROUP_ID = "enzine";
 const ACTIVE_USERS_DOC_ID = "activeUsers";
+const SUPPORT_STAFF_DOC_PREFIX = "supportStaff_";
+const STAFF_MONTHLY_ANNOUNCEMENTS_COLLECTION = "staffMonthlyAnnouncements";
 const BILLING_SAFETY_DOC_ID = "billingSafety";
 const STAFF_OFFICE_SCOPE_PARAM = "officeId";
 const STAFF_OFFICE_SCOPE_STORAGE_KEY = "enzineGlobalStaffOfficeId";
@@ -59,6 +61,13 @@ const DAILY_TIME_SLOT_ORDER = {
   "午前": 1,
   "午後": 2,
   "終日": 3
+};
+const ANNOUNCEMENT_CATEGORY_ORDER = {
+  workshop: 1,
+  important: 2,
+  notice: 3,
+  attendance: 4,
+  task: 5
 };
 const getChatworkConsoleData = httpsCallable(functions, "getChatworkConsoleData");
 const getOrganizationManagementData = httpsCallable(functions, "getOrganizationManagementData");
@@ -76,7 +85,7 @@ const staffCurrentSectionTitle = document.getElementById("staffCurrentSectionTit
 const STAFF_TAB_LABELS = {
   daily: "日別予定",
   "user-schedule": "利用者別予定",
-  announcements: "アナウンス",
+  announcements: "事業所予定",
   workshops: "ワークショップ・教材",
   "weekly-reports": "週一報告",
   operation: "運用チェック"
@@ -197,8 +206,9 @@ const showPublicAnnouncementCheckbox = document.getElementById("showPublicAnnoun
 const showStaffAnnouncementCheckbox = document.getElementById("showStaffAnnouncementCheckbox");
 const showNoticeAnnouncementCheckbox = document.getElementById("showNoticeAnnouncementCheckbox");
 const showWorkshopAnnouncementCheckbox = document.getElementById("showWorkshopAnnouncementCheckbox");
-const showDeadlineAnnouncementCheckbox = document.getElementById("showDeadlineAnnouncementCheckbox");
 const showImportantAnnouncementCheckbox = document.getElementById("showImportantAnnouncementCheckbox");
+const showAttendanceAnnouncementCheckbox = document.getElementById("showAttendanceAnnouncementCheckbox");
+const showTaskAnnouncementCheckbox = document.getElementById("showTaskAnnouncementCheckbox");
 
 // 利用者別 月間予定表示
 const userScheduleTitle = document.getElementById("userScheduleTitle");
@@ -329,12 +339,23 @@ const announcementTitle = document.getElementById("announcementTitle");
 const announcementStartTime = document.getElementById("announcementStartTime");
 const announcementEndTime = document.getElementById("announcementEndTime");
 const announcementBody = document.getElementById("announcementBody");
+const announcementVisibilityField = document.getElementById("announcementVisibilityField");
+const announcementStaffOnlyGuide = document.getElementById("announcementStaffOnlyGuide");
+const announcementStaffPicker = document.getElementById("announcementStaffPicker");
+const announcementStaffPickerTitle = document.getElementById("announcementStaffPickerTitle");
+const announcementStaffPickerGuide = document.getElementById("announcementStaffPickerGuide");
+const announcementStaffList = document.getElementById("announcementStaffList");
+const announcementTitleLabel = document.getElementById("announcementTitleLabel");
+const announcementTimeFields = document.getElementById("announcementTimeFields");
 const announcementWorkshopPicker = document.getElementById("announcementWorkshopPicker");
 const announcementWorkshopList = document.getElementById("announcementWorkshopList");
 const refreshAnnouncementWorkshopsButton = document.getElementById("refreshAnnouncementWorkshopsButton");
 const saveAnnouncementButton = document.getElementById("saveAnnouncementButton");
 const resetAnnouncementFormButton = document.getElementById("resetAnnouncementFormButton");
 const announcementFormTitle = document.getElementById("announcementFormTitle");
+const supportStaffNameInput = document.getElementById("supportStaffNameInput");
+const addSupportStaffButton = document.getElementById("addSupportStaffButton");
+const supportStaffList = document.getElementById("supportStaffList");
 
 let currentStaffData = null;
 let selectedStaffOfficeContext = null;
@@ -353,6 +374,8 @@ let staffMonthlyScheduleCache = {};
 
 // アナウンス管理：事業所1つ・1か月で1ドキュメント。
 let staffMonthlyAnnouncementCache = {};
+let supportStaffMembers = [];
+let supportStaffLoadedOfficeId = "";
 let currentAnnouncementViewMode = "calendar";
 let displayedAnnouncementYear = new Date().getFullYear();
 let displayedAnnouncementMonth = new Date().getMonth();
@@ -413,7 +436,7 @@ function setDisplayedAnnouncementMonth(year, month) {
 function updateAnnouncementMonthHeader(year, month) {
   const label = `${year}年${month + 1}月`;
 
-  announcementCalendarTitle.textContent = `${label}のアナウンス管理`;
+  announcementCalendarTitle.textContent = `${label}の予定管理`;
 
   if (staffAnnouncementMonthLabel) {
     staffAnnouncementMonthLabel.textContent = label;
@@ -572,7 +595,7 @@ function appendUserScheduleAnnouncements(container, dateId, options = {}) {
 
   dayAnnouncements.forEach((announcement) => {
     const category = announcement.category || "notice";
-    const title = announcement.title || "お知らせ";
+    const title = getAnnouncementDisplayTitle(announcement);
     const item = document.createElement("div");
     item.className = `${listMode ? "calendar-list-announcement" : "calendar-announcement-title"} category-${category}`;
     item.textContent = `${getAnnouncementIcon(category)} ${listMode ? title : shortenText(title, options.maxLength || 8)}`;
@@ -1156,24 +1179,98 @@ function getMonthlyAnnouncementId(officeId, monthId) {
   return `${officeId}_${monthId}`;
 }
 
+function getSupportStaffDocId(officeId = getCurrentOfficeId()) {
+  return `${SUPPORT_STAFF_DOC_PREFIX}${officeId}`;
+}
+
 function generateAnnouncementId() {
   return `ann_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function getAnnouncementIcon(category) {
   if (category === "workshop") {
-    return "🎨";
-  }
-
-  if (category === "deadline") {
-    return "⏰";
+    return "WS";
   }
 
   if (category === "important") {
     return "⚠️";
   }
 
+  if (category === "attendance") {
+    return "休";
+  }
+
+  if (category === "task") {
+    return "タスク";
+  }
+
   return "📢";
+}
+
+function isStaffOnlyAnnouncementCategory(category) {
+  return category === "attendance" || category === "task";
+}
+
+function normalizeAnnouncementStaffAssignments(rawAssignments = []) {
+  if (!Array.isArray(rawAssignments)) {
+    return [];
+  }
+
+  const seenIds = new Set();
+
+  return rawAssignments
+    .map((assignment) => ({
+      staffId: String(assignment?.staffId || assignment?.id || "").trim(),
+      staffName: String(assignment?.staffName || assignment?.name || "").trim().slice(0, 80),
+      note: String(assignment?.note || assignment?.extraInfo || "").trim().slice(0, 80)
+    }))
+    .filter((assignment) => {
+      const stableId = assignment.staffId || `name:${assignment.staffName}`;
+
+      if (!assignment.staffName || seenIds.has(stableId)) {
+        return false;
+      }
+
+      assignment.staffId = assignment.staffId || stableId;
+      seenIds.add(stableId);
+      return true;
+    });
+}
+
+function getAnnouncementDisplayTitle(announcement = {}) {
+  const category = announcement.category || "notice";
+  const assignments = normalizeAnnouncementStaffAssignments(announcement.staffAssignments);
+
+  if (category === "attendance" && assignments.length > 0) {
+    const people = assignments
+      .map((assignment) => `${assignment.staffName}${assignment.note ? `（${assignment.note}）` : ""}`)
+      .join("、");
+    const heading = announcement.title && announcement.title !== "勤怠" ? `${announcement.title}｜` : "";
+    return `${heading}${people}`;
+  }
+
+  if (category === "task" && assignments.length > 0) {
+    const assigneeText = assignments.map((assignment) => assignment.staffName).join("・");
+    return `${announcement.title || "タスク"}｜${assigneeText}`;
+  }
+
+  return announcement.title || (category === "attendance" ? "勤怠" : "お知らせ");
+}
+
+function appendAnnouncementStaffDetails(parent, announcement = {}) {
+  const assignments = normalizeAnnouncementStaffAssignments(announcement.staffAssignments);
+
+  if (assignments.length === 0 || announcement.category === "attendance") {
+    return;
+  }
+
+  const details = document.createElement("div");
+  details.className = "announcement-staff-details";
+  const label = announcement.category === "attendance" ? "対象" : "担当";
+  details.textContent = `${label}：${assignments
+    .map((assignment) => `${assignment.staffName}${assignment.note ? `（${assignment.note}）` : ""}`)
+    .join("、")}`;
+  parent.appendChild(details);
 }
 
 function shortenText(text, maxLength) {
@@ -1461,11 +1558,337 @@ function unlockPageScroll() {
   window.scrollTo(0, pageScrollY);
 }
 
+function generateSupportStaffId() {
+  return `staff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeSupportStaffMembers(rawMembers = []) {
+  if (!Array.isArray(rawMembers)) {
+    return [];
+  }
+
+  const seenIds = new Set();
+
+  return rawMembers
+    .map((member) => ({
+      id: String(member?.id || "").trim() || generateSupportStaffId(),
+      name: String(member?.name || "").trim().slice(0, 80),
+      createdAt: String(member?.createdAt || ""),
+      updatedAt: String(member?.updatedAt || "")
+    }))
+    .filter((member) => {
+      if (!member.name || seenIds.has(member.id)) {
+        return false;
+      }
+
+      seenIds.add(member.id);
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+}
+
+function renderSupportStaffManager() {
+  if (!supportStaffList) {
+    return;
+  }
+
+  supportStaffList.innerHTML = "";
+
+  if (supportStaffMembers.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "support-staff-empty";
+    empty.textContent = "支援員はまだ登録されていません。";
+    supportStaffList.appendChild(empty);
+    return;
+  }
+
+  supportStaffMembers.forEach((member) => {
+    const row = document.createElement("div");
+    row.className = "support-staff-item";
+
+    const name = document.createElement("span");
+    name.textContent = member.name;
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "small-button danger-button";
+    deleteButton.textContent = "削除";
+    deleteButton.setAttribute("aria-label", `${member.name}を支援員名簿から削除`);
+    deleteButton.addEventListener("click", async () => {
+      if (!confirm(`${member.name}を支援員名簿から削除しますか？\n登録済みの事業所予定には名前が残ります。`)) {
+        return;
+      }
+
+      const previousMembers = supportStaffMembers;
+      const selectedAssignments = collectAnnouncementStaffAssignments();
+      supportStaffMembers = supportStaffMembers.filter((item) => item.id !== member.id);
+      renderSupportStaffManager();
+      renderAnnouncementStaffPicker(selectedAssignments);
+
+      try {
+        await persistSupportStaffMembers();
+      } catch (error) {
+        supportStaffMembers = previousMembers;
+        renderSupportStaffManager();
+        renderAnnouncementStaffPicker(selectedAssignments);
+        console.error("支援員名簿の削除エラー:", error);
+        alert(`削除に失敗しました：${error.code || error.message}`);
+      }
+    });
+
+    row.appendChild(name);
+    row.appendChild(deleteButton);
+    supportStaffList.appendChild(row);
+  });
+}
+
+async function loadSupportStaffMembers(force = false) {
+  const officeId = getCurrentOfficeId();
+
+  if (!force && supportStaffLoadedOfficeId === officeId) {
+    renderSupportStaffManager();
+    return supportStaffMembers;
+  }
+
+  try {
+    const docSnap = await getDoc(doc(db, "system", getSupportStaffDocId(officeId)));
+    supportStaffMembers = docSnap.exists()
+      ? normalizeSupportStaffMembers(docSnap.data().staffMembers)
+      : [];
+    supportStaffLoadedOfficeId = officeId;
+    renderSupportStaffManager();
+    return supportStaffMembers;
+  } catch (error) {
+    console.error("支援員名簿の読み込みエラー:", error);
+    supportStaffMembers = [];
+    supportStaffLoadedOfficeId = officeId;
+    renderSupportStaffManager();
+    alert(`支援員名簿を読み込めませんでした：${error.code || error.message}`);
+    return supportStaffMembers;
+  }
+}
+
+async function persistSupportStaffMembers() {
+  const officeId = getCurrentOfficeId();
+  const groupId = getCurrentGroupId();
+
+  await setDoc(doc(db, "system", getSupportStaffDocId(officeId)), {
+    schemaVersion: 1,
+    officeId,
+    organizationId: groupId,
+    groupId,
+    staffMembers: supportStaffMembers.map((member) => ({
+      id: member.id,
+      name: member.name,
+      createdAt: member.createdAt || new Date().toISOString(),
+      updatedAt: member.updatedAt || new Date().toISOString()
+    })),
+    updatedAt: serverTimestamp()
+  });
+
+  supportStaffLoadedOfficeId = officeId;
+}
+
+async function addSupportStaffMember() {
+  const name = supportStaffNameInput?.value.trim().slice(0, 80) || "";
+  supportStaffNameInput?.setCustomValidity("");
+
+  if (!name) {
+    supportStaffNameInput?.setCustomValidity("追加する支援員名を入力してください。");
+    supportStaffNameInput?.reportValidity();
+    supportStaffNameInput?.focus();
+    return;
+  }
+
+  if (supportStaffMembers.some((member) => member.name.localeCompare(name, "ja", { sensitivity: "base" }) === 0)) {
+    supportStaffNameInput?.setCustomValidity(`${name}はすでに登録されています。`);
+    supportStaffNameInput?.reportValidity();
+    supportStaffNameInput?.focus();
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const previousMembers = supportStaffMembers;
+  supportStaffMembers = normalizeSupportStaffMembers([
+    ...supportStaffMembers,
+    { id: generateSupportStaffId(), name, createdAt: now, updatedAt: now }
+  ]);
+  renderSupportStaffManager();
+
+  try {
+    await persistSupportStaffMembers();
+    supportStaffNameInput.value = "";
+    renderAnnouncementStaffPicker(collectAnnouncementStaffAssignments());
+  } catch (error) {
+    supportStaffMembers = previousMembers;
+    renderSupportStaffManager();
+    console.error("支援員名簿の追加エラー:", error);
+    alert(`追加に失敗しました：${error.code || error.message}`);
+  }
+}
+
+function collectAnnouncementStaffAssignments() {
+  if (!announcementStaffList) {
+    return [];
+  }
+
+  return Array.from(announcementStaffList.querySelectorAll(".announcement-staff-option"))
+    .filter((row) => row.querySelector('input[type="checkbox"]')?.checked)
+    .map((row) => ({
+      staffId: row.dataset.staffId || "",
+      staffName: row.dataset.staffName || "",
+      note: row.querySelector(".announcement-staff-note")?.value.trim().slice(0, 80) || ""
+    }))
+    .filter((assignment) => assignment.staffId && assignment.staffName);
+}
+
+function setAnnouncementElementHidden(element, isHidden) {
+  if (!element) {
+    return;
+  }
+
+  element.hidden = isHidden;
+  element.classList.toggle("hidden", isHidden);
+}
+
+function renderAnnouncementStaffPicker(rawAssignments = []) {
+  if (!announcementStaffPicker || !announcementStaffList) {
+    return;
+  }
+
+  const category = announcementCategory.value;
+  const supportsStaffSelection = category === "attendance" || category === "task";
+  setAnnouncementElementHidden(announcementStaffPicker, !supportsStaffSelection);
+
+  if (!supportsStaffSelection) {
+    announcementStaffList.innerHTML = "";
+    return;
+  }
+
+  const assignments = normalizeAnnouncementStaffAssignments(rawAssignments);
+  const assignmentsById = new Map(assignments.map((assignment) => [assignment.staffId, assignment]));
+  const masterIds = new Set(supportStaffMembers.map((member) => member.id));
+  const selectableMembers = [
+    ...supportStaffMembers.map((member) => ({ ...member, removed: false })),
+    ...assignments
+      .filter((assignment) => !masterIds.has(assignment.staffId))
+      .map((assignment) => ({ id: assignment.staffId, name: assignment.staffName, removed: true }))
+  ];
+
+  announcementStaffPickerTitle.textContent = category === "attendance" ? "休む支援員" : "担当支援員（任意）";
+  announcementStaffPickerGuide.textContent = category === "attendance"
+    ? "複数選択できます。選択後、各人に「午後」などを任意入力できます。"
+    : "複数選択できます。担当者を決めないタスクは未選択のまま保存できます。";
+  announcementStaffList.innerHTML = "";
+
+  if (selectableMembers.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "support-staff-empty";
+    empty.textContent = "支援員名簿に名前を追加してください。";
+    announcementStaffList.appendChild(empty);
+    return;
+  }
+
+  selectableMembers.forEach((member, memberIndex) => {
+    const assignment = assignmentsById.get(member.id);
+    const row = document.createElement("div");
+    row.className = "announcement-staff-option";
+    row.dataset.staffId = member.id;
+    row.dataset.staffName = member.name;
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.id = `announcementStaffOption_${memberIndex}`;
+    checkbox.checked = Boolean(assignment);
+
+    const name = document.createElement("label");
+    name.className = "announcement-staff-option-name";
+    name.htmlFor = checkbox.id;
+    name.textContent = member.name;
+
+    row.appendChild(checkbox);
+    row.appendChild(name);
+
+    if (member.removed) {
+      const removedBadge = document.createElement("span");
+      removedBadge.className = "support-staff-removed-badge";
+      removedBadge.textContent = "名簿から削除済み";
+      row.appendChild(removedBadge);
+    }
+
+    if (category === "attendance") {
+      const note = document.createElement("input");
+      note.type = "text";
+      note.maxLength = 80;
+      note.className = "announcement-staff-note";
+      note.placeholder = "午後など（任意）";
+      note.value = assignment?.note || "";
+      note.disabled = !checkbox.checked;
+      note.addEventListener("click", (event) => event.stopPropagation());
+      row.appendChild(note);
+
+      checkbox.addEventListener("change", () => {
+        note.disabled = !checkbox.checked;
+        if (checkbox.checked) {
+          note.focus();
+        } else {
+          note.value = "";
+        }
+      });
+    }
+
+    announcementStaffList.appendChild(row);
+  });
+}
+
+function updateAnnouncementFormForCategory(rawAssignments = null) {
+  const category = announcementCategory.value;
+  const currentAssignments = rawAssignments === null
+    ? collectAnnouncementStaffAssignments()
+    : normalizeAnnouncementStaffAssignments(rawAssignments);
+  const isStaffOnly = isStaffOnlyAnnouncementCategory(category);
+
+  if (isStaffOnly) {
+    announcementVisibility.value = "staff";
+  }
+
+  announcementVisibility.disabled = isStaffOnly;
+  setAnnouncementElementHidden(announcementVisibilityField, isStaffOnly);
+  setAnnouncementElementHidden(announcementStaffOnlyGuide, !isStaffOnly);
+  setAnnouncementElementHidden(announcementTimeFields, category === "attendance");
+
+  if (category === "attendance") {
+    announcementStartTime.value = "";
+    announcementEndTime.value = "";
+    announcementTitleLabel.textContent = "勤怠タイトル（任意）";
+    announcementTitle.placeholder = "未入力の場合は「勤怠」になります";
+  } else if (category === "task") {
+    announcementTitleLabel.textContent = "タスク名";
+    announcementTitle.placeholder = "例：月末資料の確認";
+  } else if (category === "workshop") {
+    announcementTitleLabel.textContent = "タイトル";
+    announcementTitle.placeholder = "例：Photoshopワークショップ";
+  } else {
+    announcementTitleLabel.textContent = "タイトル";
+    announcementTitle.placeholder = category === "important" ? "例：重要なお知らせ" : "例：事業所からのお知らせ";
+  }
+
+  renderAnnouncementStaffPicker(currentAssignments);
+  renderAnnouncementWorkshopPicker();
+}
+
+function setAnnouncementCategoryValue(category) {
+  const normalizedCategory = String(category || "notice");
+  const option = Array.from(announcementCategory.options).find((item) => item.value === normalizedCategory);
+
+  announcementCategory.value = option ? normalizedCategory : "notice";
+}
+
 function openAnnouncementModal(dateId) {
   selectedAnnouncementDate = dateId;
 
   announcementDate.value = dateId;
-  announcementModalTitle.textContent = `${formatJapaneseDate(dateId)}のアナウンス`;
+  announcementModalTitle.textContent = `${formatJapaneseDate(dateId)}の予定`;
   resetAnnouncementForm();
   renderAnnouncementList(dateId);
 
@@ -1485,12 +1908,13 @@ function resetAnnouncementForm() {
   announcementWorkshopId.value = "";
   announcementFormTitle.textContent = "新規追加";
   announcementVisibility.value = "all";
-  announcementCategory.value = "notice";
+  announcementCategory.querySelectorAll('[data-legacy-category="true"]').forEach((option) => option.remove());
+  setAnnouncementCategoryValue("notice");
   announcementTitle.value = "";
   announcementStartTime.value = "";
   announcementEndTime.value = "";
   announcementBody.value = "";
-  renderAnnouncementWorkshopPicker(false);
+  updateAnnouncementFormForCategory([]);
 
   if (selectedAnnouncementDate) {
     renderAnnouncementList(selectedAnnouncementDate);
@@ -1652,7 +2076,7 @@ async function renderAnnouncementWorkshopPicker(shouldLoad = true) {
   }
 
   const isWorkshop = announcementCategory.value === "workshop";
-  announcementWorkshopPicker.classList.toggle("hidden", !isWorkshop);
+  setAnnouncementElementHidden(announcementWorkshopPicker, !isWorkshop);
 
   if (!isWorkshop) {
     if (announcementWorkshopId) {
@@ -1683,6 +2107,13 @@ async function renderAnnouncementWorkshopPicker(shouldLoad = true) {
 
 function sortAnnouncements(list) {
   return [...list].sort((a, b) => {
+    const categoryA = ANNOUNCEMENT_CATEGORY_ORDER[a.category || "notice"] || 99;
+    const categoryB = ANNOUNCEMENT_CATEGORY_ORDER[b.category || "notice"] || 99;
+
+    if (categoryA !== categoryB) {
+      return categoryA - categoryB;
+    }
+
     const timeA = a.startTime || "99:99";
     const timeB = b.startTime || "99:99";
 
@@ -1690,7 +2121,7 @@ function sortAnnouncements(list) {
       return timeA.localeCompare(timeB);
     }
 
-    return (a.title || "").localeCompare(b.title || "");
+    return getAnnouncementDisplayTitle(a).localeCompare(getAnnouncementDisplayTitle(b), "ja");
   });
 }
 
@@ -1728,8 +2159,9 @@ function getStaffAnnouncementFilterCheckboxes() {
     showStaffAnnouncementCheckbox,
     showNoticeAnnouncementCheckbox,
     showWorkshopAnnouncementCheckbox,
-    showDeadlineAnnouncementCheckbox,
-    showImportantAnnouncementCheckbox
+    showImportantAnnouncementCheckbox,
+    showAttendanceAnnouncementCheckbox,
+    showTaskAnnouncementCheckbox
   ].filter(Boolean);
 }
 
@@ -1771,11 +2203,15 @@ function announcementMatchesStaffFilters(announcement) {
     return true;
   }
 
-  if (showDeadlineAnnouncementCheckbox?.checked && category === "deadline") {
+  if (showImportantAnnouncementCheckbox?.checked && category === "important") {
     return true;
   }
 
-  if (showImportantAnnouncementCheckbox?.checked && category === "important") {
+  if (showAttendanceAnnouncementCheckbox?.checked && category === "attendance") {
+    return true;
+  }
+
+  if (showTaskAnnouncementCheckbox?.checked && category === "task") {
     return true;
   }
 
@@ -1784,7 +2220,10 @@ function announcementMatchesStaffFilters(announcement) {
 
 function getFilteredStaffAnnouncements(dateId) {
   const allAnnouncements = sortAnnouncements(announcementsByDate[dateId] || [])
-    .filter((announcement) => announcement.active !== false);
+    .filter((announcement) => (
+      announcement.active !== false
+      && announcement.category !== "deadline"
+    ));
 
   if (isAllAnnouncementDaysMode()) {
     return allAnnouncements;
@@ -1850,7 +2289,7 @@ function renderAnnouncementList(dateId) {
   announcementList.innerHTML = "";
 
   if (list.length === 0) {
-    announcementList.innerHTML = `<div class="announcement-empty">この日のアナウンスはまだありません。</div>`;
+    announcementList.innerHTML = `<div class="announcement-empty">この日の予定はまだありません。</div>`;
     return;
   }
 
@@ -1864,7 +2303,7 @@ function renderAnnouncementList(dateId) {
 
     const title = document.createElement("div");
     title.className = "announcement-title";
-    title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${announcement.title || "無題"}`;
+    title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${getAnnouncementDisplayTitle(announcement)}`;
 
     if (announcement.visibility === "staff") {
       const badge = document.createElement("span");
@@ -1900,13 +2339,13 @@ function renderAnnouncementList(dateId) {
       editingAnnouncementId.value = announcement.id;
       announcementFormTitle.textContent = "編集中";
       announcementVisibility.value = announcement.visibility || "all";
-      announcementCategory.value = announcement.category || "notice";
+      setAnnouncementCategoryValue(announcement.category || "notice");
       announcementWorkshopId.value = announcement.sourceWorkshopId || "";
       announcementTitle.value = announcement.title || "";
       announcementStartTime.value = announcement.startTime || "";
       announcementEndTime.value = announcement.endTime || "";
       announcementBody.value = announcement.body || "";
-      renderAnnouncementWorkshopPicker();
+      updateAnnouncementFormForCategory(announcement.staffAssignments || []);
 
       renderAnnouncementList(selectedAnnouncementDate);
     });
@@ -1915,7 +2354,7 @@ function renderAnnouncementList(dateId) {
     hideButton.textContent = "非表示";
     hideButton.className = "small-button danger-button";
     hideButton.addEventListener("click", async () => {
-      const ok = confirm("このアナウンスを非表示にしますか？");
+      const ok = confirm("この予定を非表示にしますか？");
 
       if (!ok) {
         return;
@@ -1936,7 +2375,7 @@ function renderAnnouncementList(dateId) {
         renderAnnouncementList(dateId);
 
       } catch (error) {
-        console.error("アナウンス非表示エラー:", error);
+        console.error("事業所予定の非表示エラー:", error);
         alert(`非表示に失敗しました：${error.code || error.message}`);
       }
     });
@@ -1953,6 +2392,8 @@ function renderAnnouncementList(dateId) {
     if (announcement.body) {
       item.appendChild(body);
     }
+
+    appendAnnouncementStaffDetails(item, announcement);
 
     item.appendChild(buttons);
 
@@ -3987,27 +4428,28 @@ async function getMonthlyAnnouncementsForOperationCheck(year, month) {
 
   for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
     const monthlyAnnouncementId = getMonthlyAnnouncementId(candidateOfficeId, monthId);
-    const docRef = doc(db, "monthlyAnnouncements", monthlyAnnouncementId);
-    const docSnap = await getDoc(docRef);
 
-    if (!docSnap.exists()) {
-      continue;
-    }
+    for (const collectionName of ["monthlyAnnouncements", STAFF_MONTHLY_ANNOUNCEMENTS_COLLECTION]) {
+      const docSnap = await getDoc(doc(db, collectionName, monthlyAnnouncementId));
 
-    const data = docSnap.data();
-    const rawDays = data.days || {};
-
-    Object.keys(rawDays).forEach((dateId) => {
-      const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
-      const activeList = rawList.filter((announcement) => announcement.active !== false);
-
-      if (activeList.length > 0) {
-        loadedByDate[dateId] = mergeAnnouncementLists(
-          ...(loadedByDate[dateId] || []),
-          ...activeList
-        );
+      if (!docSnap.exists()) {
+        continue;
       }
-    });
+
+      const rawDays = docSnap.data().days || {};
+
+      Object.keys(rawDays).forEach((dateId) => {
+        const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
+        const activeList = rawList.filter((announcement) => announcement.active !== false);
+
+        if (activeList.length > 0) {
+          loadedByDate[dateId] = mergeAnnouncementLists(
+            ...(loadedByDate[dateId] || []),
+            ...activeList
+          );
+        }
+      });
+    }
   }
 
   staffMonthlyAnnouncementCache[cacheKey] = loadedByDate;
@@ -4395,27 +4837,28 @@ async function loadMonthlyAnnouncements(year, month) {
 
   for (const candidateOfficeId of getCompatibleOfficeIds(officeId)) {
     const monthlyAnnouncementId = getMonthlyAnnouncementId(candidateOfficeId, monthId);
-    const docRef = doc(db, "monthlyAnnouncements", monthlyAnnouncementId);
-    const docSnap = await getDoc(docRef);
+    for (const collectionName of ["monthlyAnnouncements", STAFF_MONTHLY_ANNOUNCEMENTS_COLLECTION]) {
+      const docSnap = await getDoc(doc(db, collectionName, monthlyAnnouncementId));
 
-    if (!docSnap.exists()) {
-      continue;
-    }
-
-    const data = docSnap.data();
-    const rawDays = data.days || {};
-
-    Object.keys(rawDays).forEach((dateId) => {
-      const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
-      const activeList = rawList.filter((announcement) => announcement.active !== false);
-
-      if (activeList.length > 0) {
-        loadedByDate[dateId] = mergeAnnouncementLists(
-          ...(loadedByDate[dateId] || []),
-          ...activeList
-        );
+      if (!docSnap.exists()) {
+        continue;
       }
-    });
+
+      const data = docSnap.data();
+      const rawDays = data.days || {};
+
+      Object.keys(rawDays).forEach((dateId) => {
+        const rawList = Array.isArray(rawDays[dateId]) ? rawDays[dateId] : [];
+        const activeList = rawList.filter((announcement) => announcement.active !== false);
+
+        if (activeList.length > 0) {
+          loadedByDate[dateId] = mergeAnnouncementLists(
+            ...(loadedByDate[dateId] || []),
+            ...activeList
+          );
+        }
+      });
+    }
   }
 
   staffMonthlyAnnouncementCache[cacheKey] = loadedByDate;
@@ -4430,7 +4873,8 @@ async function persistMonthlyAnnouncements(year, month) {
   const cacheKey = `${officeId}_${monthId}`;
   const monthlyAnnouncementId = getMonthlyAnnouncementId(officeId, monthId);
 
-  const cleanedDays = {};
+  const publicDays = {};
+  const staffDays = {};
 
   Object.keys(announcementsByDate).forEach((dateId) => {
     if (getMonthIdFromDateId(dateId) !== monthId) {
@@ -4441,13 +4885,16 @@ async function persistMonthlyAnnouncements(year, month) {
       .filter((announcement) => announcement.active !== false)
       .map((announcement) => ({
         id: announcement.id,
-        visibility: announcement.visibility || "all",
+        visibility: isStaffOnlyAnnouncementCategory(announcement.category)
+          ? "staff"
+          : (announcement.visibility || "all"),
         category: announcement.category || "notice",
         title: announcement.title || "",
         startTime: announcement.startTime || "",
         endTime: announcement.endTime || "",
         timeText: announcement.timeText || "",
         body: announcement.body || "",
+        staffAssignments: normalizeAnnouncementStaffAssignments(announcement.staffAssignments),
         sourceWorkshopId: announcement.sourceWorkshopId || "",
         sourceWorkshopTitle: announcement.sourceWorkshopTitle || "",
         active: true,
@@ -4457,22 +4904,49 @@ async function persistMonthlyAnnouncements(year, month) {
         updatedAt: new Date().toISOString()
       }));
 
-    if (list.length > 0) {
-      cleanedDays[dateId] = list;
+    const publicList = list.filter((announcement) => announcement.visibility !== "staff");
+    const staffList = list.filter((announcement) => announcement.visibility === "staff");
+
+    if (publicList.length > 0) {
+      publicDays[dateId] = publicList;
+    }
+
+    if (staffList.length > 0) {
+      staffDays[dateId] = staffList;
     }
   });
 
-  await setDoc(doc(db, "monthlyAnnouncements", monthlyAnnouncementId), {
-    officeId: officeId,
-    groupId: groupId,
+  const buildMonthlyDocument = (visibility, days) => ({
+    officeId,
+    groupId,
     month: monthId,
     yearMonth: monthId,
-    days: cleanedDays,
+    visibility,
+    days,
     updatedAt: serverTimestamp()
   });
 
-  staffMonthlyAnnouncementCache[cacheKey] = cleanedDays;
-  announcementsByDate = cleanedDays;
+  await Promise.all([
+    setDoc(
+      doc(db, "monthlyAnnouncements", monthlyAnnouncementId),
+      buildMonthlyDocument("all", publicDays)
+    ),
+    setDoc(
+      doc(db, STAFF_MONTHLY_ANNOUNCEMENTS_COLLECTION, monthlyAnnouncementId),
+      buildMonthlyDocument("staff", staffDays)
+    )
+  ]);
+
+  const combinedDays = {};
+  new Set([...Object.keys(publicDays), ...Object.keys(staffDays)]).forEach((dateId) => {
+    combinedDays[dateId] = mergeAnnouncementLists(
+      ...(publicDays[dateId] || []),
+      ...(staffDays[dateId] || [])
+    );
+  });
+
+  staffMonthlyAnnouncementCache[cacheKey] = combinedDays;
+  announcementsByDate = combinedDays;
 }
 
 function renderAnnouncementCalendarFromCache(year, month) {
@@ -4543,7 +5017,7 @@ function renderAnnouncementCalendarFromCache(year, month) {
         item.className = `calendar-announcement-title category-${announcement.category || "notice"}`;
 
         const icon = getAnnouncementIcon(announcement.category || "notice");
-        const shortTitle = shortenText(announcement.title || "お知らせ", 8);
+        const shortTitle = shortenText(getAnnouncementDisplayTitle(announcement), 8);
 
         item.textContent = `${icon} ${shortTitle}`;
         announcementArea.appendChild(item);
@@ -4633,7 +5107,7 @@ function renderAnnouncementListViewFromCache(year, month) {
 
         const title = document.createElement("div");
         title.className = "staff-announcement-list-card-title";
-        title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${announcement.title || "お知らせ"}`;
+        title.textContent = `${getAnnouncementIcon(announcement.category || "notice")} ${getAnnouncementDisplayTitle(announcement)}`;
 
         if (announcement.visibility === "staff") {
           const badge = document.createElement("span");
@@ -4661,7 +5135,7 @@ function renderAnnouncementListViewFromCache(year, month) {
   if (visibleDayCount === 0) {
     const emptyMessage = document.createElement("div");
     emptyMessage.className = "calendar-filter-empty";
-    emptyMessage.textContent = "条件に合うアナウンスはありません。";
+    emptyMessage.textContent = "条件に合う予定はありません。";
     announcementCalendar.appendChild(emptyMessage);
   }
 
@@ -4680,12 +5154,15 @@ async function loadAnnouncementCalendar() {
     const month = displayedAnnouncementMonth;
 
     updateAnnouncementMonthHeader(year, month);
-    await loadMonthlyAnnouncements(year, month);
+    await Promise.all([
+      loadMonthlyAnnouncements(year, month),
+      loadSupportStaffMembers()
+    ]);
     renderAnnouncementCalendarFromCache(year, month);
 
   } catch (error) {
     console.error("アナウンスカレンダー読み込みエラー:", error);
-    announcementCalendar.textContent = `アナウンスの読み込みに失敗しました：${error.code || error.message}`;
+    announcementCalendar.textContent = `予定の読み込みに失敗しました：${error.code || error.message}`;
   }
 }
 
@@ -6571,7 +7048,38 @@ logoutButton.addEventListener("click", async () => {
 
 if (announcementCategory) {
   announcementCategory.addEventListener("change", () => {
-    renderAnnouncementWorkshopPicker();
+    updateAnnouncementFormForCategory();
+  });
+}
+
+if (addSupportStaffButton) {
+  addSupportStaffButton.addEventListener("click", async () => {
+    addSupportStaffButton.disabled = true;
+    try {
+      await addSupportStaffMember();
+    } finally {
+      addSupportStaffButton.disabled = false;
+    }
+  });
+}
+
+if (supportStaffNameInput) {
+  supportStaffNameInput.addEventListener("input", () => {
+    supportStaffNameInput.setCustomValidity("");
+  });
+
+  supportStaffNameInput.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    addSupportStaffButton.disabled = true;
+    try {
+      await addSupportStaffMember();
+    } finally {
+      addSupportStaffButton.disabled = false;
+    }
   });
 }
 
@@ -6584,11 +7092,12 @@ if (refreshAnnouncementWorkshopsButton) {
 
 saveAnnouncementButton.addEventListener("click", async () => {
   const date = announcementDate.value;
-  const visibility = announcementVisibility.value;
   const category = announcementCategory.value;
-  const title = announcementTitle.value.trim();
-  const startTime = announcementStartTime.value;
-  const endTime = announcementEndTime.value;
+  const visibility = isStaffOnlyAnnouncementCategory(category) ? "staff" : announcementVisibility.value;
+  const staffAssignments = normalizeAnnouncementStaffAssignments(collectAnnouncementStaffAssignments());
+  const title = announcementTitle.value.trim() || (category === "attendance" ? "勤怠" : "");
+  const startTime = category === "attendance" ? "" : announcementStartTime.value;
+  const endTime = category === "attendance" ? "" : announcementEndTime.value;
   const timeText = buildTimeText(startTime, endTime);
   const body = announcementBody.value.trim();
   const id = editingAnnouncementId.value;
@@ -6605,6 +7114,11 @@ saveAnnouncementButton.addEventListener("click", async () => {
 
   if (!title) {
     alert("タイトルを入力してください。");
+    return;
+  }
+
+  if (category === "attendance" && staffAssignments.length === 0) {
+    alert("勤怠の対象となる支援員を1名以上選択してください。");
     return;
   }
 
@@ -6627,6 +7141,7 @@ saveAnnouncementButton.addEventListener("click", async () => {
           endTime: endTime,
           timeText: timeText,
           body: body,
+          staffAssignments,
           sourceWorkshopId,
           sourceWorkshopTitle,
           active: true,
@@ -6643,6 +7158,7 @@ saveAnnouncementButton.addEventListener("click", async () => {
         endTime: endTime,
         timeText: timeText,
         body: body,
+        staffAssignments,
         sourceWorkshopId,
         sourceWorkshopTitle,
         active: true,

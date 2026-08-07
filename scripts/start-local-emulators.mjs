@@ -15,7 +15,7 @@ const firebaseCliPath = path.join(
   "firebase.js"
 );
 const configHome = path.join(projectRoot, ".firebase", "cli-config");
-const emulatorCache = path.join(projectRoot, ".firebase", "emulators");
+const emulatorCache = process.env.FIREBASE_EMULATORS_PATH || path.join(projectRoot, ".firebase", "emulators");
 
 function getJavaMajorVersion(javaHome) {
   const executable = path.join(javaHome, "bin", process.platform === "win32" ? "java.exe" : "java");
@@ -60,6 +60,7 @@ function findJavaHome() {
 
 const javaHome = findJavaHome();
 const runVerificationAndExit = process.argv.includes("--verify");
+const emulatorConfigFile = process.env.LOCAL_FIREBASE_EMULATOR_CONFIG || "firebase.emulators.json";
 
 if (!javaHome) {
   console.error("Firebase Emulator SuiteにはJDK 21以上が必要です。LOCAL_FIREBASE_EMULATORS.mdを確認してください。");
@@ -70,7 +71,7 @@ const args = [
   firebaseCliPath,
   runVerificationAndExit ? "emulators:exec" : "emulators:start",
   "--config",
-  "firebase.emulators.json",
+  emulatorConfigFile,
   "--project",
   "demo-enzine-schedule-local",
   "--only",

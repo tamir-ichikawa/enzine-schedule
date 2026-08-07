@@ -140,6 +140,12 @@ test("production Firestore Rules data preflight is GET-only and reports counts o
   assert.match(auditScript, /"weeklyReports"/);
   assert.match(auditScript, /"weeklyReportUserStatus"/);
   assert.match(auditScript, /"monthlyAnnouncements"/);
+  assert.match(auditScript, /"staffMonthlyAnnouncements"/);
+  assert.match(auditScript, /\{ id: "organizations", master: "organization" \}/);
+  assert.match(auditScript, /\{ id: "offices", master: "office" \}/);
+  assert.match(auditScript, /resolveRegisteredOfficeId/);
+  assert.match(auditScript, /mismatchedOfficeOrganization/);
+  assert.doesNotMatch(auditScript, /EXPECTED_ORGANIZATION_IDS|EXPECTED_OFFICE_IDS/);
   assert.match(auditScript, /method: "GET"/);
   assert.doesNotMatch(auditScript, /method: "(?:POST|PUT|PATCH|DELETE)"/);
   assert.doesNotMatch(auditScript, /:commit|:batchWrite|documents:runQuery|firebase\s+deploy/);
@@ -667,10 +673,10 @@ test("calendar list views show announcement titles without time or body details"
   assert.doesNotMatch(staffUserScheduleListBody, /const time = document\.createElement|time\.textContent = `時間帯：/);
   assert.match(styleSource, /CALENDAR_LIST_COMPACT_HEADER_20260802_V108/);
   assert.match(styleSource, /\.calendar-list-status\.status-off,[\s\S]*?background: transparent;[\s\S]*?border: 0;/);
-  assert.match(userHtml, /style\.css\?v=124/);
-  assert.match(staffHtml, /style\.css\?v=124/);
-  assert.match(userHtml, /schedule\.js\?v=97/);
-  assert.match(staffHtml, /staff\.js\?v=104/);
+  assert.match(userHtml, /style\.css\?v=125/);
+  assert.match(staffHtml, /style\.css\?v=128/);
+  assert.match(userHtml, /schedule\.js\?v=98/);
+  assert.match(staffHtml, /staff\.js\?v=108/);
 });
 
 test("weekly calendar navigation continues across month boundaries and updates the month", async () => {
@@ -816,6 +822,10 @@ test("global admins can select a validated staff-page office while office admins
   assert.match(verifierSource, /expectFirestoreAllowed\(officeAdminSignIn\.idToken, "PATCH", "monthlyAnnouncements\/demo-office-a_rules-office-admin-a"/);
   assert.match(verifierSource, /expectFirestoreDenied\(officeAdminSignIn\.idToken, "PATCH", "monthlyAnnouncements\/demo-office-b_rules-office-admin-b"/);
   assert.match(verifierSource, /expectFirestoreAllowed\(globalSignIn\.idToken, "PATCH", "monthlyAnnouncements\/demo-office-b_rules-global"/);
+  assert.match(verifierSource, /expectFirestoreDenied\(userASignIn\.idToken, "GET", "staffMonthlyAnnouncements\/demo-office-a_rules-private-a"/);
+  assert.match(verifierSource, /expectFirestoreAllowed\(staffSignIn\.idToken, "PATCH", "staffMonthlyAnnouncements\/demo-office-a_rules-staff-a"/);
+  assert.match(verifierSource, /expectFirestoreAllowed\(staffSignIn\.idToken, "GET", "system\/supportStaff_demo-office-a"/);
+  assert.match(verifierSource, /expectFirestoreDenied\(staffSignIn\.idToken, "PATCH", "system\/supportStaff_demo-office-b"/);
   assert.match(verifierSource, /expectFirestoreAllowed\(globalSignIn\.idToken, "PATCH", "system\/workshopResources_demo-office-b"/);
 });
 

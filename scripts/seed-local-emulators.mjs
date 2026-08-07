@@ -5,6 +5,8 @@ import path from "node:path";
 const PROJECT_ID = "demo-enzine-schedule-local";
 const TEST_PASSWORD = "LocalTest!2026";
 const ORGANIZATION_ID = "demo-operator";
+const AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
+const FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
 
 if (!PROJECT_ID.startsWith("demo-")) {
   throw new Error("安全のため demo- で始まるプロジェクトID以外には投入できません。");
@@ -12,8 +14,8 @@ if (!PROJECT_ID.startsWith("demo-")) {
 
 process.env.GCLOUD_PROJECT = PROJECT_ID;
 process.env.FIREBASE_CONFIG = JSON.stringify({ projectId: PROJECT_ID });
-process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
-process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
+process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH_EMULATOR_HOST;
+process.env.FIRESTORE_EMULATOR_HOST = FIRESTORE_EMULATOR_HOST;
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
